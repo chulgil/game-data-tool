@@ -6,7 +6,9 @@ import json
 import pandas as pd
 from pathlib import Path
 
-PATH_FOR_EXCEL = "./excel/Data.xlsx"
+PATH_FOR_DATA = "./data-for-designer"
+PATH_FOR_EXCEL = PATH_FOR_DATA + "/excel/Data.xlsx"
+PATH_FOR_JSON = PATH_FOR_DATA + "/json/"
 PATH_FOR_GIT = Path(".git")
 sheets = xlrd.open_workbook(PATH_FOR_EXCEL).sheet_names()
 
@@ -17,7 +19,5 @@ for sheet in sheets:
     json_str = json.loads(json_data)
 
     print('\n', json_str)
-    with open("./json/" + sheet + ".json", "w", encoding='utf-8') as f:
+    with open(PATH_FOR_JSON + sheet + ".json", "w", encoding='utf-8') as f:
         json.dump(json_str, f, ensure_ascii=False, indent=4, sort_keys=True, separators=(',', ': '))
-
-

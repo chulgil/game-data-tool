@@ -2,20 +2,22 @@ import logging
 import git
 from pathlib import Path
 
-PATH_FOR_GIT = Path(".git")
+import self as self
+from git import Repo
+PATH_FOR_DATA = Path("./data-for-designer")
+PATH_FOR_GIT = Path("./data-for-designer/.git")
 
-def find_repo(path):
-    "Find repository root from the path's parents"
-    for path in Path(path).parents:
-        # Check whether "path/.git" exists and is a directory
-        git_dir = path / ".git"
-        if git_dir.is_dir():
-            return path
+def git_init():
+    try:
+        repo = git.Repo.clone_from('http://172.20.41.70:3000/SPTeam/data-for-designer.git',
+                                   './data-for-designer',branch='main')
+    except Exception as e:
+        logging.warning('GIT Push 에러 발생' + e)
+
 
 def git_push():
     try:
-        repo_path = find_repo(__file__)
-        repo = git.Repo(repo_path)
+        repo = git.Repo(PATH_FOR_GIT)
         repo.git.checkout('main')
         origin = repo.remotes.origin
         origin.pull()
@@ -29,13 +31,11 @@ def git_push():
     except Exception as e:
         logging.warning('GIT Push 에러 발생' + e)
 
-
-
-
 if PATH_FOR_GIT.exists():
     git_push()
 else :
-    logging.warning('GIT설정을 확인해주세요.')
+    git_init()
+
 
 
 
