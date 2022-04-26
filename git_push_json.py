@@ -1,11 +1,16 @@
+import sys
 import logging
 from git import Repo
 from pathlib import Path
 
-
 PATH_FOR_DATA = Path("./data-for-designer")
 PATH_FOR_GIT = Path("./data-for-designer/.git")
 REPO_FOR_DATA =  "http://172.20.41.70:3000/SPTeam/data-for-designer.git"
+
+if len(sys.argv) > 1:
+    BRANCH_FOR_GIT = sys.argv[1]
+else:
+    BRANCH_FOR_GIT = 'dev'
 
 def git_init():
     try:
@@ -17,12 +22,12 @@ def git_init():
 def git_push():
     try:
         repo = Repo(PATH_FOR_GIT)
-        repo.git.checkout('main')
         origin = repo.remotes.origin
+        repo.git.checkout(BRANCH_FOR_GIT)
         origin.pull()
         # repo.git.stash('save')
         # repo.git.reset('--hard')
-        # repo.git.stash('pop')
+        # # repo.git.stash('pop')
         repo.git.add(all=True)
         repo.index.commit('Feat: Auto Push from python')
         origin.push()

@@ -15,14 +15,16 @@ PATH_FOR_CLIENT = PATH_FOR_JSON + "client/"
 # Excel파일 가져오기
 files = list(Path(PATH_FOR_EXCEL).glob(r"*.xls*"))
 
-# JSON 폴더 생성
-if not os.path.exists(PATH_FOR_SERVER):
-    os.mkdir(PATH_FOR_SERVER)
-if not os.path.exists(PATH_FOR_CLIENT):
-    os.mkdir(PATH_FOR_CLIENT)
+# JSON 폴더 초기화
+if os.path.exists(PATH_FOR_SERVER):
+    os.rmdir(PATH_FOR_SERVER)
+if os.path.exists(PATH_FOR_CLIENT):
+    os.rmdir(PATH_FOR_CLIENT)
 
-os.remove(PATH_FOR_SERVER)
-os.remove(PATH_FOR_CLIENT)
+# JSON 폴더 생성
+os.makedirs(PATH_FOR_SERVER)
+os.makedirs(PATH_FOR_CLIENT)
+
 
 # JSON 폴더 초기화
 
