@@ -1,0 +1,15 @@
+{
+  "DEFAULT": {
+    "ROOT_DATA_DIR": "./data-for-designer",
+    "EXCEL_DIR": "/excel/"
+  },
+  "GITSERVER": {
+    "EMAIL": "spbot@snowpipe.co.kr",
+    "USER": "spbot",
+    "URL": "http://172.20.41.70:3000/SPTeam/data-for-designer.git",
+    "PUSH_MSG": "Chore: Auto Push from SPTeam Bot"
+  },
+  "TEST": {
+    "EXCEL_DIR": "tests"
+  }
+}
