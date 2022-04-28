@@ -6,13 +6,6 @@ import shutil
 
 
 class GitManager:
-    GIT_BRANCH = None
-    PATH_FOR_DATA_ROOT = None
-    GIT_URL = None
-    GIT_USER = None
-    GIT_EMAIL = None
-    GIT_PUSH_MSG = None
-    PATH_FOR_GIT = None
 
     def __init__(self, branch):
         logging.basicConfig(filename='out.log', encoding='utf-8', level=logging.INFO)
@@ -20,68 +13,74 @@ class GitManager:
             config = json.load(f)
         self.GIT_BRANCH = branch
         self._set_config(config)
+        if self.PATH_FOR_GIT.exists():
+            self._repo = Repo(self.PATH_FOR_GIT)
+            self._origin = self._repo.remotes.origin
+            self.pull()
+        else:
+            self._init_git()
 
-    @classmethod
-    def _set_config(cls, config):
-        cls.PATH_FOR_DATA_ROOT = config['DEFAULT']['ROOT_DATA_DIR']
-        cls.GIT_URL = config['GITSERVER']['URL']
-        cls.GIT_USER = config['GITSERVER']['USER']
-        cls.GIT_EMAIL = config['GITSERVER']['EMAIL']
-        cls.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
-        cls.PATH_FOR_GIT = Path(cls.PATH_FOR_DATA_ROOT + "/.git")
+    def _set_config(self, config):
+        self.PATH_FOR_DATA_ROOT = config['DEFAULT']['ROOT_DATA_DIR']
+        self.GIT_URL = config['GITSERVER']['URL']
+        self.GIT_USER = config['GITSERVER']['USER']
+        self.GIT_EMAIL = config['GITSERVER']['EMAIL']
+        self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
+        self.PATH_FOR_GIT = Path(self.PATH_FOR_DATA_ROOT + "/.git")
 
-    @classmethod
-    def _init_git(cls):
+    def _init_git(self):
         try:
             # GIT 기본 프로젝트 폴더 삭제
-            shutil.rmtree(cls.GIT_BRANCH)
-            repo = Repo.clone_from(cls.GIT_URL, cls.PATH_FOR_DATA_ROOT, branch='main')
+            shutil.rmtree(self.GIT_BRANCH)
+            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch='main')
             # GIT 초기 설정
-            repo.config_writer().set_value("user", "name", cls.GIT_USER).release()
-            repo.config_writer().set_value("user", "email", cls.GIT_EMAIL).release()
-            repo.git.checkout(cls.GIT_BRANCH)
-            logging.info('GIT 초기화 성공')
+            self._repo.config_writer().set_value("user", "name", self.GIT_USER).release()
+            self._repo.config_writer().set_value("user", "email", self.GIT_EMAIL).release()
+            self._origin = self._repo.remotes.origin
+            logging.info(str(self._brn()) + 'GIT 초기화 성공')
+            self._checkout()
         except Exception as e:
-            logging.warning('GIT Clone 에러 발생' + str(e))
+            logging.error(str(self._brn()) + 'GIT Clone Error 발생 \r\n' + str(e))
 
-    @classmethod
-    def pull(cls):
-        if cls.PATH_FOR_GIT.exists():
-            repo = Repo(cls.PATH_FOR_GIT)
-            repo.git.checkout(cls.GIT_BRANCH)
-            origin = repo.remotes.origin
-            origin.pull()
-        else:
-            cls._init_git()
+    def pull(self):
+        self._checkout()
+        self._origin.pull()
+        logging.info(str(self._brn()) + 'GIT PULL 성공')
 
-    @classmethod
-    def push(cls):
+    def push(self):
         try:
-            cls.pull()
-            cls._commit()
-            repo = Repo(cls.PATH_FOR_GIT)
-            origin = repo.remotes.origin
-            origin.push()
-            logging.info('GIT PUSH 성공')
+            self._commit()
+            self._origin.push()
+            logging.info(str(self._brn()) + 'GIT PUSH 성공')
         except Exception as e:
-            logging.warning('GIT Push 에러 발생' + str(e))
+            logging.error(str(self._brn()) + 'GIT Push Error 발생 \r\n' + str(e))
 
-    @classmethod
-    def _commit(cls):
+    def _brn(self) -> str:
+        return '[' + self._repo.active_branch.name + ' 브랜치] '
+
+    def _checkout(self):
         try:
-            repo = Repo(cls.PATH_FOR_GIT)
-            repo.git.add(all=True)
-            repo.index.commit(cls.GIT_PUSH_MSG)
-            logging.info('GIT Commit 성공')
+            self._repo.git.checkout(self.GIT_BRANCH)
+            logging.info(str(self._brn()) + 'GIT CEHCKOUT')
         except Exception as e:
-            logging.warning('GIT Commit 에러 발생' + str(e))
+            logging.error(str(self._brn()) + 'GIT CEHCKOUT Error 발생 \r\n' + str(e))
 
-    @classmethod
-    def is_modified(cls) -> bool:
-        repo = Repo(cls.PATH_FOR_GIT)
-        if len(repo.untracked_files) > 0:
-            logging.info("변경된 파일 : " + str(repo.untracked_files))
+    def _commit(self):
+        try:
+            self._repo.git.add(all=True)
+            self._repo.index.commit(self.GIT_PUSH_MSG)
+            logging.info(str(self._brn()) + 'GIT Commit 성공')
+        except Exception as e:
+            logging.error(str(self._brn()) + 'GIT Commit Error 발생 \r\n' + str(e))
+
+    def is_modified(self) -> bool:
+        changed = [item.a_path for item in self._repo.index.diff(None)]
+        if len(changed) > 0:
+            logging.info(str(self._brn()) + "변경된 파일 : " + str(changed))
             return True
-        else:
-            logging.info("변경된 데이터가 없습니다.")
-            return False
+        if len(self._repo.untracked_files) > 0:
+            logging.info(str(self._brn()) + "변경된 파일 : " + str(self._repo.untracked_files))
+            return True
+
+        logging.info(str(self._brn()) + "변경된 데이터가 없습니다.")
+        return False
