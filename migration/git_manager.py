@@ -40,7 +40,7 @@ class GitManager:
             logging.info(str(self._brn()) + 'GIT 초기화 성공')
             self._checkout()
         except Exception as e:
-            logging.error(str(self._brn()) + 'GIT Clone Error 발생 \r\n' + str(e))
+            logging.error(str(self._brn()) + 'GIT Clone Error \r\n' + str(e))
 
     def pull(self):
         self._checkout()
@@ -53,7 +53,7 @@ class GitManager:
             self._origin.push()
             logging.info(str(self._brn()) + 'GIT PUSH 성공')
         except Exception as e:
-            logging.error(str(self._brn()) + 'GIT Push Error 발생 \r\n' + str(e))
+            logging.error(str(self._brn()) + 'GIT Push Error \r\n' + str(e))
 
     def _brn(self) -> str:
         return '[' + self._repo.active_branch.name + ' 브랜치] '
@@ -63,7 +63,7 @@ class GitManager:
             self._repo.git.checkout(self.GIT_BRANCH)
             logging.info(str(self._brn()) + 'GIT CEHCKOUT')
         except Exception as e:
-            logging.error(str(self._brn()) + 'GIT CEHCKOUT Error 발생 \r\n' + str(e))
+            logging.error(str(self._brn()) + 'GIT CEHCKOUT Error \r\n' + str(e))
 
     def _commit(self):
         try:
@@ -71,7 +71,7 @@ class GitManager:
             self._repo.index.commit(self.GIT_PUSH_MSG)
             logging.info(str(self._brn()) + 'GIT Commit 성공')
         except Exception as e:
-            logging.error(str(self._brn()) + 'GIT Commit Error 발생 \r\n' + str(e))
+            logging.error(str(self._brn()) + 'GIT Commit Error \r\n' + str(e))
 
     def is_modified(self) -> bool:
         changed = [item.a_path for item in self._repo.index.diff(None)]

@@ -46,13 +46,15 @@ class DBManager:
         await db.connect()
         # Json파일 가져오기
         files = list(Path(self.PATH_FOR_INFO).rglob("*.json"))
+        print(self.PATH_FOR_INFO)
+        print(files)
         for file_path in files:
             try:
                 with open(file_path, 'r') as f:
                     json_data = json.load(f)
                 await self.create_info_tb(db, file_path.stem, json_data)
-            except Exception:
-                pass
+            except Exception as e:
+                logging.info(self.BRANCH + '서버 테이블 데이터 Error : \r\n' + str(e))
         await db.disconnect()
 
     async def create_info_tb(self, db: Prisma, table_name: str, json_data: list) -> None:
