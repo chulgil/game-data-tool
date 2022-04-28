@@ -410,6 +410,8 @@ Temporary Items
 
 # Excel처리 서브GIT 제외
 data-for-designer
+data-for-designer*
+data-for-designer/**
 
 # 라이브러리 생성파일 제외
 *.egg-info
