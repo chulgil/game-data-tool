@@ -415,3 +415,6 @@ data-for-designer/**
 
 # 라이브러리 생성파일 제외
 *.egg-info
+
+# 환경설정 파일 제외
+config.json
