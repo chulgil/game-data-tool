@@ -1,4 +1,5 @@
 import os
+import re
 import json
 import logging
 import shutil
@@ -52,18 +53,37 @@ class DataManager:
         # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
         return df[filtered].iloc[2:]
 
+    # EXCEL의 데이터가 다음과 같을때 필드 명 중복이 있을 경우
+    # DATAFRAME에 필드명이 reg_dt.1 로 들어오므로 .1을 자른다.
+    # ------------------------------------------------
+    # id     | name | reg_dt | reg_dt
+    # SERVER | SERVER | DATE |  SERVER
+    # 1  | test |  2022.04.09 | 2021-03-09T00:00:00
+    # ------------------------------------------------
+    @classmethod
+    def _translate_json(cls, data_list: list):
+        match_str = r'\.\w'
+        for data in data_list:
+            str_match = [_ for _ in data.keys() if re.search(match_str, _)]
+            for key in str_match:
+                new_key = re.sub(match_str, '', key)
+                data[new_key] = data.pop(key)
+
     @classmethod
     def _save_json(cls, df: DataFrame, save_path: str, file_name: str):
         # 행의 개수가 0이면 무시
         if df.shape[1] == 0:
             return
+
         # Data frame을 JSON으로 변환
         json_data = df.to_json(orient='records')
-        json_str = json.loads(json_data)
+        json_list = json.loads(json_data)
+        cls._translate_json(json_list)
+
         # 지정한 경로로 Json파일 저장
         save_path = save_path + "/" + file_name + ".json"
         with open(save_path, "w", encoding='utf-8') as f:
-            json.dump(json_str, f, ensure_ascii=False, indent=4, sort_keys=True, separators=(',', ': '))
+            json.dump(json_list, f, ensure_ascii=False, indent=4, sort_keys=True, separators=(',', ': '))
         logging.info("Json 파일 저장 성공 : " + save_path)
 
     @classmethod
