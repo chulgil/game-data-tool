@@ -12,14 +12,17 @@ if __name__ == '__main__':
         format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
         filename='out.log', encoding='utf-8', level=logging.INFO)
 
-    # Git 초기화
-    git_manager = GitManager('dev')
+    # # Git 초기화
+    git_manager = GitManager('local')
     git_manager.pull()
 
-    # 데이터
+    # # 데이터
     manager = DataManager()
     manager.excel_to_json()
 
-    # Git Push
+    # # Git Push
     if git_manager.is_modified():
         git_manager.push()
+
+    manager = DBManager('local')
+    manager.init_info_db()
