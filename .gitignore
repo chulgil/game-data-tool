@@ -418,5 +418,6 @@ data-for-designer/**
 
 # 환경설정 파일 제외
 config.json
+prisma
 prisma/*
-*.prisma
+.prisma
