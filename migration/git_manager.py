@@ -1,5 +1,5 @@
 import logging
-from git import Repo
+from git import Repo, GitCommandError
 from pathlib import Path
 import json
 import shutil
@@ -36,6 +36,7 @@ class GitManager:
             # GIT 초기 설정
             self._repo.config_writer().set_value("user", "name", self.GIT_USER).release()
             self._repo.config_writer().set_value("user", "email", self.GIT_EMAIL).release()
+            self._repo.config_writer().set_value("pull.ff", "only", self.GIT_EMAIL).release()
             self._origin = self._repo.remotes.origin
             logging.info(str(self._brn()) + 'GIT 초기화 성공')
             self._checkout()
@@ -43,9 +44,17 @@ class GitManager:
             logging.error(str(self._brn()) + 'GIT Clone Error \r\n' + str(e))
 
     def pull(self):
-        self._checkout()
-        self._origin.pull()
-        logging.info(str(self._brn()) + 'GIT PULL 성공')
+        try:
+            self._checkout()
+            if self._repo.is_dirty():
+                self._repo.git.stash()
+                self._origin.pull()
+                self._repo.git.stash('pop')
+            else:
+                self._origin.pull()
+            logging.info(str(self._brn()) + 'GIT PULL 성공')
+        except Exception as e:
+            logging.error(str(self._brn()) + 'GIT PULL Error \r\n' + str(e))
 
     def push(self):
         try:

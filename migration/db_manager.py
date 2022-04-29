@@ -5,8 +5,8 @@ import json
 from prisma import Prisma
 from pathlib import Path
 
-class DBManager:
 
+class DBManager:
 
     def __init__(self, branch: str):
         # Config 파일 설정
@@ -29,7 +29,7 @@ class DBManager:
     # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"
     def _init_prisma_config(self):
         db_path = self._get_db_by_branch()
-        db_path = 'DATABASE_URL="'+db_path+'"'
+        db_path = 'DATABASE_URL="' + db_path + '"'
         with open(self.PATH_FOR_ENV, 'w', encoding='utf-8') as f:
             f.write(db_path)
 
@@ -40,21 +40,18 @@ class DBManager:
         }.get(self.BRANCH, str(self.BRANCH).upper())
         return self.CONFIG_DB[db_name]
 
-
     async def init_info_tbs(self) -> None:
         db = Prisma()
         await db.connect()
         # Json파일 가져오기
         files = list(Path(self.PATH_FOR_INFO).rglob("*.json"))
-        print(self.PATH_FOR_INFO)
-        print(files)
         for file_path in files:
             try:
                 with open(file_path, 'r') as f:
                     json_data = json.load(f)
                 await self.create_info_tb(db, file_path.stem, json_data)
             except Exception as e:
-                logging.info(self.BRANCH + '서버 테이블 데이터 Error : \r\n' + str(e))
+                logging.info(self.BRANCH + f'서버 테이블 데이터 {file_path.stem} Error :\r\n {str(e)}')
         await db.disconnect()
 
     async def create_info_tb(self, db: Prisma, table_name: str, json_data: list) -> None:
@@ -67,7 +64,3 @@ class DBManager:
 
     def init_info_db(self):
         asyncio.run(self.init_info_tbs())
-
-
-
-
