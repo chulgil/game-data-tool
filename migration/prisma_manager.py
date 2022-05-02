@@ -2,6 +2,7 @@ import os
 import json
 import logging
 from pathlib import Path
+import yaml
 
 
 class PrismaManager:
@@ -10,11 +11,11 @@ class PrismaManager:
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma')
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.json')
+        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = json.load(f)
+            config = yaml.safe_load(f)
         self.CONFIG_DB = config['DATABASE']
         self._init_prisma()
 

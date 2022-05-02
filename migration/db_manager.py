@@ -1,6 +1,7 @@
 import logging
 import asyncio
 import json
+import yaml
 from prisma import Prisma
 from pathlib import Path
 
@@ -10,10 +11,10 @@ class DBManager:
     def __init__(self, branch: str):
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.json')
+        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = json.load(f)
+            config = yaml.safe_load(f)
         self.DBLIST = config['DATABASE']
         json_path = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'] + '/json')
         self.PATH_FOR_DATA = json_path.joinpath('data')

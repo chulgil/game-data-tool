@@ -2,6 +2,7 @@ import os
 import json
 import logging
 import shutil
+import yaml
 from dateutil import parser
 import pandas as pd
 from pathlib import Path
@@ -22,10 +23,10 @@ class DataManager:
     def __init__(self, data_type: DataType):
         self.DATA_TYPE = data_type
         self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.json')
+        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = json.load(f)
+            config = yaml.safe_load(f)
         self._set_config(config)
         self._set_folder()
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')

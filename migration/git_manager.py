@@ -1,7 +1,8 @@
 import logging
+
+import yaml
 from git import Repo, GitCommandError
 from pathlib import Path
-import json
 import shutil
 
 
@@ -10,9 +11,9 @@ class GitManager:
     def __init__(self, branch):
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.json')
+        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = json.load(f)
+            config = yaml.safe_load(f)
         self._set_config(config)
         if self.PATH_FOR_GIT.exists():
             self._repo = Repo(self.PATH_FOR_GIT)
