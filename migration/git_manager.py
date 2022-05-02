@@ -8,10 +8,11 @@ import shutil
 class GitManager:
 
     def __init__(self, branch):
-        logging.basicConfig(filename='out.log', encoding='utf-8', level=logging.INFO)
-        with open('config.json', 'r') as f:
+        self.BRANCH = branch
+        self.ROOT_DIR = Path(__file__).parent.parent
+        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.json')
+        with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = json.load(f)
-        self.GIT_BRANCH = branch
         self._set_config(config)
         if self.PATH_FOR_GIT.exists():
             self._repo = Repo(self.PATH_FOR_GIT)
@@ -21,17 +22,18 @@ class GitManager:
             self._init_git()
 
     def _set_config(self, config):
-        self.PATH_FOR_DATA_ROOT = config['DEFAULT']['ROOT_DATA_DIR']
+        self.PATH_FOR_DATA_ROOT = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'])
         self.GIT_URL = config['GITSERVER']['URL']
         self.GIT_USER = config['GITSERVER']['USER']
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
-        self.PATH_FOR_GIT = Path(self.PATH_FOR_DATA_ROOT + "/.git")
+        self.PATH_FOR_GIT = self.PATH_FOR_DATA_ROOT.joinpath(".git")
 
     def _init_git(self):
         try:
             # GIT 기본 프로젝트 폴더 삭제
-            shutil.rmtree(self.GIT_BRANCH)
+            if Path(self.BRANCH).is_dir():
+                shutil.rmtree(self.BRANCH)
             self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch='main')
             # GIT 초기 설정
             self._repo.config_writer().set_value("user", "name", self.GIT_USER).release()
@@ -69,7 +71,7 @@ class GitManager:
 
     def _checkout(self):
         try:
-            self._repo.git.checkout(self.GIT_BRANCH)
+            self._repo.git.checkout(self.BRANCH)
             logging.info(str(self._brn()) + 'GIT CEHCKOUT')
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT CEHCKOUT Error \r\n' + str(e))
