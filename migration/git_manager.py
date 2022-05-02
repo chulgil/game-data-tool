@@ -17,7 +17,6 @@ class GitManager:
         if self.PATH_FOR_GIT.exists():
             self._repo = Repo(self.PATH_FOR_GIT)
             self._origin = self._repo.remotes.origin
-            self.pull()
         else:
             self._init_git()
 

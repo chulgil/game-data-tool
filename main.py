@@ -19,20 +19,36 @@ if __name__ == '__main__':
 
 async def init_info(branch: str):
 
-    PrismaManager('local')
+    # 프리즈마 초기화
+    PrismaManager(branch)
 
-    # Git 초기화
-    git_manager = GitManager('local')
+    # Git 초기화 및 다운로드
+    git_manager = GitManager(branch)
     git_manager.pull()
 
-    # 데이터
-    manager = DataManager(DataType.INFO)
-    manager.excel_to_json()
-    # Git Push
-    # if git_manager.is_modified():
-    #     git_manager.push()
+    # 변환된 Json파일을 디비로 저장
+    manager = DBManager(branch)
+    await manager.init_info_tbs()
 
-    #
-    # manager = DBManager('local')
-    # await manager.init_info_tbs()
-    return None
+
+async def excel_to_infodb(branch: str):
+
+    # 프리즈마 초기화
+    PrismaManager(branch)
+
+    # Git 초기화 및 다운로드
+    git_manager = GitManager(branch)
+    git_manager.pull()
+
+    # Excel파일이 수정되었다면
+    if git_manager.is_modified():
+        # Excel로드후 Json변환
+        manager = DataManager(DataType.INFO)
+        manager.excel_to_json()
+
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        git_manager.push()
+
+        # 변환된 Json파일을 디비로 저장
+        manager = DBManager(branch)
+        await manager.init_info_tbs()
