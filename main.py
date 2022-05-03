@@ -1,20 +1,9 @@
 import logging
 
-from app.libs.excel_to_db.migration.data_manager import DataManager, DataType
-from app.libs.excel_to_db.migration.db_manager import DBManager
-from app.libs.excel_to_db.migration.git_manager import GitManager
 from app.libs.excel_to_db.migration.prisma_manager import PrismaManager
+from app.libs.excel_to_db.migration.data_manager import DataManager, DataType
+from app.libs.excel_to_db.migration.git_manager import GitManager
 
-if __name__ == '__main__':
-
-    # main : 기획자 브랜치
-    # dev : 개발 브랜치
-    # qa & qa2 & qa3 : QA 브랜치
-    # local : 로컬 브랜치
-    logger = logging.getLogger()
-    logging.basicConfig(
-        format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-        filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
 
 async def init_info(branch: str):
@@ -27,6 +16,7 @@ async def init_info(branch: str):
     git_manager.pull()
 
     # 변환된 Json파일을 디비로 저장
+    from app.libs.excel_to_db.migration.db_manager import DBManager
     manager = DBManager(branch)
     await manager.init_info_tbs()
 
@@ -50,5 +40,6 @@ async def excel_to_infodb(branch: str):
         git_manager.push()
 
         # 변환된 Json파일을 디비로 저장
+        from app.libs.excel_to_db.migration.db_manager import DBManager
         manager = DBManager(branch)
         await manager.init_info_tbs()

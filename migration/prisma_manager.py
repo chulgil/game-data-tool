@@ -21,8 +21,8 @@ class PrismaManager:
     def _init_prisma(self):
         os.chdir(self.PATH_FOR_PRISMA.parent)
         self._init_prisma_config()
-        # os.system("prisma db pull")
         os.system("prisma generate")
+        print(f"---------------------------PRISMA초기화 {self.PATH_FOR_PRISMA.parent}")
         logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
 
     # .env 파일에  디비 경로를 설정
