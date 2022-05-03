@@ -22,7 +22,6 @@ class PrismaManager:
         os.chdir(self.PATH_FOR_PRISMA.parent)
         self._init_prisma_config()
         os.system("prisma db pull")
-        os.system("prisma generate")
         logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
 
     def _init_prisma(self):
