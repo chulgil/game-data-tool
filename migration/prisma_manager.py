@@ -2,7 +2,7 @@ import logging
 import os
 from pathlib import Path
 import yaml
-
+from prisma_cleanup import cleanup
 
 class PrismaManager:
 
@@ -19,16 +19,23 @@ class PrismaManager:
         self._init_prisma()
 
     def sync(self):
-        os.chdir(self.PATH_FOR_PRISMA.parent)
-        self._init_prisma_config()
-        os.system("prisma db pull")
-        logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
+        try:
+            cleanup()
+            os.chdir(self.PATH_FOR_PRISMA.parent)
+            self._init_prisma_config()
+            os.system("prisma db pull")
+            logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
+        except Exception as e:
+            logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 에러: /n {str(e)}")
 
     def _init_prisma(self):
-        os.chdir(self.PATH_FOR_PRISMA.parent)
-        self._init_prisma_config()
-        os.system("prisma generate")
-        logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
+        try:
+            os.chdir(self.PATH_FOR_PRISMA.parent)
+            self._init_prisma_config()
+            os.system("prisma generate")
+            logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
+        except Exception as e:
+            logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 에러: /n {str(e)}")
 
     # .env 파일에  디비 경로를 설정
     # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"
