@@ -2,8 +2,7 @@ import logging
 import os
 from pathlib import Path
 import yaml
-from prisma_cleanup import cleanup
-from subprocess import run, PIPE
+from subprocess import run
 
 
 class PrismaManager:
@@ -22,10 +21,9 @@ class PrismaManager:
 
     def sync(self):
         try:
-            cleanup()
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            run(['prisma db pull'], shell=True, capture_output=True)
+            run(['prisma db pull'], shell=True)
             logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
         except Exception as e:
             logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 에러: {str(e)}")
@@ -34,7 +32,7 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            run(['prisma generate'], shell=True, capture_output=True)
+            run(['prisma generate'], shell=True)
             logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
         except Exception as e:
             logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 에러: /n {str(e)}")
