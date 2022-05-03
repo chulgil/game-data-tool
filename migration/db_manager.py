@@ -42,5 +42,11 @@ class DBManager:
         )
         logging.info(self.BRANCH + '서버 테이블 데이터 INSERT 완료 : ' + table_name)
 
+    async def select_info_tb(self, db: Prisma, table_name: str):
+        table = getattr(db, table_name)
+        data = await table.find_many()
+        logging.info(self.BRANCH + '서버 테이블 데이터 SELECT 완료 : ' + table_name)
+        return data
+
     def init_info_db(self):
         asyncio.run(self.init_info_tbs())

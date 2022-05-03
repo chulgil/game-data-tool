@@ -1,6 +1,5 @@
-import os
-import json
 import logging
+import os
 from pathlib import Path
 import yaml
 
@@ -24,6 +23,7 @@ class PrismaManager:
         self._init_prisma_config()
         # os.system("prisma db pull")
         os.system("prisma generate")
+        logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
 
     # .env 파일에  디비 경로를 설정
     # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"
