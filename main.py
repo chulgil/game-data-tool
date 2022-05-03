@@ -5,6 +5,11 @@ from app.libs.excel_to_db.migration.data_manager import DataManager, DataType
 from app.libs.excel_to_db.migration.git_manager import GitManager
 
 
+async def sync_prisma(branch: str):
+    # 프리즈마 초기화
+    prisma = PrismaManager(branch)
+    prisma.sync()
+
 
 async def init_info(branch: str):
 
