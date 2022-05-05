@@ -9,7 +9,6 @@ from pathlib import Path
 from pandas import DataFrame
 import warnings
 from enum import Enum, auto
-import openpyxl
 
 import numpy as np
 import pandas
