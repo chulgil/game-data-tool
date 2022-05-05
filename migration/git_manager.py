@@ -80,6 +80,7 @@ class GitManager:
 
     def checkout(self, branch: str) -> bool:
         try:
+            self._repo.head.reset(index=True, working_tree=True)
             self._repo.git.checkout(branch)
             self.BRANCH = branch
             logging.info(str(self._brn()) + 'GIT CEHCKOUT 성공')
