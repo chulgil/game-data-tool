@@ -34,9 +34,11 @@ class GitManager:
     def _init_git(self):
         try:
             # GIT 기본 프로젝트 폴더 삭제
-            if Path(self.BRANCH).is_dir():
+            if Path(self.PATH_FOR_DATA_ROOT).is_dir():
                 shutil.rmtree(self.BRANCH)
             self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch='main')
+            print(self._repo)
+            print(self.PATH_FOR_DATA_ROOT)
             # GIT 초기 설정
             self._repo.config_writer().set_value("user", "name", self.GIT_USER).release()
             self._repo.config_writer().set_value("user", "email", self.GIT_EMAIL).release()
