@@ -33,7 +33,6 @@ class GitManager:
 
     def _init_git(self):
         try:
-            self._repo = Repo(self.PATH_FOR_GIT)
             # GIT 기본 프로젝트 폴더 삭제
             if Path(self.BRANCH).is_dir():
                 shutil.rmtree(self.BRANCH)
@@ -77,7 +76,9 @@ class GitManager:
         return False
 
     def _brn(self) -> str:
-        return '[' + self._repo.active_branch.name + ' 브랜치] '
+        if hasattr(self, '_repo'):
+            return '[' + self._repo.active_branch.name + ' 브랜치] '
+        return ''
 
     def checkout(self, branch: str) -> bool:
         try:
