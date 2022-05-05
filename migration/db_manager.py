@@ -20,7 +20,8 @@ class DBManager:
         self.PATH_FOR_DATA = json_path.joinpath('data')
         self.PATH_FOR_INFO = json_path.joinpath('info')
 
-    async def init_info_tbs(self) -> None:
+
+    async def init_info_tbs(self) :
         db = Prisma()
         await db.connect()
         # Json파일 가져오기
@@ -34,18 +35,23 @@ class DBManager:
                 logging.info(self.BRANCH + f'서버 테이블 데이터 {file_path.stem} Error :\r\n {str(e)}')
         await db.disconnect()
 
-    async def create_info_tb(self, db: Prisma, table_name: str, json_data: list) -> None:
-        table = getattr(db, table_name)
-        await table.delete_many()
-        await table.create_many(
-            json_data
-        )
-        logging.info(self.BRANCH + '서버 테이블 데이터 INSERT 완료 : ' + table_name)
+
+    async def create_info_tb(self, db: Prisma, table_name: str, json_data: list):
+        try:
+            table = getattr(db, table_name)
+            await table.delete_many()
+            await table.create_many(
+                json_data
+            )
+            logging.info(f'{self.BRANCH} 서버 테이블 데이터 INSERT 성공 : {table_name}')
+        except Exception as e:
+            logging.info(f'{self.BRANCH} 서버 테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
+
 
     async def select_info_tb(self, db: Prisma, table_name: str):
         table = getattr(db, table_name)
         data = await table.find_many()
-        logging.info(self.BRANCH + '서버 테이블 데이터 SELECT 완료 : ' + table_name)
+        logging.info(f'{self.BRANCH} 서버 테이블 데이터 SELECT 성공 : ' + table_name)
         return data
 
     def init_info_db(self):

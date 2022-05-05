@@ -9,6 +9,11 @@ from pathlib import Path
 from pandas import DataFrame
 import warnings
 from enum import Enum, auto
+import openpyxl
+
+import numpy as np
+import pandas
+pandas.set_option('display.max_column', 10)
 
 
 class DataType(Enum):
@@ -16,6 +21,15 @@ class DataType(Enum):
     SERVER = auto()
     CLIENT = auto()
     INFO = auto()
+
+    @classmethod
+    def value_of(cls, value: str):
+
+        for k, v in cls.__members__.items():
+            if k == value.upper():
+                return v
+        else:
+            return DataType.ALL
 
 
 class DataManager:
@@ -81,11 +95,16 @@ class DataManager:
         save_path = save_path.joinpath(file_name + ".json")
         with open(save_path, "w", encoding='utf-8') as f:
             json.dump(json_list, f, ensure_ascii=False, indent=4, sort_keys=True, separators=(',', ': '))
-        logging.info(f"Json 파일 저장 성공 : {save_path.name}")
+
+        # 파일 경로로 부터 / Sever / file.csv 를 잘라온다.
+        paths = str(save_path).split('/')
+        name = paths.pop()
+        path = paths.pop()
+        logging.info(f"Json 파일 저장 성공 : {path}/{name}")
 
     # --------------------------------------------------------------
     # EXCEL의 데이터가 다음과 같을때 1번째 행은 디비속성 이다.
-    # 디비속성 값으로 데이터를 포멧팅한다.
+    # 디비속성 값으로 데이터를 포멧팅한다_save_json.
     # --------------------------------------------------------------
     # id     | name | reg_dt | reg_dt
     # 0 : SERVER | SERVER | CLIENT |  SERVER
@@ -95,14 +114,19 @@ class DataManager:
     # Ref :
     # https://pandas.pydata.org/docs/reference/api/
     def _translate_asdb(self, data_df: DataFrame, filter_df: DataFrame):
+
         for col in data_df.columns:
             for i in data_df.index:
                 field_type = filter_df.loc[1][col]
                 field_value = filter_df.loc[i][col]
                 data_df.loc[i][col] = self._value_astype(field_type, field_value)
 
-    def _value_astype(self, column_type: str, column_value: any):
+
+    def _value_astype(self, column_type: str, column_value: str):
         try:
+            if self._is_null_numeral(column_type, column_value):
+                return 0
+
             if column_type == "string":
                 return str(column_value)
             elif column_type == "float":
@@ -116,8 +140,20 @@ class DataManager:
             else:
                 return str(column_value)
         except Exception as e:
-            logging.warning(str(f"Column[{column_value}]" + str(e)))
-            return str(e)
+            msg = f'Error: {str(e)}'
+            logging.warning(str(f"Column[{column_value}] {msg}"))
+            return msg
+
+    # 숫자 타입이고 값이 null인 경우
+    @staticmethod
+    def _is_null_numeral(column_type: str, column_value: str) -> bool:
+        if column_type == "float" or column_type == "int" or column_type == "long" \
+                and column_value == '':
+            return True
+        return False
+
+
+
 
     @staticmethod
     def iso8601(date_text: str) -> str:
@@ -135,6 +171,9 @@ class DataManager:
             try:
                 # 첫번째 시트를 JSON 타겟으로 설정
                 df = pd.read_excel(excel, sheet_name=0)
+                # 모든 데이터의 null값을 초기화
+                df.replace(to_replace=np.NaN, value='', inplace=True)
+
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
                     self._save_json(self._get_filtered(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, excel.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO

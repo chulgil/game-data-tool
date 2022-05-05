@@ -19,23 +19,29 @@ class PrismaManager:
         self.CONFIG_DB = config['DATABASE']
         self._init_prisma()
 
-    def sync(self):
+    def sync(self) -> bool:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            run(['prisma db pull'], shell=True)
-            logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
+            res = run(['prisma db pull'], shell=True)
+            if not res.stderr:
+                logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
+                return True
         except Exception as e:
             logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 에러: {str(e)}")
+        return False
 
-    def _init_prisma(self):
+    def _init_prisma(self) -> bool:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            run(['prisma generate'], shell=True)
-            logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
+            res = run(['prisma generate'], shell=True)
+            if not res.stderr:
+                logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
+                return True
         except Exception as e:
             logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 에러: /n {str(e)}")
+        return False
 
     # .env 파일에  디비 경로를 설정
     # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"

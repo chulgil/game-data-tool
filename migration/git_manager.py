@@ -1,5 +1,6 @@
 import logging
 
+import pymsteams as pymsteams
 import yaml
 from git import Repo, GitCommandError
 from pathlib import Path
@@ -8,13 +9,14 @@ import shutil
 
 class GitManager:
 
-    def __init__(self, branch):
-        self.BRANCH = branch
+    def __init__(self):
+        self.BRANCH = None
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
+        self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
         if self.PATH_FOR_GIT.exists():
             self._repo = Repo(self.PATH_FOR_GIT)
             self._origin = self._repo.remotes.origin
@@ -41,40 +43,50 @@ class GitManager:
             self._repo.config_writer().set_value("pull.ff", "only", self.GIT_EMAIL).release()
             self._origin = self._repo.remotes.origin
             logging.info(str(self._brn()) + 'GIT 초기화 성공')
-            self._checkout()
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT Clone Error \r\n' + str(e))
 
-    def pull(self):
+    def pull(self) -> bool:
         try:
-            self._checkout()
+            if self._is_empty_branch():
+                return False
             if self._repo.is_dirty():
+                logging.info(str(self._brn()) + 'GIT STAGING 성공')
                 self._repo.git.stash()
                 self._origin.pull()
                 self._repo.git.stash('pop')
             else:
                 self._origin.pull()
             logging.info(str(self._brn()) + 'GIT PULL 성공')
+            return True
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT PULL Error \r\n' + str(e))
+        return False
 
-    def push(self):
+    def push(self) -> bool:
         try:
+            if self._is_empty_branch():
+                return False
             self._commit()
             self._origin.push()
             logging.info(str(self._brn()) + 'GIT PUSH 성공')
+            return True
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT Push Error \r\n' + str(e))
+        return False
 
     def _brn(self) -> str:
         return '[' + self._repo.active_branch.name + ' 브랜치] '
 
-    def _checkout(self):
+    def checkout(self, branch: str) -> bool:
         try:
-            self._repo.git.checkout(self.BRANCH)
-            logging.info(str(self._brn()) + 'GIT CEHCKOUT')
+            self._repo.git.checkout(branch)
+            self.BRANCH = branch
+            logging.info(str(self._brn()) + 'GIT CEHCKOUT 성공')
+            return True
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT CEHCKOUT Error \r\n' + str(e))
+        return False
 
     def _commit(self):
         try:
@@ -83,6 +95,32 @@ class GitManager:
             logging.info(str(self._brn()) + 'GIT Commit 성공')
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT Commit Error \r\n' + str(e))
+
+    # Ref :
+    # https://docs.gitea.io/en-us/webhooks/
+    # https://nixing.mx/posts/configure-gitea-webhooks.html
+    def get_branch_from_webhook(self, webhook: dict) -> str:
+        try:
+            username = webhook["head_commit"]["committer"]["username"]
+            compare_url = webhook["compare_url"]
+            # 변경사항이 없다면 무시 && 봇 유저라면 무시
+            if not compare_url or self._is_bot_user(username):  #
+                return ''
+            # 레퍼런스에서 마지막 문자열(브랜치명) 추출 ex) "ref": "refs/heads/main"
+            ref = webhook["ref"]
+            branch = ref.split("/").pop()
+            msg = f"[{branch}] 브랜치 변경 히스토리 URL : {compare_url}"
+            self.teams.text(msg)
+            self.teams.send()
+            logging.info(msg)
+            return branch
+        except Exception as e:
+            logging.exception(f"Webhook format Error : {webhook}")
+        return ''
+
+    # 자동봇 유저인지 확인
+    def _is_bot_user(self, name: str):
+        return True if name == self.GIT_USER else False
 
     def is_modified(self) -> bool:
         changed = [item.a_path for item in self._repo.index.diff(None)]
@@ -94,4 +132,10 @@ class GitManager:
             return True
 
         logging.info(str(self._brn()) + "변경된 데이터가 없습니다.")
+        return False
+
+    def _is_empty_branch(self) -> bool:
+        if not self.BRANCH:
+            logging.warning(str(self._brn()) + "설정할 브랜치가 없습니다.")
+            return True
         return False
