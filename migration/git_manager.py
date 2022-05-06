@@ -32,7 +32,7 @@ class GitManager:
             # GIT 기본 프로젝트 폴더 삭제
             if Path(self.PATH_FOR_DATA_ROOT).is_dir():
                 shutil.rmtree(self.PATH_FOR_DATA_ROOT)
-            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch='main')
+            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch=self.BRANCH)
             # GIT 초기 설정
             writer = self._repo.config_writer()
             writer.set_value("user", "name", self.GIT_USER)
@@ -104,6 +104,10 @@ class GitManager:
 
             # 변경사항이 없다면 무시
             if not compare_url:
+                msg = f"[EXCEL변환요청:{username}] {branch} 브랜치에 변경사항이 없어 종료합니다."
+                self.teams.text(msg)
+                self.teams.send()
+                logging.info(msg)
                 return ''
 
             # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
@@ -114,6 +118,10 @@ class GitManager:
                 logging.info(msg)
                 return ''
 
+            msg = f"[EXCEL변환요청:{username}] {branch} 브랜치에 변경사항을 적용합니다. 잠시만 기다려주세요..."
+            self.teams.text(msg)
+            self.teams.send()
+            logging.info(msg)
             return branch
         except Exception as e:
             logging.exception(f"Webhook format Error : {webhook}")
