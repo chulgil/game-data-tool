@@ -72,4 +72,4 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    excel_to_json('dev', 'info')
+    # excel_to_json('dev', 'info')
