@@ -30,6 +30,7 @@ async def init_info(branch: str):
 
 
 def excel_to_json(branch: str, data_type: str):
+
     # Git 초기화 및 다운로드
     git_manager = GitManager()
 
@@ -41,6 +42,7 @@ def excel_to_json(branch: str, data_type: str):
     if not git_manager.pull():
         return
 
+    logging.info(f"Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
     # Excel로드후 Json변환
     target = DataType.value_of(data_type)
     manager = DataManager(target)
@@ -70,5 +72,4 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    # excel_to_json('local', 'info')
-
+    excel_to_json('dev', 'info')

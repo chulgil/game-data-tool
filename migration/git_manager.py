@@ -17,11 +17,7 @@ class GitManager:
             config = yaml.safe_load(f)
         self._set_config(config)
         self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
-        if self.PATH_FOR_GIT.exists():
-            self._repo = Repo(self.PATH_FOR_GIT)
-            self._origin = self._repo.remotes.origin
-        else:
-            self._init_git()
+        self._init_git()
 
     def _set_config(self, config):
         self.PATH_FOR_DATA_ROOT = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'])
@@ -35,14 +31,14 @@ class GitManager:
         try:
             # GIT 기본 프로젝트 폴더 삭제
             if Path(self.PATH_FOR_DATA_ROOT).is_dir():
-                shutil.rmtree(self.BRANCH)
+                shutil.rmtree(self.PATH_FOR_DATA_ROOT)
             self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch='main')
-            print(self._repo)
-            print(self.PATH_FOR_DATA_ROOT)
             # GIT 초기 설정
-            self._repo.config_writer().set_value("user", "name", self.GIT_USER).release()
-            self._repo.config_writer().set_value("user", "email", self.GIT_EMAIL).release()
-            self._repo.config_writer().set_value("pull.ff", "only", self.GIT_EMAIL).release()
+            writer = self._repo.config_writer()
+            writer.set_value("user", "name", self.GIT_USER)
+            writer.set_value("user", "email", self.GIT_EMAIL)
+            writer.release()
+            del writer
             self._origin = self._repo.remotes.origin
             logging.info(str(self._brn()) + 'GIT 초기화 성공')
         except Exception as e:
@@ -52,13 +48,7 @@ class GitManager:
         try:
             if self._is_empty_branch():
                 return False
-            if self._repo.is_dirty():
-                logging.info(str(self._brn()) + 'GIT STAGING 성공')
-                self._repo.git.stash()
-                self._origin.pull()
-                self._repo.git.stash('pop')
-            else:
-                self._origin.pull()
+            self._origin.pull()
             logging.info(str(self._brn()) + 'GIT PULL 성공')
             return True
         except Exception as e:
@@ -112,8 +102,7 @@ class GitManager:
             if not compare_url or self._is_bot_user(username):  #
                 return ''
             # 레퍼런스에서 마지막 문자열(브랜치명) 추출 ex) "ref": "refs/heads/main"
-            ref = webhook["ref"]
-            branch = ref.split("/").pop()
+            branch = webhook["ref"].split("/").pop()
             msg = f"[{branch}] 브랜치 변경 히스토리 URL : {compare_url}"
             self.teams.text(msg)
             self.teams.send()

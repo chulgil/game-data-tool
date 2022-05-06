@@ -1,8 +1,10 @@
 ---
 DEFAULT:
   ROOT_DATA_DIR: "./data-for-designer"
+EXCEL: # 데이터를 임포트할 엑셀 관련값 설정
   EXCEL_DIR: "/excel/"
-GITSERVER:
+  ERROR_TEXT: "!!EXCEL_ERROR!!" # 엑셀 데이터값 이상시 디자이너가 구분할수 있는 문자열 [ExcelError]: invalid literal for int() with base 10: '[]
+GITSERVER: #변환된 값을 저장할 GIT서버 지정
   EMAIL: spbot@snowpipe.co.kr
   USER: spbot
   URL: http://local.snowpipe:3000/SPTeam/data-for-designer.git
@@ -14,3 +16,5 @@ DATABASE:
   QA: sqlserver://local.snowpipe:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT
   QA2: sqlserver://local.snowpipe:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT
   QA3: sqlserver://local.snowpipe:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT
+TEAMS: #마이크로 소프트 팀즈 설정
+  DESIGNER_URL: YOUR_TEAMS_API_URL

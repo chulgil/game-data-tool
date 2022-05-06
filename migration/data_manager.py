@@ -46,7 +46,8 @@ class DataManager:
 
     def _set_config(self, config):
         self.PATH_FOR_ROOT = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'])
-        self.PATH_FOR_EXCEL = self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXCEL_DIR'])
+        self.PATH_FOR_EXCEL = self.PATH_FOR_ROOT.joinpath(config['EXCEL']['EXCEL_DIR'])
+        self.ERROR_FOR_EXCEL = config['EXCEL']['ERROR_TEXT']
         self.PATH_FOR_JSON = self.PATH_FOR_ROOT.joinpath("json")
         self.PATH_FOR_DATA = self.PATH_FOR_JSON.joinpath("data")
         self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
@@ -67,6 +68,7 @@ class DataManager:
     def _get_filtered(self, df: DataFrame, targets: list) -> DataFrame:
         # 행의 개수가 2보다 적으면 무시
         if df.shape[0] < 2:
+            logging.warning("처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 서버타입, 디비타입 열이 있는지 확인해 주세요.")
             return df
 
         # 데이터 프레임 1행 추출
@@ -139,33 +141,30 @@ class DataManager:
             else:
                 return str(column_value)
         except Exception as e:
-            msg = f'Error: {str(e)}'
+            msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
             logging.warning(str(f"Column[{column_value}] {msg}"))
             return msg
 
     # 숫자 타입이고 값이 null인 경우
     @staticmethod
     def _is_null_numeral(column_type: str, column_value: str) -> bool:
-        if column_type == "float" or column_type == "int" or column_type == "long" \
+        if (column_type == "float" or column_type == "int" or column_type == "long") \
                 and column_value == '':
             return True
         return False
 
-
-
-
-    @staticmethod
-    def iso8601(date_text: str) -> str:
+    def iso8601(self, date_text: str) -> str:
         try:
             date = parser.parse(str(date_text))
             return date.astimezone().isoformat()
         except Exception as e:
-            logging.warning(str(e))
-            return str(e)
+            msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
+            logging.warning(msg)
+            return msg
 
     def excel_to_json(self):
         # Excel파일 가져오기
-        files = list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
+        files = list(Path(self.PATH_FOR_ROOT).rglob(r"*.xls*"))
         for excel in files:
             try:
                 # 첫번째 시트를 JSON 타겟으로 설정
