@@ -98,15 +98,22 @@ class GitManager:
         try:
             username = webhook["head_commit"]["committer"]["username"]
             compare_url = webhook["compare_url"]
-            # 변경사항이 없다면 무시 && 봇 유저라면 무시
-            if not compare_url or self._is_bot_user(username):  #
-                return ''
+
             # 레퍼런스에서 마지막 문자열(브랜치명) 추출 ex) "ref": "refs/heads/main"
             branch = webhook["ref"].split("/").pop()
-            msg = f"[{branch}] 브랜치 변경 히스토리 URL : {compare_url}"
-            self.teams.text(msg)
-            self.teams.send()
-            logging.info(msg)
+
+            # 변경사항이 없다면 무시
+            if not compare_url:
+                return ''
+
+            # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
+            if self._is_bot_user(username):
+                msg = f"[{branch}] 브랜치 변경 히스토리 URL : {compare_url}"
+                self.teams.text(msg)
+                self.teams.send()
+                logging.info(msg)
+                return ''
+
             return branch
         except Exception as e:
             logging.exception(f"Webhook format Error : {webhook}")
