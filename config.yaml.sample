@@ -2,7 +2,7 @@
 DEFAULT:
   ROOT_DATA_DIR: "./data-for-designer"
 EXCEL: # 데이터를 임포트할 엑셀 관련값 설정
-  EXCEL_DIR: "/excel/"
+  EXCEL_DIR: "excel"
   ERROR_TEXT: "!!EXCEL_ERROR!!" # 엑셀 데이터값 이상시 디자이너가 구분할수 있는 문자열 [ExcelError]: invalid literal for int() with base 10: '[]
 GITSERVER: #변환된 값을 저장할 GIT서버 지정
   EMAIL: spbot@snowpipe.co.kr
