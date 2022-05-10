@@ -41,7 +41,7 @@ class DataManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
-        self._set_folder()
+        # self._set_folder()
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
     def _set_config(self, config):
@@ -162,21 +162,36 @@ class DataManager:
             logging.warning(msg)
             return msg
 
-    def excel_to_json(self):
+    def excel_to_json(self, excel_list: list):
         # Excel파일 가져오기
-        files = list(Path(self.PATH_FOR_ROOT).rglob(r"*.xls*"))
-        for excel in files:
+        for excel in excel_list:
             try:
+                _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
                 # 첫번째 시트를 JSON 타겟으로 설정
-                df = pd.read_excel(excel, sheet_name=0)
+                df = pd.read_excel(_path, sheet_name=0)
                 # 모든 데이터의 null값을 초기화
                 df.replace(to_replace=np.NaN, value='', inplace=True)
 
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
-                    self._save_json(self._get_filtered(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, excel.stem)
+                    self._save_json(self._get_filtered(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO
-                    self._save_json(self._get_filtered(df, ['INFO']), self.PATH_FOR_INFO, excel.stem)
+                    self._save_json(self._get_filtered(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
-                    self._save_json(self._get_filtered(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, excel.stem)
+                    self._save_json(self._get_filtered(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
             except Exception:
                 logging.exception(excel)
+
+    def get_all_excel(self):
+        return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
+
+    def get_all_json(self):
+        return list(Path(self.PATH_FOR_JSON).rglob(r"*.json*"))
+
+
+    def delete_json_as_excel(self):
+        """Excel리스트에 없는 Json파일 삭제
+        """
+        for _json in self.get_all_json():
+            exist = list(Path(self.PATH_FOR_EXCEL).rglob(f"{_json.stem}.xls*"))
+            if len(exist) == 0:
+                _json.unlink(True)

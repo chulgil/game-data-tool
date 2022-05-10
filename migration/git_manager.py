@@ -5,6 +5,7 @@ import yaml
 from git import Repo, GitCommandError
 from pathlib import Path
 import shutil
+import re
 
 
 class GitManager:
@@ -26,6 +27,7 @@ class GitManager:
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
         self.PATH_FOR_GIT = self.PATH_FOR_DATA_ROOT.joinpath(".git")
+        self.COMPILE_EXCEL = re.compile(f"^{config['EXCEL']['EXCEL_DIR']}\D+xl(s|sx)$")
 
     def _init_git(self):
         try:
@@ -148,3 +150,28 @@ class GitManager:
             logging.warning(str(self._brn()) + "설정할 브랜치가 없습니다.")
             return True
         return False
+
+    # 엑셀파일의 추가와 편집 대상만 추출
+    def get_modified_excel(self) -> list:
+        excel = []
+        _diff = self._repo.index.diff('HEAD~1')
+        _list1 = self._get_diff_excel(_diff.iter_change_type('A'))
+        _list2 = self._get_diff_excel(_diff.iter_change_type('M'))
+        excel = _list1 + _list2
+        if len(excel) == 0:
+            logging.info(str(self._brn()) + "변경된 EXCEL이 없습니다.")
+            return []
+
+        # 중복제거
+        excel = set(excel)
+        return list(excel)
+
+
+    def _get_diff_excel(self, diff_index):
+        res = []
+        for diff_item in diff_index:
+            value = diff_item.a_rawpath.decode('utf-8')
+            if self.COMPILE_EXCEL.match(value):
+                res.append(value)
+        return res
+

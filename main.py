@@ -29,8 +29,9 @@ async def init_info(branch: str):
         await manager.init_info_tbs()
 
 
-def excel_to_json(branch: str, data_type: str):
-
+def all_excel_to_json(branch: str, data_type: str):
+    """전체 Excel을 추출후 Json변환
+        """
     # Git 초기화 및 다운로드
     git_manager = GitManager()
 
@@ -38,15 +39,40 @@ def excel_to_json(branch: str, data_type: str):
     if not git_manager.checkout(branch):
         return
 
-    # PULL 성공시에만 진행
-    if not git_manager.pull():
+    logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
+
+    # 전체 Excel로드후 Json변환
+    data_manager = DataManager(DataType.value_of(data_type))
+    data_manager.excel_to_json(data_manager.get_all_excel())
+    data_manager.delete_json_as_excel()
+
+    # 수정된 파일이 있다면
+    if git_manager.is_modified():
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        git_manager.push()
+
+
+def excel_to_json(branch: str, data_type: str):
+    """변경된 Excel만 추출후 Json변환
+    """
+    # Git 초기화 및 다운로드
+    git_manager = GitManager()
+
+    # 체크아웃 성공시에만 진행
+    if not git_manager.checkout(branch):
         return
 
-    logging.info(f"Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
+    logging.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
+
+    data_manager = DataManager(DataType.value_of(data_type))
+    data_manager.delete_json_as_excel()
+
+    modified_list = git_manager.get_modified_excel()
+    if len(modified_list) == 0:
+        return
+
     # Excel로드후 Json변환
-    target = DataType.value_of(data_type)
-    manager = DataManager(target)
-    manager.excel_to_json()
+    data_manager.excel_to_json(modified_list)
 
     # 수정된 파일이 있다면
     if git_manager.is_modified():
@@ -59,9 +85,7 @@ def get_branch_from_webhook(webhook: dict) -> str:
     return git_manager.get_branch_from_webhook(webhook)
 
 
-
 if __name__ == '__main__':
-
     # main : 기획자 브랜치
     # dev : 개발 브랜치
     # qa & qa2 & qa3 : QA 브랜치
@@ -72,4 +96,4 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    # excel_to_json('dev', 'info')
+    excel_to_json('local', 'info')
