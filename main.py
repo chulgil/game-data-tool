@@ -5,6 +5,7 @@ from app.prisma_manager import PrismaManager
 from app.data_manager import DataManager, DataType
 from app.git_manager import GitManager
 
+
 async def sync_prisma(branch: str):
     # 프리즈마 초기화
     prisma = PrismaManager(branch)
@@ -104,7 +105,6 @@ def excel_to_json(branch: str, data_type: str, head_cnt=1):
 
 
 async def create_table():
-
     branch = "local"
     # 프리즈마 초기화
     # p_manager = PrismaManager(branch)
@@ -119,7 +119,6 @@ async def create_table():
     data_manager = DataManager(DataType.SERVER)
     for _path in modified_list:
         data_manager.get_table_info(_path)
-
 
 
 def get_branch_from_webhook(webhook: dict) -> str:
@@ -140,5 +139,3 @@ if __name__ == '__main__':
     # For test
     excel_to_json('local', 'init')
     # asyncio.run(create_table())
-
-
