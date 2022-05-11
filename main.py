@@ -1,10 +1,9 @@
 import asyncio
 import logging
 
-from app.libs.excel_to_db.app.prisma_manager import PrismaManager
-from app.libs.excel_to_db.app.data_manager import DataManager, DataType
-from app.libs.excel_to_db.app.git_manager import GitManager
-
+from app.prisma_manager import PrismaManager
+from app.data_manager import DataManager, DataType
+from app.git_manager import GitManager
 
 async def sync_prisma(branch: str):
     # 프리즈마 초기화
@@ -139,6 +138,7 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    asyncio.run(create_table())
+    excel_to_json('local', 'init')
+    # asyncio.run(create_table())
 
 
