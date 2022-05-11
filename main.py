@@ -1,3 +1,4 @@
+import asyncio
 import logging
 
 from app.libs.excel_to_db.migration.prisma_manager import PrismaManager
@@ -11,9 +12,9 @@ async def sync_prisma(branch: str):
     prisma.sync()
 
 
-async def init_info(branch: str):
+async def init_info_db(branch: str):
     # 프리즈마 초기화
-    PrismaManager(branch)
+    p_manager = PrismaManager(branch)
 
     # Git 초기화 및 다운로드
     git_manager = GitManager()
@@ -22,11 +23,33 @@ async def init_info(branch: str):
     if not git_manager.checkout(branch):
         return
 
-    if git_manager.pull():  # PULL 성공시에만 진행
-        # 변환된 Json파일을 디비로 저장
-        from app.libs.excel_to_db.migration.db_manager import DBManager
-        manager = DBManager(branch)
-        await manager.init_info_tbs()
+    # 변환된 Json파일을 디비로 저장
+    from app.libs.excel_to_db.migration.db_manager import DBManager
+    manager = DBManager(branch)
+    data_manager = DataManager(DataType.INFO)
+    json_map = data_manager.get_jsonmap()
+    await manager.init_info_tbs(json_map)
+
+
+async def init_server_db(branch: str):
+    # 프리즈마 초기화
+    p_manager = PrismaManager(branch)
+
+    # Git 초기화 및 다운로드
+    git_manager = GitManager()
+
+    # 체크아웃 성공시에만 진행
+    if not git_manager.checkout(branch):
+        return
+
+    # 변환된 Json파일을 디비로 저장
+    from app.libs.excel_to_db.migration.db_manager import DBManager
+    manager = DBManager(branch)
+
+    data_manager = DataManager(DataType.INFO)
+    modified_path = git_manager.get_modified_json()
+    json_map = data_manager.get_jsonmap(modified_path)
+    await manager.init_info_tbs(json_map)
 
 
 def all_excel_to_json(branch: str, data_type: str):
@@ -43,7 +66,7 @@ def all_excel_to_json(branch: str, data_type: str):
 
     # 전체 Excel로드후 Json변환
     data_manager = DataManager(DataType.value_of(data_type))
-    data_manager.excel_to_json(data_manager.get_all_excel())
+    data_manager.excel_to_json(data_manager.get_all_excelpath())
     data_manager.delete_json_as_excel()
 
     # 수정된 파일이 있다면
@@ -52,7 +75,7 @@ def all_excel_to_json(branch: str, data_type: str):
         git_manager.push()
 
 
-def excel_to_json(branch: str, data_type: str):
+def excel_to_json(branch: str, data_type: str, head_cnt=1):
     """변경된 Excel만 추출후 Json변환
     """
     # Git 초기화 및 다운로드
@@ -67,7 +90,8 @@ def excel_to_json(branch: str, data_type: str):
     data_manager = DataManager(DataType.value_of(data_type))
     data_manager.delete_json_as_excel()
 
-    modified_list = git_manager.get_modified_excel()
+    modified_list = git_manager.get_modified_excel(head_cnt)
+    print(modified_list)
     if len(modified_list) == 0:
         return
 
@@ -78,6 +102,25 @@ def excel_to_json(branch: str, data_type: str):
     if git_manager.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
         git_manager.push()
+
+
+async def create_table():
+
+    branch = "local"
+    # 프리즈마 초기화
+    # p_manager = PrismaManager(branch)
+
+    # Git 초기화 및 다운로드
+    git_manager = GitManager()
+
+    # 체크아웃 성공시에만 진행
+    if not git_manager.checkout(branch):
+        return
+    modified_list = git_manager.get_modified_excel()
+    data_manager = DataManager(DataType.SERVER)
+    for _path in modified_list:
+        data_manager.get_table_info(_path)
+
 
 
 def get_branch_from_webhook(webhook: dict) -> str:
@@ -96,4 +139,6 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    excel_to_json('local', 'info')
+    asyncio.run(create_table())
+
+

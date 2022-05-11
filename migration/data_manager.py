@@ -2,6 +2,8 @@ import os
 import json
 import logging
 import shutil
+from re import match
+
 import yaml
 from dateutil import parser
 import pandas as pd
@@ -12,6 +14,7 @@ from enum import Enum, auto
 
 import numpy as np
 import pandas
+
 pandas.set_option('display.max_column', 10)
 
 
@@ -65,10 +68,21 @@ class DataManager:
         if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:
             os.makedirs(self.PATH_FOR_CLIENT)
 
-    def _get_filtered(self, df: DataFrame, targets: list) -> DataFrame:
+    def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
+
+        df = self._get_filtered_table(df, targets)
+        # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
+        data_df = df.iloc[1:]
+        # 정의된 DB형식으로 데이터 포멧
+        self._translate_asdb(data_df, df)
+        return data_df
+
+    @staticmethod
+    def _get_filtered_table(df: DataFrame, targets: list) -> DataFrame:
+
         # 행의 개수가 2보다 적으면 무시
         if df.shape[0] < 2:
-            logging.warning("처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 서버타입, 디비타입 열이 있는지 확인해 주세요.")
+            logging.error("처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 서버타입, 디비타입 열이 있는지 확인해 주세요.")
             return df
 
         # 데이터 프레임 1행 추출
@@ -76,11 +90,12 @@ class DataManager:
 
         # 필터링할 컬럼값을 추출
         filtered = mask_df[mask_df.isin(targets)].keys()
+
         # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
-        data_df = df[filtered].iloc[2:]
-        # 정의된 DB형식으로 데이터 포멧
-        self._translate_asdb(data_df, df)
-        return data_df
+        table_df = df[filtered].iloc[1:]
+
+        return table_df
+
 
     @staticmethod
     def _save_json(df: DataFrame, save_path: Path, file_name: str):
@@ -121,7 +136,6 @@ class DataManager:
                 field_type = filter_df.loc[1][col]
                 field_value = filter_df.loc[i][col]
                 data_df.loc[i][col] = self._value_astype(field_type, field_value)
-
 
     def _value_astype(self, column_type: str, column_value: str):
         try:
@@ -173,25 +187,87 @@ class DataManager:
                 df.replace(to_replace=np.NaN, value='', inplace=True)
 
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
-                    self._save_json(self._get_filtered(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, _path.stem)
+                    self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO
-                    self._save_json(self._get_filtered(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
+                    self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
-                    self._save_json(self._get_filtered(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
+                    self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
             except Exception:
                 logging.exception(excel)
 
-    def get_all_excel(self):
+    def get_all_excelpath(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
 
-    def get_all_json(self):
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*.json*"))
+    def _get_all_jsonpath(self) -> list:
+        return list(Path(self.PATH_FOR_JSON).rglob(r"*.json"))
 
+    def _get_jsonpath_info(self) -> list:
+        return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))
+
+    def get_jsonmap(self, json_list=None):
+        """
+        서버정보별로 json을 가져온다.
+        @return: 딕셔너리 값으로 리턴 { key (테이블명) : value (JsonData) }
+        """
+        res = {}
+        json_path = ''
+        file_name = ''
+        if json_list is None:
+            json_list = []
+
+        try:
+            if self.DATA_TYPE == DataType.SERVER:
+                for _path in json_list:
+                    if not match('(server/)', _path):
+                        continue
+                    json_path = self.PATH_FOR_ROOT.joinpath(_path)
+                    file_name = json_path.stem
+                    if not json_path.exists():
+                        continue
+                    with open(json_path, 'r') as f:
+                        res[file_name] = json.load(f)
+
+            if self.DATA_TYPE == DataType.ALL:
+                json_path = self._get_all_jsonpath()
+            if self.DATA_TYPE == DataType.INFO:
+                json_path = self._get_jsonpath_info()
+
+            for _path in json_path:
+                file_name = _path.stem
+                with open(_path, 'r') as f:
+                    res[file_name] = json.load(f)
+        except Exception as e:
+            logging.warning(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
+        return res
+
+    def get_excel(self, name: str) -> list:
+        return list(Path(self.PATH_FOR_EXCEL).rglob(f"{name}.xls*"))
 
     def delete_json_as_excel(self):
         """Excel리스트에 없는 Json파일 삭제
         """
-        for _json in self.get_all_json():
-            exist = list(Path(self.PATH_FOR_EXCEL).rglob(f"{_json.stem}.xls*"))
+        for _json in self._get_all_jsonpath():
+            exist = self.get_excel(_json.stem)
             if len(exist) == 0:
                 _json.unlink(True)
+
+    def get_table_info(self, json_path: str) -> dict:
+        _path = self.PATH_FOR_ROOT.joinpath(json_path)
+        if not _path.exists():
+            return
+
+        # 첫번째 시트를 JSON 타겟으로 설정
+        df = pd.read_excel(_path, sheet_name=0)
+
+        if self.DATA_TYPE == DataType.SERVER:
+            df = self._get_filtered_table(df, ['SERVER'])
+        if self.DATA_TYPE == DataType.INFO:
+            df = self._get_filtered_table(df, ['INFO'])
+
+        table = {}
+        for col in df.columns:
+            table[col] = df[col].values[0]
+
+        return {_path.stem: table}
+
+

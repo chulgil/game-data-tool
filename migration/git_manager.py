@@ -27,7 +27,8 @@ class GitManager:
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
         self.PATH_FOR_GIT = self.PATH_FOR_DATA_ROOT.joinpath(".git")
-        self.COMPILE_EXCEL = re.compile(f"^{config['EXCEL']['EXCEL_DIR']}\D+xl(s|sx)$")
+        self.COMPILE_EXCEL = re.compile(rf"{config['EXCEL']['EXCEL_DIR']}\S+[xls | xlsx]$")
+        self.COMPILE_JSON = re.compile(r"\D+json$")
 
     def _init_git(self):
         try:
@@ -151,21 +152,35 @@ class GitManager:
             return True
         return False
 
-    # 엑셀파일의 추가와 편집 대상만 추출
-    def get_modified_excel(self) -> list:
-        excel = []
-        _diff = self._repo.index.diff('HEAD~1')
-        _list1 = self._get_diff_excel(_diff.iter_change_type('A'))
-        _list2 = self._get_diff_excel(_diff.iter_change_type('M'))
-        excel = _list1 + _list2
-        if len(excel) == 0:
+    def get_modified_excel(self, head_cnt=1) -> list:
+        """과거 이력중 엑셀파일 경로만 추출
+        """
+        data = []
+        for i in range(1, head_cnt + 1):
+            _diff = self._repo.index.diff(f'HEAD~{i}')
+            data = data + self._get_diff_excel(_diff)
+        if len(data) == 0:
             logging.info(str(self._brn()) + "변경된 EXCEL이 없습니다.")
             return []
 
         # 중복제거
-        excel = set(excel)
-        return list(excel)
+        data = set(data)
+        return list(data)
 
+    def get_modified_json(self, head_cnt=1) -> list:
+        """과거 이력중 JSON파일 경로만 추출
+        """
+        data = []
+        for i in range(1, head_cnt + 1):
+            _diff = self._repo.index.diff(f'HEAD~{i}')
+            data = data + self._get_diff_excel(_diff)
+        if len(data) == 0:
+            logging.info(str(self._brn()) + "변경된 Json이 없습니다.")
+            return []
+
+        # 중복제거
+        data = set(data)
+        return list(data)
 
     def _get_diff_excel(self, diff_index):
         res = []
@@ -175,3 +190,10 @@ class GitManager:
                 res.append(value)
         return res
 
+    def _get_diff_json(self, diff_index):
+        res = []
+        for diff_item in diff_index:
+            value = diff_item.a_rawpath.decode('utf-8')
+            if self.COMPILE_JSON.match(value):
+                res.append(value)
+        return res
