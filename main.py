@@ -91,7 +91,6 @@ def excel_to_json(branch: str, data_type: str, head_cnt=1):
     data_manager.delete_json_as_excel()
 
     modified_list = git_manager.get_modified_excel(head_cnt)
-    print(modified_list)
     if len(modified_list) == 0:
         return
 

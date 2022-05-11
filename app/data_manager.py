@@ -71,11 +71,28 @@ class DataManager:
     def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
 
         df = self._get_filtered_table(df, targets)
+
         # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
         data_df = df.iloc[1:]
+
+        if self._is_table_info(df.iloc[1]):
+            data_df = df.iloc[2:]
+
         # 정의된 DB형식으로 데이터 포멧
         self._translate_asdb(data_df, df)
         return data_df
+
+    @staticmethod
+    def _is_table_info(df: DataFrame) -> bool:
+        """엑셀 데이터에서 2번째 행에 테이블 정보가 포함되어 있는지 확인한다.
+            id table_id             table_sub_id    item_rate
+            1   long      int                      int        float
+            2  @auto      @id  @ref(sub_table_info.id)  @default(0)
+        """
+        filtered = list(filter(lambda v: match('^@\D+$', v), df.values))
+        if len(filtered) > 0:
+            return True
+        return False
 
     @staticmethod
     def _get_filtered_table(df: DataFrame, targets: list) -> DataFrame:
