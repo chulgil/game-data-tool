@@ -1,9 +1,9 @@
 import asyncio
 import logging
 
-from app.libs.excel_to_db.migration.prisma_manager import PrismaManager
-from app.libs.excel_to_db.migration.data_manager import DataManager, DataType
-from app.libs.excel_to_db.migration.git_manager import GitManager
+from app.libs.excel_to_db.app.prisma_manager import PrismaManager
+from app.libs.excel_to_db.app.data_manager import DataManager, DataType
+from app.libs.excel_to_db.app.git_manager import GitManager
 
 
 async def sync_prisma(branch: str):
@@ -24,7 +24,7 @@ async def init_info_db(branch: str):
         return
 
     # 변환된 Json파일을 디비로 저장
-    from app.libs.excel_to_db.migration.db_manager import DBManager
+    from app.libs.excel_to_db.app.db_manager import DBManager
     manager = DBManager(branch)
     data_manager = DataManager(DataType.INFO)
     json_map = data_manager.get_jsonmap()
@@ -43,7 +43,7 @@ async def init_server_db(branch: str):
         return
 
     # 변환된 Json파일을 디비로 저장
-    from app.libs.excel_to_db.migration.db_manager import DBManager
+    from app.libs.excel_to_db.app.db_manager import DBManager
     manager = DBManager(branch)
 
     data_manager = DataManager(DataType.INFO)
