@@ -76,7 +76,12 @@ def all_excel_to_json(branch: str, data_type: str):
 
 
 def excel_to_json(branch: str, data_type: str, head_cnt=1):
-    """변경된 Excel만 추출후 Json변환
+    """
+    변경된 Excel만 추출후 Json변환
+    @param branch: Git브랜치
+    @param data_type: 기획데이터:server Info데이터:info 클라이언트데이터:client
+    @param head_cnt: Git Head~[head_cnt] 이력 가져오는 레벨
+    @return:
     """
     # Git 초기화 및 다운로드
     git_manager = GitManager()
@@ -103,21 +108,37 @@ def excel_to_json(branch: str, data_type: str, head_cnt=1):
         git_manager.push()
 
 
-async def create_table():
-    branch = "local"
+def all_excel_to_schema(branch: str):
+    """
+    전체 Excel추출후 아래 데이터 타입만 Prisma 스키마변환
+    data_type: 기획데이터:server Info데이터:info
+    @param branch: Git브랜치
+    """
+    pass
+
+
+def excel_to_schema(branch: str, head_cnt=1):
+    """
+    변경된 Excel추출후 아래 데이터 타입만 Prisma 스키마변환
+    data_type: 기획데이터:server Info데이터:info
+    @param branch: Git브랜치
+    @param head_cnt: Git Head~[head_cnt] 이력 가져오는 레벨
+    """
     # 프리즈마 초기화
-    # p_manager = PrismaManager(branch)
+    p_manager = PrismaManager(branch)
 
     # Git 초기화 및 다운로드
-    git_manager = GitManager()
+    # git_manager = GitManager()
 
-    # 체크아웃 성공시에만 진행
-    if not git_manager.checkout(branch):
-        return
-    modified_list = git_manager.get_modified_excel()
-    data_manager = DataManager(DataType.SERVER)
-    for _path in modified_list:
-        data_manager.get_table_info(_path)
+    # # 체크아웃 성공시에만 진행
+    # if not git_manager.checkout(branch):
+    #     return
+    # modified_list = git_manager.get_modified_excel(2)
+    data_manager = DataManager(DataType.ALL)
+    table_info = {}
+    for _path in ['excel/table_info.xlsx', 'excel/sub_table_info.xlsx']:
+        table_info.update(data_manager.get_table_info(_path))
+    p_manager.save_schema(table_info)
 
 
 def get_branch_from_webhook(webhook: dict) -> str:
@@ -136,5 +157,6 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    excel_to_json('local', 'init')
-    # asyncio.run(create_table())
+    # all_excel_to_json('local', 'init')
+    # asyncio.run(db_migration('local'))
+    excel_to_schema('local')

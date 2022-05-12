@@ -15,14 +15,13 @@ from enum import Enum, auto
 import numpy as np
 import pandas
 
-pandas.set_option('display.max_column', 10)
 
 
 class DataType(Enum):
-    ALL = auto()
-    SERVER = auto()
-    CLIENT = auto()
-    INFO = auto()
+    ALL = auto
+    SERVER = auto
+    CLIENT = auto
+    INFO = auto
 
     @classmethod
     def value_of(cls, value: str):
@@ -44,7 +43,8 @@ class DataManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
-        # self._set_folder()
+        self._set_folder()
+        pandas.set_option('display.max_column', 10)  # print()에서 전체항목 표시
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
     def _set_config(self, config):
@@ -58,15 +58,18 @@ class DataManager:
 
     def _set_folder(self):
         # JSON 폴더 초기화
-        if Path(self.PATH_FOR_JSON).is_dir():
-            shutil.rmtree(self.PATH_FOR_JSON)
+        # if Path(self.PATH_FOR_JSON).is_dir():
+        #     shutil.rmtree(self.PATH_FOR_JSON)
         # JSON 폴더 생성
         if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:
-            os.makedirs(self.PATH_FOR_DATA)
+            if not Path(self.PATH_FOR_DATA).is_dir():
+                os.makedirs(self.PATH_FOR_DATA)
         if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:
-            os.makedirs(self.PATH_FOR_INFO)
+            if not Path(self.PATH_FOR_INFO).is_dir():
+                os.makedirs(self.PATH_FOR_INFO)
         if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:
-            os.makedirs(self.PATH_FOR_CLIENT)
+            if not Path(self.PATH_FOR_CLIENT).is_dir():
+                os.makedirs(self.PATH_FOR_CLIENT)
 
     def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
 
@@ -76,11 +79,30 @@ class DataManager:
         data_df = df.iloc[1:]
 
         if self._is_table_info(df.iloc[1]):
+            df = self._del_auto_field(df)
             data_df = df.iloc[2:]
 
         # 정의된 DB형식으로 데이터 포멧
         self._translate_asdb(data_df, df)
         return data_df
+
+    def _del_auto_field(self, df: DataFrame) -> DataFrame:
+        """엑셀 데이터에서 @auto필드가 있는 행을 삭제한다.
+            id table_id             table_sub_id    item_rate
+            1   long      int        float
+            2  @auto      @id  @ref(sub_table_info.id)  @default(0)
+        """
+        for col in self._get_auto_field(df):
+            del df[col]
+        return df
+
+    @staticmethod
+    def _get_auto_field(df: DataFrame) -> list:
+        res = []
+        for col in df.columns:
+            if match(r'@auto', df[col][2]):
+                res.append(col)
+        return res
 
     @staticmethod
     def _is_table_info(df: DataFrame) -> bool:
@@ -89,7 +111,7 @@ class DataManager:
             1   long      int                      int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
-        filtered = list(filter(lambda v: match('^@\D+$', v), df.values))
+        filtered = list(filter(lambda v: match(r'^@\D+$', v), df.values))
         if len(filtered) > 0:
             return True
         return False
@@ -127,7 +149,7 @@ class DataManager:
         # 지정한 경로로 Json파일 저장
         save_path = save_path.joinpath(file_name + ".json")
         with open(save_path, "w", encoding='utf-8') as f:
-            json.dump(json_list, f, ensure_ascii=False, indent=4, sort_keys=True, separators=(',', ': '))
+            json.dump(json_list, f, ensure_ascii=False, indent=4, separators=(',', ': '))
 
         # 파일 경로로 부터 / Sever / file.csv 를 잘라온다.
         paths = str(save_path).split('/')
@@ -202,7 +224,6 @@ class DataManager:
                 df = pd.read_excel(_path, sheet_name=0)
                 # 모든 데이터의 null값을 초기화
                 df.replace(to_replace=np.NaN, value='', inplace=True)
-
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
                     self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO
@@ -269,22 +290,24 @@ class DataManager:
                 _json.unlink(True)
 
     def get_table_info(self, json_path: str) -> dict:
+        res = {}
         _path = self.PATH_FOR_ROOT.joinpath(json_path)
         if not _path.exists():
-            return
+            return res
 
         # 첫번째 시트를 JSON 타겟으로 설정
         df = pd.read_excel(_path, sheet_name=0)
+        df.replace(to_replace=np.NaN, value='', inplace=True)
 
-        if self.DATA_TYPE == DataType.SERVER:
-            df = self._get_filtered_table(df, ['SERVER'])
-        if self.DATA_TYPE == DataType.INFO:
-            df = self._get_filtered_table(df, ['INFO'])
+        if not self._is_table_info(df.iloc[2]):
+            logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
+            return res
 
-        table = {}
+        df = self._get_filtered_table(df, ['SERVER', 'INFO'])
+
+        table = []
         for col in df.columns:
-            table[col] = df[col].values[0]
+            row = [col, df[col].values[0], df[col].values[1]]
+            table.append(row)
 
         return {_path.stem: table}
-
-
