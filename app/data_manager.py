@@ -73,24 +73,24 @@ class DataManager:
 
     def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
 
-        df = self._get_filtered_table(df, targets)
-
-        # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
-        data_df = df.iloc[1:]
-
-        if self._is_table_info(df.iloc[1]):
+        df = self._get_filtered_column(df, targets)
+        if self._is_table_info(df):
             df = self._del_auto_field(df)
+            # 적용타입 필드타입 스키마타입 행을 제외한 3행부터 JSON추출
+            data_df = df.iloc[3:]
+        else:
+            # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
             data_df = df.iloc[2:]
-
         # 정의된 DB형식으로 데이터 포멧
         self._translate_asdb(data_df, df)
         return data_df
 
     def _del_auto_field(self, df: DataFrame) -> DataFrame:
-        """엑셀 데이터에서 @auto필드가 있는 행을 삭제한다.
-            id table_id             table_sub_id    item_rate
-            1   long      int        float
-            2  @auto      @id  @ref(sub_table_info.id)  @default(0)
+        """
+        엑셀 데이터에서 @auto필드가 있는 행을 삭제한다.
+        id table_id             table_sub_id    item_rate
+        1   long      int        float
+        2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
         for col in self._get_auto_field(df):
             del df[col]
@@ -111,29 +111,23 @@ class DataManager:
             1   long      int                      int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
-        filtered = list(filter(lambda v: match(r'^@\D+$', v), df.values))
-        if len(filtered) > 0:
-            return True
+        try:
+            filtered = list(filter(lambda v: match(r'^@\D+$', v), df.iloc[2].values))
+            if len(filtered) > 0:
+                return True
+        except Exception as e:
+            return False
         return False
 
     @staticmethod
-    def _get_filtered_table(df: DataFrame, targets: list) -> DataFrame:
-
-        # 행의 개수가 2보다 적으면 무시
-        if df.shape[0] < 2:
-            logging.error("처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 서버타입, 디비타입 열이 있는지 확인해 주세요.")
-            return df
+    def _get_filtered_column(df: DataFrame, targets: list) -> DataFrame:
 
         # 데이터 프레임 1행 추출
         mask_df = df.iloc[0]
 
         # 필터링할 컬럼값을 추출
         filtered = mask_df[mask_df.isin(targets)].keys()
-
-        # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
-        table_df = df[filtered].iloc[1:]
-
-        return table_df
+        return df[filtered]
 
 
     @staticmethod
@@ -298,12 +292,11 @@ class DataManager:
         # 첫번째 시트를 JSON 타겟으로 설정
         df = pd.read_excel(_path, sheet_name=0)
         df.replace(to_replace=np.NaN, value='', inplace=True)
-
-        if not self._is_table_info(df.iloc[2]):
+        if not self._is_table_info(df):
             logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
             return res
 
-        df = self._get_filtered_table(df, ['SERVER', 'INFO'])
+        df = self._get_filtered_column(df, ['SERVER', 'INFO'])
 
         table = []
         for col in df.columns:

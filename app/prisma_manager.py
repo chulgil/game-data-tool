@@ -100,11 +100,11 @@ class PrismaManager:
             table_name = key
             rows = table_info[key]
             schema = schema + self._convet_schema(table_name, rows)
-
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_SCHEMA, "w", encoding='utf-8') as f:
                 f.write(schema)
+            logging.info(f'Prisma 스키마 저장 완료: {table_name}')
         except Exception as e:
             logging.error(f'Prisma 스키마 저장 Error: {table_name}\n{str(e)}')
 
@@ -125,7 +125,6 @@ class PrismaManager:
                 schema = schema + '  ' + tab.join(row)
                 schema = schema + '\n'
             schema = schema + '}\n'
-            logging.info(f'Prisma 스키마 변환 완료: {table_name}')
         except Exception as e:
             logging.error(f'Prisma 스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
