@@ -1,14 +1,15 @@
 import logging
 import asyncio
-import json
 import yaml
-from prisma import Prisma
 from pathlib import Path
 
 
 class DBManager:
+    from prisma import Prisma
 
     def __init__(self, branch: str):
+        from prisma import Prisma
+        self.db = Prisma()
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
@@ -18,15 +19,15 @@ class DBManager:
         self.DBLIST = config['DATABASE']
 
     async def insert_all_table(self, json_map: dict):
-        db = Prisma()
-        await db.connect()
+
+        await self.db.connect()
         # Json파일 가져오기
         for json_key, json_data in json_map.items():
             try:
                 await self.insert_table(db, json_key, json_data)
             except Exception as e:
                 logging.info(self.BRANCH + f'서버 테이블 데이터 {json_key} Error :\r\n {str(e)}')
-        await db.disconnect()
+        await self.db.disconnect()
 
     async def insert_table(self, db: Prisma, table_name: str, json_data: list):
         try:
