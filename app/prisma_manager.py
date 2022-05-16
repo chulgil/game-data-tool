@@ -9,10 +9,10 @@ import re
 
 
 class MigrateType(Enum):
-    CREATE_ONLY = auto
-    DEV = auto
-    DEPLOY = auto
-    FORCE = auto
+    CREATE_ONLY = auto()
+    DEV = auto()
+    DEPLOY = auto()
+    FORCE = auto()
 
 
 class PrismaManager:
@@ -28,7 +28,8 @@ class PrismaManager:
             config = yaml.safe_load(f)
         self.CONFIG_DB = config['DATABASE']
         self.PATH_FOR_SAVE_DIR = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'], 'prisma')
-        self.PATH_FOR_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
+        self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
+        self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_PRISMA.joinpath('schema.prisma')
 
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
@@ -73,25 +74,32 @@ class PrismaManager:
         }.get(self.BRANCH, str(self.BRANCH).upper())
         return self.CONFIG_DB[db_name]
 
-    @staticmethod
-    def migrate(option: MigrateType):
 
-        if option == MigrateType.CREATE_ONLY:
-            pass
+    def migrate(self, option: MigrateType, migrate_id: str):
+        self.init_prisma()
+        try:
+            # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
+            schema = ''
+            with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
+                schema = f.read()
 
-        elif option == MigrateType.FORCE:
-            pass
+            with open(self.PATH_FOR_BASE_SCHEMA, 'w') as f:
+                f.write(schema)
 
-        # print(table_info)
-        # table_name = ''
-        # schema = self._get_default_schema()
-        # for key in table_info.keys():
-        #     table_name = key
-        #     rows = table_info[key]
-        #     schema = schema + self._convet_schema(table_name, rows)
-        # print(schema)
-        # self._save_schema(schema)
-        print("스키마생성")
+            if option == MigrateType.DEV:
+                run([f'prisma migrate dev --name {migrate_id}'], shell=True)
+
+            elif option == MigrateType.CREATE_ONLY:
+                pass
+
+            elif option == MigrateType.FORCE:
+                pass
+
+            logging.error(f'Prisma 마이그레이션 완료: \n{str(option)}')
+
+        except Exception as e:
+            logging.error(f'Prisma 마이그레이션 Error: \n{str(e)}')
+
 
     def save_schema(self, table_info: dict):
         table_name = ''
@@ -102,26 +110,29 @@ class PrismaManager:
             schema = schema + self._convet_schema(table_name, rows)
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
-            with open(self.PATH_FOR_SCHEMA, "w", encoding='utf-8') as f:
+            with open(self.PATH_FOR_SAVE_SCHEMA, "w", encoding='utf-8') as f:
                 f.write(schema)
             logging.info(f'Prisma 스키마 저장 완료: {table_name}')
         except Exception as e:
             logging.error(f'Prisma 스키마 저장 Error: {table_name}\n{str(e)}')
 
-        #
-        # # 파일 경로로 부터 / Sever / file.csv 를 잘라온다.
-        # paths = str(save_path).split('/')
-        # name = paths.pop()
-        # path = paths.pop()
-        # logging.info(f"Json 파일 저장 성공 : {path}/{name}")
+
 
     def _convet_schema(self, table_name: str, rows: list) -> str:
+        """
+        Prisma 디비 포멧으로 변환 :
+        디비필드, 디비타입, 스키마타입
+        ['id', 'long', '@auto'] -> ['id', 'BigInt', '@auto']
+        """
         schema = ''
         try:
             tab = '    '
             schema = schema + f'\nmodel {table_name} ' + '{ \n'
             for row in rows:
-                row = self._convert_sqlserver(row)
+                row[1] = self._convert_datatype(row[1], row[2])
+                row[2] = self._convert_option(row[1], row[2])
+            rows = self._convert_combine(rows)
+            for row in rows:
                 schema = schema + '  ' + tab.join(row)
                 schema = schema + '\n'
             schema = schema + '}\n'
@@ -129,15 +140,6 @@ class PrismaManager:
             logging.error(f'Prisma 스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
 
-    def _convert_sqlserver(self, row: list) -> list:
-        """
-        Prisma 디비 포멧으로 변환 :
-        디비필드, 디비타입, 스키마타입
-        ['id', 'long', '@auto'] -> ['id', 'BigInt', '@auto']
-        """
-        row[1] = self._convert_datatype(row[1], row[2])
-        row[2] = self._convert_option(row[1], row[2])
-        return row
 
     @staticmethod
     def _convert_datatype(col: str, option: str) -> str:
@@ -155,14 +157,38 @@ class PrismaManager:
             res = res + '?'
         return res
 
+
+    @staticmethod
+    def _convert_combine(rows: list) -> list:
+        """
+        아이디가 복수 존재하는 경우:
+        item1 long  @id
+        item2 int  @id
+            -> @@id([season_no, user_no])
+        """
+        filtered = list(filter(lambda v: re.match(r'@id', v[2]), rows))
+        if len(filtered) > 1:
+            columns = list(zip(*filtered))
+            ids = ','.join(columns[0])
+            for row in rows:
+                row[2] = row[2].replace('@id', '')
+            rows.append(['', '', ''])
+            rows.append([f'@@id([{ids}])', '', ''])
+        return rows
+
+
     @staticmethod
     def _convert_option(datatype: str, option: str) -> str:
         """
         Prisma 형식의 디비 포멧으로 변환
-        @auto -> '@id  @default(autoincrement())'
+        @auto -> @id  @default(autoincrement())
         @null -> ''
         @size(5) -> db.NVarChar(5)
         @ref(xxx.xx) -> ''
+        아이디가 복수 존재하는 경우:
+        item1 @id
+        item2 @id
+            -> @@id([season_no, user_no])
         """
         res = option
         res = re.sub(r'\(\'(\W+)\'\)', r'("\1")', res)
@@ -173,6 +199,7 @@ class PrismaManager:
         res = re.sub(r'@size\(\d+\)', '', res)
         res = re.sub(r'@ref\(\D+\)', '', res)
         return res
+
 
     @staticmethod
     def _get_default_schema():

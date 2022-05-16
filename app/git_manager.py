@@ -197,3 +197,6 @@ class GitManager:
             if self.COMPILE_JSON.match(value):
                 res.append(value)
         return res
+
+    def get_last_commit(self):
+        return self._repo.git.rev_parse(self._repo.head, short=True)

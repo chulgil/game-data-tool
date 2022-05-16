@@ -17,20 +17,18 @@ class DBManager:
             config = yaml.safe_load(f)
         self.DBLIST = config['DATABASE']
 
-
-    async def init_info_tbs(self, json_map: dict):
+    async def insert_all_table(self, json_map: dict):
         db = Prisma()
         await db.connect()
         # Json파일 가져오기
         for json_key, json_data in json_map.items():
             try:
-                await self.create_info_tb(db, json_key, json_data)
+                await self.insert_table(db, json_key, json_data)
             except Exception as e:
                 logging.info(self.BRANCH + f'서버 테이블 데이터 {json_key} Error :\r\n {str(e)}')
         await db.disconnect()
 
-
-    async def create_info_tb(self, db: Prisma, table_name: str, json_data: list):
+    async def insert_table(self, db: Prisma, table_name: str, json_data: list):
         try:
             table = getattr(db, table_name)
             await table.delete_many()
@@ -40,7 +38,6 @@ class DBManager:
             logging.info(f'{self.BRANCH} 서버 테이블 데이터 INSERT 성공 : {table_name}')
         except Exception as e:
             logging.info(f'{self.BRANCH} 서버 테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
-
 
     async def select_info_tb(self, db: Prisma, table_name: str):
         table = getattr(db, table_name)

@@ -3,6 +3,7 @@ import json
 import logging
 import shutil
 from re import match
+from typing import Optional
 
 import yaml
 from dateutil import parser
@@ -16,12 +17,11 @@ import numpy as np
 import pandas
 
 
-
 class DataType(Enum):
-    ALL = auto
-    SERVER = auto
-    CLIENT = auto
-    INFO = auto
+    ALL = auto()
+    SERVER = auto()
+    CLIENT = auto()
+    INFO = auto()
 
     @classmethod
     def value_of(cls, value: str):
@@ -55,6 +55,9 @@ class DataManager:
         self.PATH_FOR_DATA = self.PATH_FOR_JSON.joinpath("data")
         self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
         self.PATH_FOR_CLIENT = self.PATH_FOR_JSON.joinpath("client")
+        self.ROW_FOR_DATA_HEADER = 0
+        self.ROW_FOR_DATA_TYPE = 1
+        self.ROW_FOR_DATA_OPTION = 2
 
     def _set_folder(self):
         # JSON 폴더 초기화
@@ -74,15 +77,17 @@ class DataManager:
     def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
 
         df = self._get_filtered_column(df, targets)
-        if self._is_table_info(df):
+        option_df = self._get_data_option(df)
+
+        if option_df is not None:
             df = self._del_auto_field(df)
             # 적용타입 필드타입 스키마타입 행을 제외한 3행부터 JSON추출
-            data_df = df.iloc[3:]
+            data_df = df.iloc[self.ROW_FOR_DATA_OPTION + 1:]
         else:
             # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
-            data_df = df.iloc[2:]
+            data_df = df.iloc[self.ROW_FOR_DATA_TYPE + 1:]
         # 정의된 DB형식으로 데이터 포멧
-        self._translate_asdb(data_df, df)
+        self._translate_asdb(data_df, df.iloc[1], option_df)
         return data_df
 
     def _del_auto_field(self, df: DataFrame) -> DataFrame:
@@ -96,39 +101,40 @@ class DataManager:
             del df[col]
         return df
 
-    @staticmethod
-    def _get_auto_field(df: DataFrame) -> list:
+    def _get_auto_field(self, df: DataFrame) -> list:
         res = []
         for col in df.columns:
-            if match(r'@auto', df[col][2]):
+            if match(r'@auto', df[col][self.ROW_FOR_DATA_OPTION]):
                 res.append(col)
         return res
 
-    @staticmethod
-    def _is_table_info(df: DataFrame) -> bool:
-        """엑셀 데이터에서 2번째 행에 테이블 정보가 포함되어 있는지 확인한다.
+    def _get_data_option(self, df: DataFrame) -> Optional[DataFrame]:
+        if self._is_data_option_row(df):
+            return df.iloc[self.ROW_FOR_DATA_OPTION]
+        return None
+
+    def _is_data_option_row(self, df: DataFrame) -> bool:
+        """엑셀 데이터에서 2번째 행에 스키마 정보가 포함되어 있는지 확인한다.
             id table_id             table_sub_id    item_rate
             1   long      int                      int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
         try:
-            filtered = list(filter(lambda v: match(r'^@\D+$', v), df.iloc[2].values))
+            filtered = list(filter(lambda v: match(r'^@\D+$', v), df.iloc[self.ROW_FOR_DATA_OPTION].values))
             if len(filtered) > 0:
                 return True
         except Exception as e:
             return False
         return False
 
-    @staticmethod
-    def _get_filtered_column(df: DataFrame, targets: list) -> DataFrame:
+    def _get_filtered_column(self, df: DataFrame, targets: list) -> DataFrame:
 
         # 데이터 프레임 1행 추출
-        mask_df = df.iloc[0]
+        mask_df = df.iloc[self.ROW_FOR_DATA_HEADER]
 
         # 필터링할 컬럼값을 추출
         filtered = mask_df[mask_df.isin(targets)].keys()
         return df[filtered]
-
 
     @staticmethod
     def _save_json(df: DataFrame, save_path: Path, file_name: str):
@@ -162,26 +168,57 @@ class DataManager:
     # --------------------------------------------------------------
     # Ref :
     # https://pandas.pydata.org/docs/reference/api/
-    def _translate_asdb(self, data_df: DataFrame, filter_df: DataFrame):
-
+    def _translate_asdb(self, data_df: DataFrame, header_df: DataFrame, option_df: DataFrame):
         for col in data_df.columns:
             for i in data_df.index:
-                field_type = filter_df.loc[1][col]
-                field_value = filter_df.loc[i][col]
-                data_df.loc[i][col] = self._value_astype(field_type, field_value)
+                field_type = header_df[col]
+                field_value = data_df[col][i]
+                schema_type = ''
+                if option_df is not None:
+                    schema_type = option_df[col]
+                data_df.loc[i][col] = self._value_astype(field_type, field_value, schema_type)
 
-    def _value_astype(self, column_type: str, column_value: str):
+    def _value_astype(self, column_type: str, column_value: str, schema_type: str):
+        """
+        엑셀에서 정의한 값을 타입별 기본 값으로 변환
+        @param column_type: 엑셀에서 정의한 데이터 타입
+        @param column_value: 엑셀에서 정의한 데이터 값
+        @return: 변환된 문자열
+        ref :
+        https://blog.finxter.com/how-to-convert-a-string-to-a-double-in-python/
+        """
         try:
+            column_type = column_type.lower()
+            if column_value == '':
+                default = match(r'@default\(?(\S+)\)', schema_type)
+                if default:
+                    column_value = default.group(1)
+                    column_value = column_value.replace('\'', '')
+                    column_value = column_value.replace('"', '')
+
             if self._is_null_numeral(column_type, column_value):
-                return 0
+                if not match(r'@null', schema_type):  # not null type
+                    if column_value == '':
+                        raise Exception('Not allowed space')
+
+            if column_value == '':
+                return None
 
             if column_type == "string":
                 return str(column_value)
-            elif column_type == "float":
+            elif column_type == "float" or column_type == "double":
                 return float(column_value)
             elif column_type == "int":
                 return int(column_value)
-            elif column_type == "long":
+            elif column_type == "bool" or column_type == "boolean":
+                v = column_value
+                if v == 0 or v == '0' or v == 'false' or v == 'False' or v is False:
+                    return False
+                elif v == 1 or v == '1' or v == 'true' or v == 'True' or v is True:
+                    return True
+                else:
+                    raise Exception('Please input bool type')
+            elif column_type == "long" or column_type == "bicint":
                 return int(column_value)
             elif column_type == "datetime":
                 return self.iso8601(column_value)
@@ -192,9 +229,11 @@ class DataManager:
             logging.warning(str(f"Column[{column_value}] {msg}"))
             return msg
 
-    # 숫자 타입이고 값이 null인 경우
     @staticmethod
     def _is_null_numeral(column_type: str, column_value: str) -> bool:
+        """
+        데이터 타입이 숫자 타입이고 값이 null인 경우 True 반환
+        """
         if (column_type == "float" or column_type == "int" or column_type == "long") \
                 and column_value == '':
             return True
@@ -230,13 +269,13 @@ class DataManager:
     def get_all_excelpath(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
 
-    def _get_all_jsonpath(self) -> list:
+    def get_all_jsonpath(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*.json"))
 
     def _get_jsonpath_info(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))
 
-    def get_jsonmap(self, json_list=None):
+    def get_jsonmap(self, json_paths=None):
         """
         서버정보별로 json을 가져온다.
         @return: 딕셔너리 값으로 리턴 { key (테이블명) : value (JsonData) }
@@ -244,12 +283,12 @@ class DataManager:
         res = {}
         json_path = ''
         file_name = ''
-        if json_list is None:
-            json_list = []
+        if json_paths is None:
+            json_paths = []
 
         try:
             if self.DATA_TYPE == DataType.SERVER:
-                for _path in json_list:
+                for _path in json_paths:
                     if not match('(server/)', _path):
                         continue
                     json_path = self.PATH_FOR_ROOT.joinpath(_path)
@@ -260,7 +299,7 @@ class DataManager:
                         res[file_name] = json.load(f)
 
             if self.DATA_TYPE == DataType.ALL:
-                json_path = self._get_all_jsonpath()
+                json_path = self.get_all_jsonpath()
             if self.DATA_TYPE == DataType.INFO:
                 json_path = self._get_jsonpath_info()
 
@@ -278,7 +317,7 @@ class DataManager:
     def delete_json_as_excel(self):
         """Excel리스트에 없는 Json파일 삭제
         """
-        for _json in self._get_all_jsonpath():
+        for _json in self.get_all_jsonpath():
             exist = self.get_excel(_json.stem)
             if len(exist) == 0:
                 _json.unlink(True)
@@ -292,15 +331,15 @@ class DataManager:
         # 첫번째 시트를 JSON 타겟으로 설정
         df = pd.read_excel(_path, sheet_name=0)
         df.replace(to_replace=np.NaN, value='', inplace=True)
-        if not self._is_table_info(df):
+        if not self._is_data_option_row(df):
             logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
             return res
 
         df = self._get_filtered_column(df, ['SERVER', 'INFO'])
-
+        df.drop([0], axis=0, inplace=True)
         table = []
         for col in df.columns:
-            row = [col, df[col].values[0], df[col].values[1]]
+            row = [col, df[col].values[self.ROW_FOR_DATA_HEADER], df[col].values[self.ROW_FOR_DATA_TYPE]]
             table.append(row)
 
         return {_path.stem: table}
