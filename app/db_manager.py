@@ -5,7 +5,6 @@ from pathlib import Path
 
 
 class DBManager:
-    from prisma import Prisma
 
     def __init__(self, branch: str):
         from prisma import Prisma
@@ -24,12 +23,12 @@ class DBManager:
         # Json파일 가져오기
         for json_key, json_data in json_map.items():
             try:
-                await self.insert_table(db, json_key, json_data)
+                await self.insert_table(self.db, json_key, json_data)
             except Exception as e:
                 logging.info(self.BRANCH + f'서버 테이블 데이터 {json_key} Error :\r\n {str(e)}')
         await self.db.disconnect()
 
-    async def insert_table(self, db: Prisma, table_name: str, json_data: list):
+    async def insert_table(self, db, table_name: str, json_data: list):
         try:
             table = getattr(db, table_name)
             await table.delete_many()
@@ -40,7 +39,7 @@ class DBManager:
         except Exception as e:
             logging.info(f'{self.BRANCH} 서버 테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
 
-    async def select_info_tb(self, db: Prisma, table_name: str):
+    async def select_info_tb(self, db, table_name: str):
         table = getattr(db, table_name)
         data = await table.find_many()
         logging.info(f'{self.BRANCH} 서버 테이블 데이터 SELECT 성공 : ' + table_name)
