@@ -4,7 +4,7 @@ from enum import Enum, auto
 from pathlib import Path
 
 import yaml
-from subprocess import run
+from subprocess import run, CalledProcessError, check_output, STDOUT, PIPE
 import re
 
 
@@ -74,7 +74,6 @@ class PrismaManager:
         }.get(self.BRANCH, str(self.BRANCH).upper())
         return self.CONFIG_DB[db_name]
 
-
     def migrate(self, option: MigrateType, migrate_id: str):
         self.init_prisma()
         try:
@@ -87,19 +86,23 @@ class PrismaManager:
                 f.write(schema)
 
             if option == MigrateType.DEV:
-                run([f'prisma migrate dev --name {migrate_id}'], shell=True)
+                run([f'prisma migrate dev --name {migrate_id}'], shell=True, check=True, stdout=PIPE,
+                    stderr=STDOUT)
 
             elif option == MigrateType.CREATE_ONLY:
-                pass
+                run([f'prisma migrate dev --create-only'], shell=True, check=True, stdout=PIPE,
+                    stderr=STDOUT)
 
             elif option == MigrateType.FORCE:
-                pass
+                run([f'prisma db push --accept-data-loss --preview-feature'], shell=True, check=True, stdout=PIPE,
+                    stderr=STDOUT)
 
-            logging.error(f'Prisma 마이그레이션 완료: \n{str(option)}')
+            logging.error(f'Prisma 마이그레이션 완료: {str(option)}')
 
+        except CalledProcessError as e:
+            logging.error(f'Prisma 마이그레이션 Error: \n{str(e.output)}')
         except Exception as e:
             logging.error(f'Prisma 마이그레이션 Error: \n{str(e)}')
-
 
     def save_schema(self, table_info: dict):
         table_name = ''
@@ -115,8 +118,6 @@ class PrismaManager:
             logging.info(f'Prisma 스키마 저장 완료: {table_name}')
         except Exception as e:
             logging.error(f'Prisma 스키마 저장 Error: {table_name}\n{str(e)}')
-
-
 
     def _convet_schema(self, table_name: str, rows: list) -> str:
         """
@@ -140,7 +141,6 @@ class PrismaManager:
             logging.error(f'Prisma 스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
 
-
     @staticmethod
     def _convert_datatype(col: str, option: str) -> str:
         res = col.lower()
@@ -156,7 +156,6 @@ class PrismaManager:
         if match(r'@null', option):
             res = res + '?'
         return res
-
 
     @staticmethod
     def _convert_combine(rows: list) -> list:
@@ -175,7 +174,6 @@ class PrismaManager:
             rows.append(['', '', ''])
             rows.append([f'@@id([{ids}])', '', ''])
         return rows
-
 
     @staticmethod
     def _convert_option(datatype: str, option: str) -> str:
@@ -199,7 +197,6 @@ class PrismaManager:
         res = re.sub(r'@size\(\d+\)', '', res)
         res = re.sub(r'@ref\(\D+\)', '', res)
         return res
-
 
     @staticmethod
     def _get_default_schema():

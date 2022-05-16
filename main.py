@@ -1,10 +1,7 @@
 import asyncio
 import logging
 
-from app.prisma_manager import PrismaManager, MigrateType
-from app.data_manager import DataManager, DataType
-from app.git_manager import GitManager
-from app.db_manager import DBManager
+from app import PrismaManager, GitManager, DBManager, MigrateType, DataType, DataManager
 
 
 async def sync_prisma(branch: str):
@@ -31,7 +28,7 @@ async def update_table(branch: str, data_type: DataType):
     await manager.insert_all_table(json_map)
 
 
-def all_excel_to_json(branch: str):
+def excel_to_json_all(branch: str):
     """전체 Excel을 추출후 Json변환
         """
     logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [브랜치 : {branch}]")
@@ -57,7 +54,7 @@ def excel_to_json(modified_list: list, data_type: str):
     data_manager.excel_to_json(modified_list)
 
 
-def all_excel_to_schema(branch: str):
+def excel_to_schema_all(branch: str):
     """
     전체 Excel추출후 아래 데이터 타입만 Prisma 스키마변환
     data_type: 기획데이터:server Info데이터:info
@@ -97,10 +94,10 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     if len(modified_list) == 0:
         return
     excel_to_json(modified_list, data_type)
-    all_excel_to_schema(branch)
+    excel_to_schema_all(branch)
 
 
-def all_excel_to_data(branch: str):
+def excel_to_data_all(branch: str):
     """
     전체 Excel추출후 json, prisma schema파일 저장
     @param branch: Git브랜치
@@ -112,10 +109,10 @@ def all_excel_to_data(branch: str):
     if not git_manager.checkout(branch):
         return
 
-    all_excel_to_json(branch)
+    excel_to_json_all(branch)
 
     # 프리즈마 스키마 초기화 및 저장
-    all_excel_to_schema(branch)
+    excel_to_schema_all(branch)
 
     # 수정된 파일이 있다면
     if git_manager.is_modified():
@@ -138,7 +135,7 @@ async def migrate(branch: str):
 
     commit = git_manager.get_last_commit()
     prisma = PrismaManager(branch)
-    prisma.migrate(MigrateType.DEV, commit)
+    prisma.migrate(MigrateType.FORCE, commit)
 
     data_manager = DataManager(DataType.ALL)
     json_map = data_manager.get_jsonmap()
@@ -160,4 +157,4 @@ if __name__ == '__main__':
     # all_excel_to_schema('local')
     # all_excel_to_data('local')
     # asyncio.run(db_migration('local'))
-    asyncio.run(migrate('local'))
+    # asyncio.run(migrate('local'))

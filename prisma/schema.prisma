@@ -37,3 +37,38 @@ model sub_table_info {
   reg_dt    DateTime    
   status    String    @db.NVarChar(1)
 }
+
+model server_info { 
+  auto_increment    BigInt    @id  @default(autoincrement())
+  is_maintenance    Boolean    @default(false)
+  maintenance_body    String    @db.NVarChar(1000)
+  maintenance_url    String    @db.NVarChar(80)
+  server_type    Int    
+  game_server_ip    String    @db.NVarChar(80)
+  game_server_port    Int    
+  chat_server_ip    String    @db.NVarChar(80)
+  chat_server_port    Int    
+  reg_dt    DateTime    
+  status    String    @db.NVarChar(1)
+}
+
+model version_check_info { 
+  version_check_info_key    BigInt    @id  @default(autoincrement())
+  market_type    Int    
+  client_ver    String    @db.NVarChar(10)
+  is_update_require    Boolean    @default(false)
+  server_type    Int    
+  res_ver    String    @db.NVarChar(10)
+  res_url    String    @db.NVarChar(80)
+  apply_dt    DateTime    
+  reg_dt    DateTime    
+  status    String    @db.NVarChar(1)
+}
+
+model notice_info { 
+  notice_info_key    BigInt    @id  @default(autoincrement())
+  notice_body    String    
+  notice_url    String    @db.NVarChar(80)
+  reg_dt    DateTime    
+  status    String    @db.NVarChar(1)
+}
