@@ -96,6 +96,11 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     excel_to_json(modified_list, data_type)
     excel_to_schema_all(branch)
 
+    # 수정된 파일이 있다면
+    if git_manager.is_modified():
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        git_manager.push()
+
 
 def excel_to_data_all(branch: str):
     """
