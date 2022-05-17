@@ -8,99 +8,99 @@ datasource db {
   provider = "sqlserver"
   url      = env("DATABASE_URL")
 }
-       
-model table_info { 
+
+model table_info {
   id    BigInt      @default(autoincrement())
-  table_id    Int    
-  table_sub_id    Int    
+  table_id    Int
+  table_sub_id    Int
   item_rate    Float    @default(1.1)
-  null_test    Int?    
-  not_null_test    Int    
+  null_test    Int?
+  not_null_test    Int
   bool_test    Boolean    @default(false)
   bool_test2    Boolean    @default(true)
   bool_test3    Boolean    @default(false)
-  notice_body    String?     
+  notice_body    String?
   notice_url    String    @default("test")
-  reg_dt    DateTime    
+  reg_dt    DateTime
   status    String    @db.NVarChar(1)
-          
-  @@id([id,table_id])        
+
+  @@id([id,table_id])
 }
 
-model sub_table_info { 
+model sub_table_info {
   id    BigInt    @id
   sub_title    String    @default("-") @db.NVarChar(10)
-  port    Int    
+  port    Int
   item_rate    Float    @default(0)
-  notice_body    String?     
+  notice_body    String?
   notice_url    Boolean    @default(true)
-  reg_dt    DateTime    
+  reg_dt    DateTime
   status    String    @db.NVarChar(1)
 }
 
-model actor_data { 
+model actor_data {
   actor_id    Int    @id
   name    String    @db.NVarChar(50)
-  species_type    Int    
-  default_weapon    Int    
-  default_armor    Int    
-  default_accessory    Int    
-  ability_id_1    Int    
-  ability_id_2    Int    
-  ability_id_3    Int    
-  grade    Int    
-  level    Int    
-  exp_name    String    
-  level_pattern_group_id    Int    
-  awakening_group_id    Int    
-  hp    Int    
-  attack_damage    Int    
-  defense    Int    
-  food_cost    Int    
+  species_type    Int
+  default_weapon    Int
+  default_armor    Int
+  default_accessory    Int
+  ability_id_1    Int
+  ability_id_2    Int
+  ability_id_3    Int
+  grade    Int
+  level    Int
+  exp_name    String
+  level_pattern_group_id    Int
+  awakening_group_id    Int
+  hp    Int
+  attack_damage    Int
+  defense    Int
+  food_cost    Int
   status    String    @db.NVarChar(1)
-  militia_cost    Int    
-  actor_job_type    Int    
-  attack_target_type    Int    
-  attack_first_target_type    Int    
-  attack_attribute_type    Int    
-  defense_attribute_type    Int    
-  piercing_count    Int    
-  hit_count    Int    
-  level_data_id    Int    
-  piece_item_data_id    Int    
+  militia_cost    Int
+  actor_job_type    Int
+  attack_target_type    Int
+  attack_first_target_type    Int
+  attack_attribute_type    Int
+  defense_attribute_type    Int
+  piercing_count    Int
+  hit_count    Int
+  level_data_id    Int
+  piece_item_data_id    Int
 }
 
-model server_info { 
+model server_info {
   auto_increment    BigInt    @id  @default(autoincrement())
   is_maintenance    Boolean    @default(false)
   maintenance_body    String    @db.NVarChar(1000)
   maintenance_url    String    @db.NVarChar(80)
-  server_type    Int    
+  server_type    Int
   game_server_ip    String    @db.NVarChar(80)
-  game_server_port    Int    
+  game_server_port    Int
   chat_server_ip    String    @db.NVarChar(80)
-  chat_server_port    Int    
-  reg_dt    DateTime    
+  chat_server_port    Int
+  reg_dt    DateTime
   status    String    @db.NVarChar(1)
 }
 
-model version_check_info { 
+model version_check_info {
   version_check_info_key    BigInt    @id  @default(autoincrement())
-  market_type    Int    
+  market_type    Int
   client_ver    String    @db.NVarChar(10)
   is_update_require    Boolean    @default(false)
-  server_type    Int    
+  server_type    Int
   res_ver    String    @db.NVarChar(10)
   res_url    String    @db.NVarChar(80)
-  apply_dt    DateTime    
-  reg_dt    DateTime    
+  apply_dt    DateTime
+  reg_dt    DateTime
   status    String    @db.NVarChar(1)
 }
 
-model notice_info { 
+model notice_info {
   notice_info_key    BigInt    @id  @default(autoincrement())
-  notice_body    String    
+  notice_body    String
   notice_url    String    @db.NVarChar(80)
-  reg_dt    DateTime    
+  reg_dt    DateTime
   status    String    @db.NVarChar(1)
 }
