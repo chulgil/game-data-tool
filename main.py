@@ -34,7 +34,7 @@ def excel_to_json_all(branch: str):
     logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [브랜치 : {branch}]")
     # 전체 Excel로드후 Json변환
     data_manager = DataManager(DataType.ALL)
-    data_manager.excel_to_json(data_manager.get_all_excelpath())
+    data_manager.excel_to_json(data_manager.get_excelpath_all())
     data_manager.delete_json_as_excel()
 
 
@@ -65,7 +65,7 @@ def excel_to_schema_all(branch: str):
     p_manager = PrismaManager(branch)
     data_manager = DataManager(DataType.ALL)
     table_info = {}
-    for _path in data_manager.get_all_excelpath():
+    for _path in data_manager.get_excelpath_all():
         table_info.update(data_manager.get_table_info(_path))
     p_manager.save_schema(table_info)
 
@@ -137,10 +137,11 @@ async def migrate(branch: str):
     prisma = PrismaManager(branch)
     prisma.migrate(MigrateType.FORCE, commit)
 
-    data_manager = DataManager(DataType.ALL)
-    json_map = data_manager.get_jsonmap()
+    server_data = DataManager(DataType.SERVER)
+    info_data = DataManager(DataType.INFO)
     db_manager = DBManager(branch)
-    await db_manager.insert_all_table(json_map)
+    await db_manager.insert_all_table(server_data.get_jsonmap())
+    await db_manager.insert_all_table(info_data.get_jsonmap())
 
 
 if __name__ == '__main__':
@@ -155,6 +156,6 @@ if __name__ == '__main__':
 
     # For test
     # excel_to_schema_all('local')
-    excel_to_data_all('local')
+    # excel_to_data_all('local')
     # asyncio.run(db_migration('local'))
     # asyncio.run(migrate('local'))

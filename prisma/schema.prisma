@@ -38,6 +38,38 @@ model sub_table_info {
   status    String    @db.NVarChar(1)
 }
 
+model actor_data { 
+  actor_id    Int    @id
+  name    String    @db.NVarChar(50)
+  species_type    Int    
+  default_weapon    Int    
+  default_armor    Int    
+  default_accessory    Int    
+  ability_id_1    Int    
+  ability_id_2    Int    
+  ability_id_3    Int    
+  grade    Int    
+  level    Int    
+  exp_name    String    
+  level_pattern_group_id    Int    
+  awakening_group_id    Int    
+  hp    Int    
+  attack_damage    Int    
+  defense    Int    
+  food_cost    Int    
+  status    String    @db.NVarChar(1)
+  militia_cost    Int    
+  actor_job_type    Int    
+  attack_target_type    Int    
+  attack_first_target_type    Int    
+  attack_attribute_type    Int    
+  defense_attribute_type    Int    
+  piercing_count    Int    
+  hit_count    Int    
+  level_data_id    Int    
+  piece_item_data_id    Int    
+}
+
 model server_info { 
   auto_increment    BigInt    @id  @default(autoincrement())
   is_maintenance    Boolean    @default(false)

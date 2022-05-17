@@ -274,14 +274,17 @@ class DataManager:
             except Exception:
                 logging.exception(excel)
 
-    def get_all_excelpath(self) -> list:
+    def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
 
-    def get_all_jsonpath(self) -> list:
+    def get_jsonpath_all(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*.json"))
 
     def _get_jsonpath_info(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))
+
+    def _get_jsonpath_server(self) -> list:
+        return list(Path(self.PATH_FOR_JSON).rglob(r"*data/*.json"))
 
     def get_jsonmap(self, json_paths=None):
         """
@@ -293,21 +296,11 @@ class DataManager:
         file_name = ''
         if json_paths is None:
             json_paths = []
-
         try:
             if self.DATA_TYPE == DataType.SERVER:
-                for _path in json_paths:
-                    if not match('(server/)', _path):
-                        continue
-                    json_path = self.PATH_FOR_ROOT.joinpath(_path)
-                    file_name = json_path.stem
-                    if not json_path.exists():
-                        continue
-                    with open(json_path, 'r') as f:
-                        res[file_name] = json.load(f)
-
+                json_path = self._get_jsonpath_server()
             if self.DATA_TYPE == DataType.ALL:
-                json_path = self.get_all_jsonpath()
+                json_path = self.get_jsonpath_all()
             if self.DATA_TYPE == DataType.INFO:
                 json_path = self._get_jsonpath_info()
 
@@ -325,7 +318,7 @@ class DataManager:
     def delete_json_as_excel(self):
         """Excel리스트에 없는 Json파일 삭제
         """
-        for _json in self.get_all_jsonpath():
+        for _json in self.get_jsonpath_all():
             exist = self.get_excel(_json.stem)
             if len(exist) == 0:
                 _json.unlink(True)
