@@ -44,6 +44,3 @@ class DBManager:
         data = await table.find_many()
         logging.info(f'{self.BRANCH} 서버 테이블 데이터 SELECT 성공 : ' + table_name)
         return data
-
-    def init_info_db(self):
-        asyncio.run(self.init_info_tbs())

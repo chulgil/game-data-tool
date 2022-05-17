@@ -113,6 +113,14 @@ class DataManager:
             return df.iloc[self.ROW_FOR_DATA_OPTION]
         return None
 
+    def get_invalid_option_row(self, df: DataFrame) -> dict:
+        res = {}
+        for col in df.columns:
+            value = df[col][self.ROW_FOR_DATA_OPTION]
+            if match(r'^\w+', value):
+                res[col] = value
+        return res
+
     def _is_data_option_row(self, df: DataFrame) -> bool:
         """엑셀 데이터에서 2번째 행에 스키마 정보가 포함되어 있는지 확인한다.
             id table_id             table_sub_id    item_rate
@@ -331,11 +339,17 @@ class DataManager:
         # 첫번째 시트를 JSON 타겟으로 설정
         df = pd.read_excel(_path, sheet_name=0)
         df.replace(to_replace=np.NaN, value='', inplace=True)
+
+        invalid_option = self.get_invalid_option_row(df)
+        if len(invalid_option.values()) > 0:
+            logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n{_path} \n{invalid_option}")
+            return res
+
         if not self._is_data_option_row(df):
             logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
             return res
 
-        df = self._get_filtered_column(df, ['SERVER', 'INFO'])
+        df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
         df.drop([0], axis=0, inplace=True)
         table = []
         for col in df.columns:

@@ -154,7 +154,7 @@ if __name__ == '__main__':
         filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
 
     # For test
-    # all_excel_to_schema('local')
-    # all_excel_to_data('local')
+    # excel_to_schema_all('local')
+    excel_to_data_all('local')
     # asyncio.run(db_migration('local'))
     # asyncio.run(migrate('local'))
