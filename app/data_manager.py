@@ -315,6 +315,13 @@ class DataManager:
     def get_excel(self, name: str) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(f"{name}.xls*"))
 
+    def delete_json_all(self):
+        if self.DATA_TYPE is not DataType.ALL:
+            return
+        if Path(self.PATH_FOR_JSON).is_dir():
+            shutil.rmtree(self.PATH_FOR_JSON)
+        self._set_folder()
+
     def delete_json_as_excel(self):
         """Excel리스트에 없는 Json파일 삭제
         """

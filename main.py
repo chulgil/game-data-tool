@@ -1,7 +1,15 @@
 import asyncio
 import logging
 
-from app import PrismaManager, GitManager, DBManager, MigrateType, DataType, DataManager
+if __name__ == '__main__' or __name__ == "decimal":
+    from app import *
+
+    logger = logging.getLogger()
+    logging.basicConfig(
+        format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
+        filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
+else:
+    from app.libs.excel_to_db.app import *
 
 
 async def sync_prisma(branch: str):
@@ -32,10 +40,11 @@ def excel_to_json_all(branch: str):
     """전체 Excel을 추출후 Json변환
         """
     logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [브랜치 : {branch}]")
+
     # 전체 Excel로드후 Json변환
     data_manager = DataManager(DataType.ALL)
+    data_manager.delete_json_all()
     data_manager.excel_to_json(data_manager.get_excelpath_all())
-    data_manager.delete_json_as_excel()
 
 
 def excel_to_json(modified_list: list, data_type: str):
@@ -48,7 +57,6 @@ def excel_to_json(modified_list: list, data_type: str):
     logging.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
 
     data_manager = DataManager(DataType.value_of(data_type))
-    data_manager.delete_json_as_excel()
 
     # Excel로드후 Json변환
     data_manager.excel_to_json(modified_list)
@@ -149,18 +157,9 @@ async def migrate(branch: str):
     await db_manager.insert_all_table(info_data.get_jsonmap())
 
 
-if __name__ == '__main__':
-    # main : 기획자 브랜치
-    # dev : 개발 브랜치
-    # qa & qa2 & qa3 : QA 브랜치
-    # local : 로컬 브랜치
-    logger = logging.getLogger()
-    logging.basicConfig(
-        format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-        filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
-
+if __name__ == '__main__' or __name__ == "decimal":
     # For test
     # excel_to_schema_all('local')
     # excel_to_data_all('local')
     # asyncio.run(db_migration('local'))
-    # asyncio.run(migrate('local'))
+    asyncio.run(migrate('local'))
