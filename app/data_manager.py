@@ -104,7 +104,7 @@ class DataManager:
     def _get_auto_field(self, df: DataFrame) -> list:
         res = []
         for col in df.columns:
-            if match(r'@auto', df[col][self.ROW_FOR_DATA_OPTION]):
+            if match(r'@auto', str(df[col][self.ROW_FOR_DATA_OPTION])):
                 res.append(col)
         return res
 
@@ -117,7 +117,9 @@ class DataManager:
         res = {}
         for col in df.columns:
             value = df[col][self.ROW_FOR_DATA_OPTION]
-            if match(r'^\w+', value):
+            if match(r'^\w+', str(value)):
+                res[col] = value
+            if match(r'^\d+', str(value)):
                 res[col] = value
         return res
 
@@ -128,7 +130,7 @@ class DataManager:
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
         try:
-            filtered = list(filter(lambda v: match(r'^@\D+$', v), df.iloc[self.ROW_FOR_DATA_OPTION].values))
+            filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), df.iloc[self.ROW_FOR_DATA_OPTION].values))
             if len(filtered) > 0:
                 return True
         except Exception as e:

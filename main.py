@@ -160,6 +160,7 @@ async def migrate(branch: str):
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
     # excel_to_schema_all('local')
-    # excel_to_data_all('local')
+    # excel_to_schema_all('local')
     # asyncio.run(db_migration('local'))
-    asyncio.run(migrate('local'))
+    # asyncio.run(migrate('local'))
+    pass
