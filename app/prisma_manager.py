@@ -40,6 +40,7 @@ class PrismaManager:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
             res = run(['prisma db pull'], shell=True)
+            res = run(['prisma generate'], shell=True)
             if not res.stderr:
                 logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
                 return True
