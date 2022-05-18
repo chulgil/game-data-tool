@@ -94,7 +94,7 @@ class PrismaManager:
                     stderr=STDOUT)
 
             elif option == MigrateType.FORCE:
-                run([f'prisma db push --accept-data-loss --preview-feature'], shell=True, check=True, stdout=PIPE,
+                run([f'prisma db push --accept-data-loss'], shell=True, check=True, stdout=PIPE,
                     stderr=STDOUT)
 
             logging.error(f'Prisma 마이그레이션 완료: {str(option)}')
