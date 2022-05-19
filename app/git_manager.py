@@ -105,9 +105,11 @@ class GitManager:
             # 레퍼런스에서 마지막 문자열(브랜치명) 추출 ex) "ref": "refs/heads/main"
             branch = webhook["ref"].split("/").pop()
 
+            _info = f'[{branch} 브랜치]'
+
             # 변경사항이 없다면 무시
             if not compare_url:
-                msg = f"[EXCEL변환요청:{username}] {branch} 브랜치에 변경사항이 없어 종료합니다."
+                msg = f"[EXCEL변환요청:{username}] {_info} 변경사항이 없어 종료합니다."
                 self.teams.text(msg)
                 self.teams.send()
                 logging.info(msg)
@@ -115,13 +117,13 @@ class GitManager:
 
             # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
             if self._is_bot_user(username):
-                msg = f"[{branch}] 브랜치 변경 히스토리 URL : {compare_url}"
+                msg = f"{_info} 변경 히스토리 URL : {compare_url}"
                 self.teams.text(msg)
                 self.teams.send()
                 logging.info(msg)
                 return ''
 
-            msg = f"[EXCEL변환요청:{username}] {branch} 브랜치에 변경사항을 적용합니다. 잠시만 기다려주세요..."
+            msg = f"[EXCEL변환요청:{username}] {_info} 변경사항을 적용합니다. 잠시만 기다려주세요..."
             self.teams.text(msg)
             self.teams.send()
             logging.info(msg)
