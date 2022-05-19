@@ -35,11 +35,12 @@ class DataType(Enum):
 
 
 class DataManager:
-    _error_msg = []
 
     def __init__(self, branch: str, data_type: DataType):
         self.BRANCH = branch
         self.DATA_TYPE = data_type
+        self._error_msg = []
+        self._info = f'[{branch} 브랜치]'
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         # Config 파일 설정
@@ -56,7 +57,7 @@ class DataManager:
         self.PATH_FOR_EXCEL = self.PATH_FOR_ROOT.joinpath(config['EXCEL']['EXCEL_DIR'])
         self.ERROR_FOR_EXCEL = config['EXCEL']['ERROR_TEXT']
         self.PATH_FOR_JSON = self.PATH_FOR_ROOT.joinpath("json")
-        self.PATH_FOR_DATA = self.PATH_FOR_JSON.joinpath("data")
+        self.PATH_FOR_DATA = self.PATH_FOR_JSON.joinpath("server")
         self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
         self.PATH_FOR_CLIENT = self.PATH_FOR_JSON.joinpath("client")
         self.ROW_FOR_DATA_HEADER = 0
@@ -163,6 +164,7 @@ class DataManager:
         json_list = json.loads(json_data)
 
         # 지정한 경로로 Json파일 저장
+        _server_type = save_path.stem
         save_path = save_path.joinpath(file_name + ".json")
         with open(save_path, "w", encoding='utf-8') as f:
             json.dump(json_list, f, ensure_ascii=False, indent=4, separators=(',', ': '))
@@ -171,10 +173,10 @@ class DataManager:
         paths = str(save_path).split('/')
         name = paths.pop()
         path = paths.pop()
-        logging.info(f"[{self.BRANCH} 브랜치] Json 파일 저장 성공 : {path}/{name}")
+        logging.info(f"{self._info} [{_server_type}] Json 파일 저장 성공 : {path}/{name}")
 
         if len(self._error_msg) > 0:
-            msg = f'[{self.BRANCH} 브랜치] Excel파일에 미검증 데이터 존재 [{file_name}] \n\n'
+            msg = f'{self._info} [{_server_type}] Excel파일에 미검증 데이터 존재 [{file_name}] \n\n'
             msg = msg + '\n\n'.join(self._error_msg)
             logging.warning(msg)
             self.teams.text(msg).send()
@@ -315,7 +317,7 @@ class DataManager:
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
             except Exception as e:
-                msg = f'[{self.BRANCH} 브랜치] Excel to Json Error: \n{str(e)}'
+                msg = f'{self._info} Excel to Json Error: \n{str(e)}'
                 logging.exception(msg)
 
     def get_excelpath_all(self) -> list:
