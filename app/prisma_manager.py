@@ -135,8 +135,9 @@ class PrismaManager:
             if len(rows) < 1:
                 return ''
             for row in rows:
-                row[1] = self._convert_datatype(row[1], row[2])
+                # 순서 주의 : 컨버팅 되지 않은 타입값으로 디비 스키마 값 변경
                 row[2] = self._convert_option(row[1], row[2])
+                row[1] = self._convert_datatype(row[1], row[2])
             rows = self._convert_combine(rows)
             for row in rows:
                 schema = schema + '  ' + tab.join(row)
@@ -155,6 +156,8 @@ class PrismaManager:
             res = 'DateTime'
         elif res == 'bool':
             res = 'Boolean'
+        elif res == 'short' or res == 'byte':
+            res = 'Int'
         else:
             res = col.title()
         from re import match
@@ -193,10 +196,18 @@ class PrismaManager:
         item2 @id
             -> @@id([season_no, user_no])
         """
+        dt = datatype.lower()
         res = option
         res = re.sub(r'\(\'(\W+)\'\)', r'("\1")', res)
-        if datatype == 'String':
+        print(dt)
+        if dt == 'string':
             res = re.sub(r'@size\((\d+)\)', r'@db.NVarChar(\1)', res)
+        if dt == 'short':
+            res = res.replace('@db.SmallInt', '')
+            res = res + ' @db.SmallInt'
+        if dt == 'byte':
+            res = res.replace('@db.TinyInt', '')
+            res = res + ' @db.TinyInt'
         res = res.replace('@auto', '@id  @default(autoincrement())')
         res = res.replace('@null', '')
         res = re.sub(r'@size\(\d+\)', '', res)

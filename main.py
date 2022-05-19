@@ -23,16 +23,16 @@ async def update_table(branch: str, data_type: DataType):
     p_manager = PrismaManager(branch)
 
     # Git 초기화 및 다운로드
-    git_manager = GitManager()
+    g_manager = GitManager()
 
     # 체크아웃 성공시에만 진행
-    if not git_manager.checkout(branch):
+    if not g_manager.checkout(branch):
         return
 
     # 변환된 Json파일을 디비로 저장
     manager = DBManager(branch)
-    data_manager = DataManager(data_type)
-    json_map = data_manager.get_jsonmap()
+    d_manager = DataManager(data_type)
+    json_map = d_manager.get_jsonmap()
     await manager.insert_all_table(json_map)
 
 
@@ -42,9 +42,9 @@ def excel_to_json_all(branch: str):
     logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [브랜치 : {branch}]")
 
     # 전체 Excel로드후 Json변환
-    data_manager = DataManager(DataType.ALL)
-    data_manager.delete_json_all()
-    data_manager.excel_to_json(data_manager.get_excelpath_all())
+    d_manager = DataManager(DataType.ALL)
+    d_manager.delete_json_all()
+    d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
 def excel_to_json(modified_list: list, data_type: str):
@@ -56,10 +56,10 @@ def excel_to_json(modified_list: list, data_type: str):
     """
     logging.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
 
-    data_manager = DataManager(DataType.value_of(data_type))
+    d_manager = DataManager(DataType.value_of(data_type))
 
     # Excel로드후 Json변환
-    data_manager.excel_to_json(modified_list)
+    d_manager.excel_to_json(modified_list)
 
 
 def excel_to_schema_all(branch: str):
@@ -71,16 +71,16 @@ def excel_to_schema_all(branch: str):
     logging.info(f"전체 Excel로드후 Prisma변환을 진행합니다. [브랜치 : {branch}]")
     # 프리즈마 초기화
     p_manager = PrismaManager(branch)
-    data_manager = DataManager(DataType.ALL)
+    d_manager = DataManager(DataType.ALL)
     table_info = {}
-    for _path in data_manager.get_excelpath_all():
-        table_info.update(data_manager.get_table_info(_path))
+    for _path in d_manager.get_excelpath_all():
+        table_info.update(d_manager.get_table_info(_path))
     p_manager.save_schema(table_info)
 
 
 def get_branch_from_webhook(webhook: dict) -> str:
-    git_manager = GitManager()
-    return git_manager.get_branch_from_webhook(webhook)
+    g_manager = GitManager()
+    return g_manager.get_branch_from_webhook(webhook)
 
 
 def excel_to_data(branch: str, data_type: str, git_head_back=1):
@@ -92,22 +92,22 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     @return:
     """
     # Git 초기화 및 다운로드
-    git_manager = GitManager()
+    g_manager = GitManager()
 
     # # 체크아웃 성공시에만 진행
-    if not git_manager.checkout(branch):
+    if not g_manager.checkout(branch):
         return
 
-    modified_list = git_manager.get_modified_excel(git_head_back)
+    modified_list = g_manager.get_modified_excel(git_head_back)
     if len(modified_list) == 0:
         return
     excel_to_json(modified_list, data_type)
     excel_to_schema_all(branch)
 
     # 수정된 파일이 있다면
-    if git_manager.is_modified():
+    if g_manager.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
-        git_manager.push()
+        g_manager.push()
 
 
 def excel_to_data_all(branch: str):
@@ -116,10 +116,10 @@ def excel_to_data_all(branch: str):
     @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
-    git_manager = GitManager()
+    g_manager = GitManager()
 
     # # 체크아웃 성공시에만 진행
-    if not git_manager.checkout(branch):
+    if not g_manager.checkout(branch):
         return
 
     excel_to_json_all(branch)
@@ -128,9 +128,9 @@ def excel_to_data_all(branch: str):
     excel_to_schema_all(branch)
 
     # 수정된 파일이 있다면
-    if git_manager.is_modified():
+    if g_manager.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
-        git_manager.push()
+        g_manager.push()
 
 
 async def migrate(branch: str):
@@ -140,27 +140,28 @@ async def migrate(branch: str):
     @return:
     """
     # Git 초기화 및 다운로드
-    git_manager = GitManager()
+    g_manager = GitManager()
     #
     # # # 체크아웃 성공시에만 진행
-    if not git_manager.checkout(branch):
+    if not g_manager.checkout(branch):
         return
 
-    commit = git_manager.get_last_commit()
+    commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch)
     prisma.migrate(MigrateType.FORCE, commit)
 
     server_data = DataManager(DataType.SERVER)
     info_data = DataManager(DataType.INFO)
-    db_manager = DBManager(branch)
-    await db_manager.insert_all_table(server_data.get_jsonmap())
-    await db_manager.insert_all_table(info_data.get_jsonmap())
+    b_manager = DBManager(branch)
+    await b_manager.insert_all_table(server_data.get_jsonmap())
+    await b_manager.insert_all_table(info_data.get_jsonmap())
 
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    # excel_to_schema_all('local')
-    # excel_to_schema_all('local')
+    excel_to_data_all('test')
+    # excel_to_data('local', 'all')
+    # excel_to_data_all('local')
     # asyncio.run(db_migration('local'))
     # asyncio.run(migrate('local'))
     pass

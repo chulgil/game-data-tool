@@ -218,7 +218,7 @@ class DataManager:
                 return str(column_value)
             elif column_type == "float" or column_type == "double":
                 return float(column_value)
-            elif column_type == "int":
+            elif column_type == "int" or column_type == "short" or column_type == "byte":
                 return int(column_value)
             elif column_type == "bool" or column_type == "boolean":
                 v = column_value
