@@ -5,6 +5,7 @@ import shutil
 from re import match
 from typing import Optional
 
+import pymsteams as pymsteams
 import yaml
 from dateutil import parser
 import pandas as pd
@@ -34,14 +35,17 @@ class DataType(Enum):
 
 
 class DataManager:
+    _error_msg = []
 
-    def __init__(self, data_type: DataType):
+    def __init__(self, branch: str, data_type: DataType):
+        self.BRANCH = branch
         self.DATA_TYPE = data_type
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
+        self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
         self._set_config(config)
         self._set_folder()
         pandas.set_option('display.max_column', 10)  # print()에서 전체항목 표시
@@ -88,6 +92,9 @@ class DataManager:
             data_df = df.iloc[self.ROW_FOR_DATA_TYPE + 1:]
         # 정의된 DB형식으로 데이터 포멧
         self._translate_asdb(data_df, df.iloc[1], option_df)
+
+        # Option값 @Id가 존재하면 데이터의 중복값 체크
+        self._check_duplicated(data_df, df.iloc[1], option_df)
         return data_df
 
     def _del_auto_field(self, df: DataFrame) -> DataFrame:
@@ -146,8 +153,7 @@ class DataManager:
         filtered = mask_df[mask_df.isin(targets)].keys()
         return df[filtered]
 
-    @staticmethod
-    def _save_json(df: DataFrame, save_path: Path, file_name: str):
+    def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
         # 행의 개수가 0이면 무시
         if df.shape[1] == 0:
             return
@@ -165,16 +171,51 @@ class DataManager:
         paths = str(save_path).split('/')
         name = paths.pop()
         path = paths.pop()
-        logging.info(f"Json 파일 저장 성공 : {path}/{name}")
+        logging.info(f"[{self.BRANCH} 브랜치] Json 파일 저장 성공 : {path}/{name}")
+
+        if len(self._error_msg) > 0:
+            msg = f'[{self.BRANCH} 브랜치] Excel파일에 미검증 데이터 존재 [{file_name}] \n\n'
+            msg = msg + '\n\n'.join(self._error_msg)
+            logging.warning(msg)
+            self.teams.text(msg).send()
+            self._error_msg = []
 
     # --------------------------------------------------------------
-    # EXCEL의 데이터가 다음과 같을때 1번째 행은 디비속성 이다.
+    # EXCEL의 데이터가 다음과 같을때 2번째 행은 디비속성 이다.
+    # 디비속성 중 @id값이 존재하면 데이터의 중복을 체크한다.
+    # --------------------------------------------------------------
+    #      id     | name | reg_dt | reg_dt
+    # 0 : SERVER | SERVER | CLIENT |  SERVER
+    # 1 : int | string | datetime |  datetime
+    # 2 : @id | @default("") |  |   <-- 디비속성
+    # 3 : 0 | test |  2022.04.09 | 2021-03-09T00:00:00
+    def _check_duplicated(self, data_df: DataFrame, header_df: DataFrame, option_df: DataFrame) -> bool:
+        res = False
+        for col in data_df.columns:
+            if option_df is None:
+                continue
+            schema_type = option_df[col]
+            if match(r'@id', schema_type):
+                _duplicated = data_df.duplicated(col)
+                for key, value in _duplicated.items():
+                    if value is True:
+                        row = key + self.ROW_FOR_DATA_OPTION
+                        msg = 'Duplicate values exist'
+                        data_df.loc[key][col] = f'{self.ERROR_FOR_EXCEL} {msg}'
+                        warning = f'컬럼[{col}] 행[{row}] {msg}'
+                        self._error_msg.append(warning)
+                        res = True
+        return res
+
+    # --------------------------------------------------------------
+    # EXCEL의 데이터가 다음과 같을때 2번째 행은 디비속성 이다.
     # 디비속성 값으로 데이터를 포멧팅한다_save_json.
     # --------------------------------------------------------------
-    # id     | name | reg_dt | reg_dt
+    #      id     | name | reg_dt | reg_dt
     # 0 : SERVER | SERVER | CLIENT |  SERVER
-    # 1 : int | string | datetime |  datetime <-- 디비속성
-    # 2 :  | test |  2022.04.09 | 2021-03-09T00:00:00
+    # 1 : int | string | datetime |  datetime
+    # 2 : @id | @default("") |  |   <-- 디비속성
+    # 3 : 0 | test |  2022.04.09 | 2021-03-09T00:00:00
     # --------------------------------------------------------------
     # Ref :
     # https://pandas.pydata.org/docs/reference/api/
@@ -186,13 +227,16 @@ class DataManager:
                 schema_type = ''
                 if option_df is not None:
                     schema_type = option_df[col]
-                data_df.loc[i][col] = self._value_astype(field_type, field_value, schema_type)
+                info = f'컬럼[{col}] 행[{i + self.ROW_FOR_DATA_OPTION}]'
+                data_df.loc[i][col] = self._value_astype(field_type, field_value, schema_type, info)
 
-    def _value_astype(self, column_type: str, column_value: str, schema_type: str):
+    def _value_astype(self, column_type: str, column_value: str, schema_type: str, info: str):
         """
         엑셀에서 정의한 값을 타입별 기본 값으로 변환
         @param column_type: 엑셀에서 정의한 데이터 타입
         @param column_value: 엑셀에서 정의한 데이터 값
+        @param schema_type: 엑셀에서 정의한 스키마옵션 값
+        @param info: 컬럼과 행 정보
         @return: 변환된 문자열
         ref :
         https://blog.finxter.com/how-to-convert-a-string-to-a-double-in-python/
@@ -205,11 +249,9 @@ class DataManager:
                     column_value = default.group(1)
                     column_value = column_value.replace('\'', '')
                     column_value = column_value.replace('"', '')
-
-            if self._is_null_numeral(column_type, column_value):
-                if not match(r'@null', schema_type):  # not null type
-                    if column_value == '':
-                        raise Exception('Not allowed space')
+            if not match(r'@null', schema_type):  # not null type
+                if column_value == '':
+                    raise Exception('Not allowed space')
 
             if column_value == '':
                 return None
@@ -231,12 +273,12 @@ class DataManager:
             elif column_type == "long" or column_type == "bicint":
                 return int(column_value)
             elif column_type == "datetime":
-                return self.iso8601(column_value)
+                return self._iso8601(column_value)
             else:
                 return str(column_value)
         except Exception as e:
             msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
-            logging.warning(str(f"Column[{column_value}] {msg}"))
+            self._error_msg.append(f"{info} {str(e)}")
             return msg
 
     @staticmethod
@@ -249,14 +291,13 @@ class DataManager:
             return True
         return False
 
-    def iso8601(self, date_text: str) -> str:
+    def _iso8601(self, date_text: str) -> str:
         try:
             date = parser.parse(str(date_text))
             return date.astimezone().isoformat()
         except Exception as e:
             msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
-            logging.warning(msg)
-            return msg
+            raise Exception(msg)
 
     def excel_to_json(self, excel_list: list):
         # Excel파일 가져오기
@@ -273,8 +314,9 @@ class DataManager:
                     self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
-            except Exception:
-                logging.exception(excel)
+            except Exception as e:
+                msg = f'[{self.BRANCH} 브랜치] Excel to Json Error: \n{str(e)}'
+                logging.exception(msg)
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
@@ -311,7 +353,7 @@ class DataManager:
                 with open(_path, 'r') as f:
                     res[file_name] = json.load(f)
         except Exception as e:
-            logging.warning(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
+            self._error_msg.append(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
         return res
 
     def get_excel(self, name: str) -> list:
@@ -344,11 +386,11 @@ class DataManager:
 
         invalid_option = self.get_invalid_option_row(df)
         if len(invalid_option.values()) > 0:
-            logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n{_path} \n{invalid_option}")
+            self._error_msg.append(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n{_path} \n{invalid_option}")
             return res
 
         if not self._is_data_option_row(df):
-            logging.warning(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
+            self._error_msg.append(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
             return res
 
         df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
@@ -359,3 +401,9 @@ class DataManager:
             table.append(row)
 
         return {_path.stem: table}
+
+    @staticmethod
+    def _is_not_null(text: str) -> bool:
+        if text is not None or text == '':
+            return True
+        return False

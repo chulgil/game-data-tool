@@ -31,7 +31,7 @@ async def update_table(branch: str, data_type: DataType):
 
     # 변환된 Json파일을 디비로 저장
     manager = DBManager(branch)
-    d_manager = DataManager(data_type)
+    d_manager = DataManager(branch, data_type)
     json_map = d_manager.get_jsonmap()
     await manager.insert_all_table(json_map)
 
@@ -39,24 +39,25 @@ async def update_table(branch: str, data_type: DataType):
 def excel_to_json_all(branch: str):
     """전체 Excel을 추출후 Json변환
         """
-    logging.info(f"전체 Excel로드후 Json변환을 진행합니다. [브랜치 : {branch}]")
+    logging.info(f"[{branch} 브랜치] 전체 Excel로드후 Json변환을 진행합니다.")
 
     # 전체 Excel로드후 Json변환
-    d_manager = DataManager(DataType.ALL)
+    d_manager = DataManager(branch, DataType.ALL)
     d_manager.delete_json_all()
     d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
-def excel_to_json(modified_list: list, data_type: str):
+def excel_to_json(branch: str, modified_list: list, data_type: str):
     """
     변경된 Excel만 추출후 Json변환
+    @param branch: 브랜치
     @param modified_list: 수정된 파일경로
     @param data_type: 기획데이터:server Info데이터:info 클라이언트데이터:client
     @return:
     """
-    logging.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
+    logging.info(f"[{branch} 브랜치] 변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
 
-    d_manager = DataManager(DataType.value_of(data_type))
+    d_manager = DataManager(branch, DataType.value_of(data_type))
 
     # Excel로드후 Json변환
     d_manager.excel_to_json(modified_list)
@@ -68,10 +69,10 @@ def excel_to_schema_all(branch: str):
     data_type: 기획데이터:server Info데이터:info
     @param branch: Git브랜치
     """
-    logging.info(f"전체 Excel로드후 Prisma변환을 진행합니다. [브랜치 : {branch}]")
+    logging.info(f"[{branch} 브랜치]  전체 Excel로드후 Prisma변환을 진행합니다.")
     # 프리즈마 초기화
     p_manager = PrismaManager(branch)
-    d_manager = DataManager(DataType.ALL)
+    d_manager = DataManager(branch, DataType.ALL)
     table_info = {}
     for _path in d_manager.get_excelpath_all():
         table_info.update(d_manager.get_table_info(_path))
@@ -140,18 +141,18 @@ async def migrate(branch: str):
     @return:
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager()
+    # g_manager = GitManager()
     #
     # # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
-        return
+    # if not g_manager.checkout(branch):
+    #     return
 
-    commit = g_manager.get_last_commit()
+    # commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch)
-    prisma.migrate(MigrateType.FORCE, commit)
+    prisma.migrate(MigrateType.FORCE, 'test')
 
-    server_data = DataManager(DataType.SERVER)
-    info_data = DataManager(DataType.INFO)
+    server_data = DataManager(branch, DataType.SERVER)
+    info_data = DataManager(branch, DataType.INFO)
     b_manager = DBManager(branch)
     await b_manager.insert_all_table(server_data.get_jsonmap())
     await b_manager.insert_all_table(info_data.get_jsonmap())
@@ -159,9 +160,9 @@ async def migrate(branch: str):
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    excel_to_data_all('test')
+    # excel_to_json_all('test')
+    # excel_to_data_all('test')
     # excel_to_data('local', 'all')
-    # excel_to_data_all('local')
-    # asyncio.run(db_migration('local'))
-    # asyncio.run(migrate('local'))
+    # excel_to_data_all('test')
+    # asyncio.run(migrate('test'))
     pass

@@ -30,6 +30,7 @@ class PrismaManager:
         self.PATH_FOR_SAVE_DIR = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'], 'prisma')
         self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
         self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_PRISMA.joinpath('schema.prisma')
+        self._info = f"[{self.BRANCH} 브랜치] PRISMA"
 
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
@@ -42,10 +43,10 @@ class PrismaManager:
             res = run(['prisma db pull'], shell=True)
             res = run(['prisma generate'], shell=True)
             if not res.stderr:
-                logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 완료")
+                logging.info(f"{self._info} 동기화 완료")
                 return True
         except Exception as e:
-            logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 동기화 에러: {str(e)}")
+            logging.error(f"{self._info} 동기화 에러: {str(e)}")
         return False
 
     def init_prisma(self) -> bool:
@@ -54,10 +55,10 @@ class PrismaManager:
             self._init_prisma_config()
             res = run(['prisma generate'], shell=True)
             if not res.stderr:
-                logging.info(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 완료")
+                logging.info(f"{self._info} 초기화 완료")
                 return True
         except Exception as e:
-            logging.error(f"[DB:{self.BRANCH}] 서버 PRISMA 초기화 에러: /n {str(e)}")
+            logging.error(f"{self._info} 초기화 에러: /n {str(e)}")
         return False
 
     # .env 파일에  디비 경로를 설정
@@ -101,9 +102,9 @@ class PrismaManager:
             logging.error(f'Prisma 마이그레이션 완료: {str(option)}')
 
         except CalledProcessError as e:
-            logging.error(f'Prisma 마이그레이션 Error: \n{str(e.output)}')
+            logging.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
         except Exception as e:
-            logging.error(f'Prisma 마이그레이션 Error: \n{str(e)}')
+            logging.error(f'{self._info} 마이그레이션 Error: \n{str(e)}')
 
     def save_schema(self, table_info: dict):
         table_name = ''
@@ -113,14 +114,14 @@ class PrismaManager:
             rows = table_info[key]
             new_schema = self._convet_schema(table_name, rows)
             if new_schema != '':
-                logging.info(f'Prisma 스키마 저장 완료: {table_name}')
+                logging.info(f'{self._info} 스키마 저장 완료: {table_name}')
                 schema = schema + new_schema
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_SAVE_SCHEMA, "w", encoding='utf-8') as f:
                 f.write(schema)
         except Exception as e:
-            logging.error(f'Prisma 스키마 저장 Error: {table_name}\n{str(e)}')
+            logging.error(f'{self._info} 스키마 저장 Error: {table_name}\n{str(e)}')
 
     def _convet_schema(self, table_name: str, rows: list) -> str:
         """
@@ -136,15 +137,17 @@ class PrismaManager:
                 return ''
             for row in rows:
                 # 순서 주의 : 컨버팅 되지 않은 타입값으로 디비 스키마 값 변경
-                row[2] = self._convert_option(row[1], row[2])
-                row[1] = self._convert_datatype(row[1], row[2])
+                d_type = self._convert_datatype(row[1], row[2])
+                option = self._convert_option(row[1], row[2])
+                row[1] = d_type
+                row[2] = option
             rows = self._convert_combine(rows)
             for row in rows:
                 schema = schema + '  ' + tab.join(row)
                 schema = schema + '\n'
             schema = schema + '}\n'
         except Exception as e:
-            logging.error(f'Prisma 스키마 변환 Error: {table_name}\n{str(e)}')
+            logging.error(f'{self._info} 스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
 
     @staticmethod
@@ -168,7 +171,7 @@ class PrismaManager:
     @staticmethod
     def _convert_combine(rows: list) -> list:
         """
-        아이디가 복수 존재하는 경우:
+        DB스키마ID가 복수 존재하는 경우:
         item1 long  @id
         item2 int  @id
             -> @@id([season_no, user_no])
@@ -199,7 +202,6 @@ class PrismaManager:
         dt = datatype.lower()
         res = option
         res = re.sub(r'\(\'(\W+)\'\)', r'("\1")', res)
-        print(dt)
         if dt == 'string':
             res = re.sub(r'@size\((\d+)\)', r'@db.NVarChar(\1)', res)
         if dt == 'short':
