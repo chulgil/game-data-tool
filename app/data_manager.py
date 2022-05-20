@@ -301,10 +301,68 @@ class DataManager:
             msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
             raise Exception(msg)
 
+    def _get_relation_infos(self, file_path: Path) -> list:
+        """
+        @ref(table.id) 옵션이 있는 컬럼을 가져온다.
+        """
+        # 첫번째 시트를 타겟으로 설정
+        df = pd.read_excel(file_path, sheet_name=0)
+
+        res = []
+        option_df = self._get_data_option(df)
+        if option_df is None:
+            return res
+        for col, value in option_df.items():
+            z = match(r'@ref\((\S+)\)', str(value))
+            if z is None:
+                continue
+            _target = str(z.group(1)).split('.')
+            target_table = _target[0]
+            target_col = _target[1]
+            path = list(Path(self.PATH_FOR_EXCEL).rglob(rf"{target_table}.xls*"))
+            if len(path) == 0:
+                logging.warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
+                continue
+            res.append([path[0], col, target_col])
+        return res
+
+    def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
+        # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
+        _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
+        _start_row = self.ROW_FOR_DATA_TYPE + 1
+        origin_df = pd.read_excel(origin_path, sheet_name=0)
+        target_df = pd.read_excel(target_path, sheet_name=0)
+        odata = origin_df.iloc[_start_row + 1:]
+        tdata = target_df.iloc[_start_row + 1:]
+        _warnings = []
+        for row, value in odata[origin_col].items():
+            if value == 0 or value == '' or value is None:
+                continue
+            matched = tdata[tdata[target_col] == value].index.values
+            if len(matched) == 0:
+                _warnings.append(f'원본 행[{row + _start_row}] 의 참조 값[{value}]')
+        if len(_warnings) > 0:
+            msg = self._info + ' ' + _msg_head + '\n\n' + '\n\n'.join(_warnings)
+            self.teams.text(msg).send()
+            logging.warning(msg)
+
+    def check_excel(self, excel_list: list):
+        try:
+            # Excel파일 가져오기
+            for excel in excel_list:
+                _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
+                rel_data = self._get_relation_infos(_path)
+                for info in rel_data:
+                    self._check_relation_data(_path, info[0], info[1], info[2])
+
+        except Exception as e:
+            msg = f'{self._info} Excel Check Error: \n{str(e)}'
+            logging.exception(msg)
+
     def excel_to_json(self, excel_list: list):
-        # Excel파일 가져오기
-        for excel in excel_list:
-            try:
+        try:
+            # Excel파일 가져오기
+            for excel in excel_list:
                 _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
                 # 첫번째 시트를 JSON 타겟으로 설정
                 df = pd.read_excel(_path, sheet_name=0)
@@ -316,9 +374,9 @@ class DataManager:
                     self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
                 if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
-            except Exception as e:
-                msg = f'{self._info} Excel to Json Error: \n{str(e)}'
-                logging.exception(msg)
+        except Exception as e:
+            msg = f'{self._info} Excel to Json Error: \n{str(e)}'
+            logging.exception(msg)
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))

@@ -105,6 +105,9 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     excel_to_json(modified_list, data_type)
     excel_to_schema_all(branch)
 
+    d_manager = DataManager(branch, DataType.ALL)
+    d_manager.check_excel(modified_list)
+
     # 수정된 파일이 있다면
     if g_manager.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
@@ -128,10 +131,25 @@ def excel_to_data_all(branch: str):
     # 프리즈마 스키마 초기화 및 저장
     excel_to_schema_all(branch)
 
+    d_manager = DataManager(branch, DataType.ALL)
+    d_manager.check_excel(d_manager.get_excelpath_all())
+
     # 수정된 파일이 있다면
     if g_manager.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
         g_manager.push()
+
+
+def check_excel(branch: str):
+    # Git 초기화 및 다운로드
+    g_manager = GitManager()
+
+    # # 체크아웃 성공시에만 진행
+    if not g_manager.checkout(branch):
+        return
+
+    d_manager = DataManager(branch, DataType.ALL)
+    d_manager.check_excel(d_manager.get_excelpath_all())
 
 
 async def migrate(branch: str):
@@ -164,5 +182,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # excel_to_data_all('test')
     # excel_to_data('local', 'all')
     # excel_to_data_all('test')
+    # check_excel('test')
     # asyncio.run(migrate('test'))
     pass

@@ -80,7 +80,6 @@ class PrismaManager:
         self.init_prisma()
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
-            schema = ''
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
                 schema = f.read()
 
