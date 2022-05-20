@@ -351,6 +351,7 @@ class DataManager:
             # Excel파일 가져오기
             for excel in excel_list:
                 _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
+                print(_path)
                 rel_data = self._get_relation_infos(_path)
                 for info in rel_data:
                     self._check_relation_data(_path, info[0], info[1], info[2])

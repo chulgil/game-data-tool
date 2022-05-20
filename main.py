@@ -102,7 +102,7 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     modified_list = g_manager.get_modified_excel(git_head_back)
     if len(modified_list) == 0:
         return
-    excel_to_json(modified_list, data_type)
+    excel_to_json(branch, modified_list, data_type)
     excel_to_schema_all(branch)
 
     d_manager = DataManager(branch, DataType.ALL)
@@ -159,11 +159,11 @@ async def migrate(branch: str):
     @return:
     """
     # Git 초기화 및 다운로드
-    # g_manager = GitManager()
-    #
-    # # # 체크아웃 성공시에만 진행
-    # if not g_manager.checkout(branch):
-    #     return
+    g_manager = GitManager()
+
+    # 체크아웃 성공시에만 진행
+    if not g_manager.checkout(branch):
+        return
 
     # commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch)
