@@ -18,27 +18,28 @@ import numpy as np
 import pandas
 
 
-class DataType(Enum):
+class ServerType(Enum):
     ALL = auto()
     SERVER = auto()
     CLIENT = auto()
     INFO = auto()
+    NONE = auto()
 
     @classmethod
     def value_of(cls, value: str):
-
+        value = str(value)
         for k, v in cls.__members__.items():
             if k == value.upper():
                 return v
         else:
-            return DataType.ALL
+            return ServerType.NONE
 
 
 class DataManager:
 
-    def __init__(self, branch: str, data_type: DataType):
+    def __init__(self, branch: str, server_type: ServerType):
         self.BRANCH = branch
-        self.DATA_TYPE = data_type
+        self.SERVER_TYPE = server_type
         self._error_msg = []
         self._info = f'[{branch} 브랜치]'
         self.ROOT_DIR = Path(__file__).parent.parent
@@ -61,21 +62,22 @@ class DataManager:
         self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
         self.PATH_FOR_CLIENT = self.PATH_FOR_JSON.joinpath("client")
         self.ROW_FOR_DATA_HEADER = 0
-        self.ROW_FOR_DATA_TYPE = 1
+        self.ROW_FOR_SERVER_TYPE = 1
         self.ROW_FOR_DATA_OPTION = 2
+        self.ROW_FOR_MAX_HEADER = 6  # EXCEL 헤더 맥스 값 : 1:memo, 2:desc, 3:tableId, 4:dataType, 5:schemaType 6:xxx
 
     def _set_folder(self):
-        # JSON 폴더 초기화
+        # JSON 폴더 초기화`
         # if Path(self.PATH_FOR_JSON).is_dir():
         #     shutil.rmtree(self.PATH_FOR_JSON)
         # JSON 폴더 생성
-        if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:
+        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.SERVER:
             if not Path(self.PATH_FOR_DATA).is_dir():
                 os.makedirs(self.PATH_FOR_DATA)
-        if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:
+        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.INFO:
             if not Path(self.PATH_FOR_INFO).is_dir():
                 os.makedirs(self.PATH_FOR_INFO)
-        if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:
+        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:
             if not Path(self.PATH_FOR_CLIENT).is_dir():
                 os.makedirs(self.PATH_FOR_CLIENT)
 
@@ -90,7 +92,7 @@ class DataManager:
             data_df = df.iloc[self.ROW_FOR_DATA_OPTION + 1:]
         else:
             # 적용타입행과 필드타입행을 제외한 2행부터 JSON추출
-            data_df = df.iloc[self.ROW_FOR_DATA_TYPE + 1:]
+            data_df = df.iloc[self.ROW_FOR_SERVER_TYPE + 1:]
         # 정의된 DB형식으로 데이터 포멧
         self._translate_asdb(data_df, df.iloc[1], option_df)
 
@@ -137,12 +139,9 @@ class DataManager:
             1   long      int                      int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
-        try:
-            filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), df.iloc[self.ROW_FOR_DATA_OPTION].values))
-            if len(filtered) > 0:
-                return True
-        except Exception as e:
-            return False
+        filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), df.iloc[self.ROW_FOR_DATA_OPTION].values))
+        if len(filtered) > 0:
+            return True
         return False
 
     def _get_filtered_column(self, df: DataFrame, targets: list) -> DataFrame:
@@ -305,78 +304,88 @@ class DataManager:
         """
         @ref(table.id) 옵션이 있는 컬럼을 가져온다.
         """
-        # 첫번째 시트를 타겟으로 설정
-        df = pd.read_excel(file_path, sheet_name=0)
+        try:
+            # 첫번째 시트를 타겟으로 설정
+            df = self._read_excel(file_path)
 
-        res = []
-        option_df = self._get_data_option(df)
-        if option_df is None:
-            return res
-        for col, value in option_df.items():
-            z = match(r'@ref\((\S+)\)', str(value))
-            if z is None:
-                continue
-            _target = str(z.group(1)).split('.')
-            target_table = _target[0]
-            target_col = _target[1]
-            path = list(Path(self.PATH_FOR_EXCEL).rglob(rf"{target_table}.xls*"))
-            if len(path) == 0:
-                logging.warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
-                continue
-            res.append([path[0], col, target_col])
-        return res
+            res = []
+            option_df = self._get_data_option(df)
+            if option_df is None:
+                return res
+            for col, value in option_df.items():
+                z = match(r'@ref\((\S+)\)', str(value))
+                if z is None:
+                    continue
+                _target = str(z.group(1)).split('.')
+                target_table = _target[0]
+                target_col = _target[1]
+                path = list(Path(self.PATH_FOR_EXCEL).rglob(rf"{target_table}.xls*"))
+                if len(path) == 0:
+                    logging.warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
+                    continue
+                res.append([path[0], col, target_col])
+                return res
+        except Exception as e:
+            logging.warning(str(e))
 
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
-        _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
-        _start_row = self.ROW_FOR_DATA_TYPE + 1
-        origin_df = pd.read_excel(origin_path, sheet_name=0)
-        target_df = pd.read_excel(target_path, sheet_name=0)
-        odata = origin_df.iloc[_start_row + 1:]
-        tdata = target_df.iloc[_start_row + 1:]
-        _warnings = []
-        for row, value in odata[origin_col].items():
-            if value == 0 or value == '' or value is None:
-                continue
-            matched = tdata[tdata[target_col] == value].index.values
-            if len(matched) == 0:
-                _warnings.append(f'원본 행[{row + _start_row}] 의 참조 값[{value}]')
-        if len(_warnings) > 0:
-            msg = self._info + ' ' + _msg_head + '\n\n' + '\n\n'.join(_warnings)
-            self.teams.text(msg).send()
-            logging.warning(msg)
+        try:
+            _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
+            _start_row = self.ROW_FOR_SERVER_TYPE + 1
+            origin_df = self._read_excel(origin_path)
+            target_df = self._read_excel(target_path)
+            odata = origin_df.iloc[_start_row + 1:]
+            tdata = target_df.iloc[_start_row + 1:]
+            _warnings = []
+            for row, value in odata[origin_col].items():
+                if value == 0 or value == '' or value is None:
+                    continue
+                matched = tdata[tdata[target_col] == value].index.values
+                if len(matched) == 0:
+                    _warnings.append(f'원본 행[{row + _start_row}] 의 참조 값[{value}]')
+            if len(_warnings) > 0:
+                msg = self._info + ' ' + _msg_head + '\n\n' + '\n\n'.join(_warnings)
+                self.teams.text(msg).send()
+                logging.warning(msg)
+        except Exception as e:
+            logging.warning(e)
 
     def check_excel(self, excel_list: list):
-        try:
-            # Excel파일 가져오기
-            for excel in excel_list:
+
+        # Excel파일 가져오기
+        for excel in excel_list:
+            try:
                 _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
                 rel_data = self._get_relation_infos(_path)
+                if rel_data is None:
+                    continue
                 for info in rel_data:
                     self._check_relation_data(_path, info[0], info[1], info[2])
-
-        except Exception as e:
-            msg = f'{self._info} Excel Check Error: \n{str(e)}'
-            logging.exception(msg)
+            except Exception as e:
+                msg = f'{self._info} Excel Check Error: \n{str(e)}'
+                logging.exception(msg)
+                self._error_msg.append(msg)
 
     def excel_to_json(self, excel_list: list):
-        try:
-            # Excel파일 가져오기
-            for excel in excel_list:
+
+        # Excel파일 가져오기
+        for excel in excel_list:
+            try:
                 _path = Path(self.PATH_FOR_ROOT).joinpath(excel)
                 # 첫번째 시트를 JSON 타겟으로 설정
-                df = pd.read_excel(_path, sheet_name=0)
-                # 모든 데이터의 null값을 초기화
-                df.replace(to_replace=np.NaN, value='', inplace=True)
-                if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
+                df = self._read_excel(_path)
+                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.SERVER:  # 파일 이름으로 JSON 파일 저장 : DATA
                     self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_DATA, _path.stem)
-                if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO
+                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.INFO:  # 파일 이름으로 JSON 파일 저장 : INFO
                     self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
-                if self.DATA_TYPE == DataType.ALL or self.DATA_TYPE == DataType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
+                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:  # 파일 이름으로 JSON 파일 저장 : CLIENT
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
-        except Exception as e:
-            msg = f'{self._info} Excel to Json Error: \n{str(e)}'
-            logging.exception(msg)
+            except Exception as e:
+                msg = f'{self._info} Excel to Json Error: \n{str(e)}'
+                self.teams.text(msg).send()
+                self._error_msg = []
+                logging.exception(msg)
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_EXCEL).rglob(r"*.xls*"))
@@ -401,11 +410,11 @@ class DataManager:
         if json_paths is None:
             json_paths = []
         try:
-            if self.DATA_TYPE == DataType.SERVER:
+            if self.SERVER_TYPE == ServerType.SERVER:
                 json_path = self._get_jsonpath_server()
-            if self.DATA_TYPE == DataType.ALL:
+            if self.SERVER_TYPE == ServerType.ALL:
                 json_path = self.get_jsonpath_all()
-            if self.DATA_TYPE == DataType.INFO:
+            if self.SERVER_TYPE == ServerType.INFO:
                 json_path = self._get_jsonpath_info()
 
             for _path in json_path:
@@ -420,20 +429,20 @@ class DataManager:
         return list(Path(self.PATH_FOR_EXCEL).rglob(f"{name}.xls*"))
 
     def delete_json_all(self):
-        if self.DATA_TYPE is not DataType.ALL:
+        if self.SERVER_TYPE is not ServerType.ALL:
             return
         if Path(self.PATH_FOR_JSON).is_dir():
             shutil.rmtree(self.PATH_FOR_JSON)
         self._set_folder()
 
-    def delete_json_as_excel(self):
-        """Excel리스트에 없는 Json파일 삭제
-        """
-        for _json in self.get_jsonpath_all():
-            exist = self.get_excel(_json.stem)
-            if len(exist) == 0:
-                _json.unlink(True)
-
+    # def delete_json_as_excel(self):
+    #     """Excel리스트에 없는 Json파일 삭제
+    #     """
+    #     for _json in self.get_jsonpath_all():
+    #         exist = self.get_excel(_json.stem)
+    #         if len(exist) == 0:
+    #             _json.unlink(True)
+    #
     def get_table_info(self, json_path: str) -> dict:
         res = {}
         _path = self.PATH_FOR_ROOT.joinpath(json_path)
@@ -441,26 +450,57 @@ class DataManager:
             return res
 
         # 첫번째 시트를 JSON 타겟으로 설정
-        df = pd.read_excel(_path, sheet_name=0)
-        df.replace(to_replace=np.NaN, value='', inplace=True)
-
-        invalid_option = self.get_invalid_option_row(df)
-        if len(invalid_option.values()) > 0:
-            self._error_msg.append(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n{_path} \n{invalid_option}")
-            return res
-
-        if not self._is_data_option_row(df):
-            self._error_msg.append(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n{_path}")
-            return res
-
+        df = self._read_excel(_path)
         df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
         df.drop([0], axis=0, inplace=True)
         table = []
         for col in df.columns:
-            row = [col, df[col].values[self.ROW_FOR_DATA_HEADER], df[col].values[self.ROW_FOR_DATA_TYPE]]
+            row = [col, df[col].values[self.ROW_FOR_DATA_HEADER], df[col].values[self.ROW_FOR_SERVER_TYPE]]
             table.append(row)
 
         return {_path.stem: table}
+
+    def _read_excel(self, path: Path) -> DataFrame:
+        df = pd.read_excel(path, sheet_name=0)
+        df.replace(to_replace=np.NaN, value='', inplace=True)
+        df = self._set_base_index(df)
+        if not self._is_data_option_row(df):
+            raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열이 있는지 확인해 주세요. \n[{path.stem}]")
+
+        invalid_option = self.get_invalid_option_row(df)
+        if len(invalid_option.values()) > 0:
+            raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n[{path.stem}] \n{invalid_option}")
+
+        return df
+
+    def _set_base_index(self, df: DataFrame) -> DataFrame:
+        """
+        # --------------------------------------------------------------
+        # EXCEL의 데이터가 다음과 같을때 데이터가 가변이기 때문에 아래 4번째 행을 기준열로 설정한다.
+        # 서버타입 SERVER CLIENT INFO 가 하나라도 열에 존재하면 기준 열로 설정
+        # Dataframe의 헤더 행을 기준행의 바로 윗 열의 id name reg_dt로 설정하고 1,2행은 처리에서 무시
+        # --------------------------------------------------------------
+        # 0   memo
+        # 1   descripton
+        # 2    id     | name | reg_dt | reg_dt
+        # 3 : SERVER | SERVER | CLIENT |  SERVER <-- 서버타입
+        # 4 : int | string | datetime |  datetime
+        # 5 : @id | @default("") |  |
+        # 6 : 0 | test |  2022.04.09 | 2021-03-09T00:00:00
+        """
+        _idx_server_type = 0
+        for i in range(self.ROW_FOR_MAX_HEADER):
+            _type = ServerType.value_of(df.iloc[i][0])
+            if _type == ServerType.SERVER or _type == ServerType.ALL or _type == ServerType.INFO:
+                _idx_server_type = i
+
+        _diff_cnt = (_idx_server_type + 1) - self.ROW_FOR_SERVER_TYPE
+        if _diff_cnt > 0:
+            df.columns = df.iloc[_idx_server_type - 1]
+            df.columns.name = None
+            for i in range(_diff_cnt):
+                df = df.reindex(df.index.drop(0)).reset_index(drop=True)
+        return df
 
     @staticmethod
     def _is_not_null(text: str) -> bool:

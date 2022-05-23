@@ -18,7 +18,7 @@ async def sync_prisma(branch: str):
     prisma.sync()
 
 
-async def update_table(branch: str, data_type: DataType):
+async def update_table(branch: str, server_type: ServerType):
     # 프리즈마 초기화
     p_manager = PrismaManager(branch)
 
@@ -31,7 +31,7 @@ async def update_table(branch: str, data_type: DataType):
 
     # 변환된 Json파일을 디비로 저장
     manager = DBManager(branch)
-    d_manager = DataManager(branch, data_type)
+    d_manager = DataManager(branch, server_type)
     json_map = d_manager.get_jsonmap()
     await manager.insert_all_table(json_map)
 
@@ -42,22 +42,22 @@ def excel_to_json_all(branch: str):
     logging.info(f"[{branch} 브랜치] 전체 Excel로드후 Json변환을 진행합니다.")
 
     # 전체 Excel로드후 Json변환
-    d_manager = DataManager(branch, DataType.ALL)
+    d_manager = DataManager(branch, ServerType.ALL)
     d_manager.delete_json_all()
     d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
-def excel_to_json(branch: str, modified_list: list, data_type: str):
+def excel_to_json(branch: str, modified_list: list, server_type: str):
     """
     변경된 Excel만 추출후 Json변환
     @param branch: 브랜치
     @param modified_list: 수정된 파일경로
-    @param data_type: 기획데이터:server Info데이터:info 클라이언트데이터:client
+    @param server_type: 기획데이터:server Info데이터:info 클라이언트데이터:client
     @return:
     """
-    logging.info(f"[{branch} 브랜치] 변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {data_type}]")
+    logging.info(f"[{branch} 브랜치] 변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {server_type}]")
 
-    d_manager = DataManager(branch, DataType.value_of(data_type))
+    d_manager = DataManager(branch, ServerType.value_of(server_type))
 
     # Excel로드후 Json변환
     d_manager.excel_to_json(modified_list)
@@ -66,13 +66,13 @@ def excel_to_json(branch: str, modified_list: list, data_type: str):
 def excel_to_schema_all(branch: str):
     """
     전체 Excel추출후 아래 데이터 타입만 Prisma 스키마변환
-    data_type: 기획데이터:server Info데이터:info
+    server_type: 기획데이터:server Info데이터:info
     @param branch: Git브랜치
     """
     logging.info(f"[{branch} 브랜치]  전체 Excel로드후 Prisma변환을 진행합니다.")
     # 프리즈마 초기화
     p_manager = PrismaManager(branch)
-    d_manager = DataManager(branch, DataType.ALL)
+    d_manager = DataManager(branch, ServerType.ALL)
     table_info = {}
     for _path in d_manager.get_excelpath_all():
         table_info.update(d_manager.get_table_info(_path))
@@ -84,11 +84,11 @@ def get_branch_from_webhook(webhook: dict) -> str:
     return g_manager.get_branch_from_webhook(webhook)
 
 
-def excel_to_data(branch: str, data_type: str, git_head_back=1):
+def excel_to_data(branch: str, server_type: str, git_head_back=1):
     """
     변경된 Excel추출후 json, prisma schema파일 저장
     @param branch: Git브랜치
-    @param data_type: 기획데이터:server Info데이터:info 클라데이터:client
+    @param server_type: 기획데이터:server Info데이터:info 클라데이터:client
     @param git_head_back: Git Head~[git_head_back] 이력 가져오는 레벨
     @return:
     """
@@ -102,10 +102,10 @@ def excel_to_data(branch: str, data_type: str, git_head_back=1):
     modified_list = g_manager.get_modified_excel(git_head_back)
     if len(modified_list) == 0:
         return
-    excel_to_json(branch, modified_list, data_type)
+    excel_to_json(branch, modified_list, server_type)
     excel_to_schema_all(branch)
 
-    d_manager = DataManager(branch, DataType.ALL)
+    d_manager = DataManager(branch, ServerType.ALL)
     d_manager.check_excel(modified_list)
 
     # 수정된 파일이 있다면
@@ -131,7 +131,7 @@ def excel_to_data_all(branch: str):
     # 프리즈마 스키마 초기화 및 저장
     excel_to_schema_all(branch)
 
-    d_manager = DataManager(branch, DataType.ALL)
+    d_manager = DataManager(branch, ServerType.ALL)
     d_manager.check_excel(d_manager.get_excelpath_all())
 
     # 수정된 파일이 있다면
@@ -148,7 +148,7 @@ def check_excel(branch: str):
     if not g_manager.checkout(branch):
         return
 
-    d_manager = DataManager(branch, DataType.ALL)
+    d_manager = DataManager(branch, ServerType.ALL)
     d_manager.check_excel(d_manager.get_excelpath_all())
 
 
@@ -165,12 +165,12 @@ async def migrate(branch: str):
     if not g_manager.checkout(branch):
         return
 
-    # commit = g_manager.get_last_commit()
+    commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch)
-    prisma.migrate(MigrateType.FORCE, 'test')
+    prisma.migrate(MigrateType.FORCE, branch, commit)
 
-    server_data = DataManager(branch, DataType.SERVER)
-    info_data = DataManager(branch, DataType.INFO)
+    server_data = DataManager(branch, ServerType.SERVER)
+    info_data = DataManager(branch, ServerType.INFO)
     b_manager = DBManager(branch)
     await b_manager.insert_all_table(server_data.get_jsonmap())
     await b_manager.insert_all_table(info_data.get_jsonmap())
