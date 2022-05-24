@@ -420,4 +420,5 @@ data-for-designer/**
 config.json
 config.yaml
 
+export/
 prisma/
