@@ -1,4 +1,6 @@
 import logging
+import uuid
+from enum import Enum, auto
 
 import pymsteams as pymsteams
 import yaml
@@ -6,36 +8,56 @@ from git import Repo, GitCommandError
 from pathlib import Path
 import shutil
 import re
+from datetime import date
+
+
+class GitTarget(Enum):
+    EXCEL = auto()
+    CLIENT = auto()
+    NONE = auto()
+
+    @classmethod
+    def value_of(cls, value: str):
+        value = str(value)
+        for k, v in cls.__members__.items():
+            if k == value.upper():
+                return v
+        else:
+            return GitTarget.NONE
 
 
 class GitManager:
 
-    def __init__(self):
+    def __init__(self, target: GitTarget):
         self.BRANCH = None
-        self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
+        self.GIT_TARGET = target
+        self.PATH_FOR_ROOT = Path(__file__).parent.parent
+        self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
-        self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
         self._init_git()
 
     def _set_config(self, config):
-        self.PATH_FOR_DATA_ROOT = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'])
-        self.GIT_URL = config['GITSERVER']['URL']
+        self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
+        self.PATH_FOR_WORKING = self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'],
+                                                            str(date.today()) + '_' + uuid.uuid4().hex)
+        if self.GIT_TARGET == GitTarget.EXCEL:
+            self.GIT_URL = config['GITSERVER']['EXCEL_URL']
+        elif self.GIT_TARGET == GitTarget.CLIENT:
+            self.GIT_URL = config['GITSERVER']['CLIENT_URL']
         self.GIT_USER = config['GITSERVER']['USER']
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
-        self.PATH_FOR_GIT = self.PATH_FOR_DATA_ROOT.joinpath(".git")
-        self.COMPILE_EXCEL = re.compile(rf"{config['EXCEL']['EXCEL_DIR']}\S+[xls | xlsx]$")
+        self.COMPILE_EXCEL = re.compile(rf"{config['DEFAULT']['EXCEL_DIR']}\S+[xls | xlsx]$")
         self.COMPILE_JSON = re.compile(r"\D+json$")
 
     def _init_git(self):
         try:
             # GIT 기본 프로젝트 폴더 삭제
-            if Path(self.PATH_FOR_DATA_ROOT).is_dir():
-                shutil.rmtree(self.PATH_FOR_DATA_ROOT)
-            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_DATA_ROOT, branch=self.BRANCH)
+            if Path(self.PATH_FOR_WORKING).is_dir():
+                shutil.rmtree(self.PATH_FOR_WORKING)
+            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
             # GIT 초기 설정
             writer = self._repo.config_writer()
             writer.set_value("user", "name", self.GIT_USER)
@@ -202,3 +224,6 @@ class GitManager:
 
     def get_last_commit(self):
         return self._repo.git.rev_parse(self._repo.head, short=True)
+
+    def destroy(self):
+        shutil.rmtree(self.PATH_FOR_WORKING)

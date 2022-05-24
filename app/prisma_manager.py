@@ -17,7 +17,7 @@ class MigrateType(Enum):
 
 class PrismaManager:
 
-    def __init__(self, branch: str):
+    def __init__(self, branch: str, save_dir: Path):
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma')
@@ -27,7 +27,7 @@ class PrismaManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self.CONFIG_DB = config['DATABASE']
-        self.PATH_FOR_SAVE_DIR = self.ROOT_DIR.joinpath(config['DEFAULT']['ROOT_DATA_DIR'], 'prisma')
+        self.PATH_FOR_SAVE_DIR = save_dir.joinpath('prisma')
         self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
         self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_PRISMA.joinpath('schema.prisma')
         self._info = f"[{self.BRANCH} 브랜치] PRISMA"
@@ -105,7 +105,7 @@ class PrismaManager:
         except Exception as e:
             logging.error(f'{self._info} 마이그레이션 Error: \n{str(e)}')
 
-    def save_schema(self, table_info: dict):
+    def save(self, table_info: dict):
         table_name = ''
         schema = self._get_default_schema()
         for key in table_info.keys():
@@ -156,7 +156,7 @@ class PrismaManager:
             res = 'BigInt'
         elif res == 'datetime':
             res = 'DateTime'
-        elif res == 'bool':
+        elif res == 'bool' or res == 'boolean':
             res = 'Boolean'
         elif res == 'short' or res == 'byte':
             res = 'Int'
