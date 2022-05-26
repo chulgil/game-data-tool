@@ -40,12 +40,14 @@ class GitManager:
 
     def _set_config(self, config):
         self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
+
+        # self.PATH_FOR_WORKING = self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'], str(self.GIT_TARGET.name))
         self.PATH_FOR_WORKING = self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'],
                                                             str(date.today()) + '_' + uuid.uuid4().hex)
         if self.GIT_TARGET == GitTarget.EXCEL:
-            self.GIT_URL = config['GITSERVER']['EXCEL_URL']
+            self.GIT_URL = config['GITSERVER']['EXCEL_SSH']
         elif self.GIT_TARGET == GitTarget.CLIENT:
-            self.GIT_URL = config['GITSERVER']['CLIENT_URL']
+            self.GIT_URL = config['GITSERVER']['CLIENT_SSH']
         self.GIT_USER = config['GITSERVER']['USER']
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
@@ -112,7 +114,7 @@ class GitManager:
         try:
             self._repo.git.add(all=True)
             self._repo.index.commit(self.GIT_PUSH_MSG)
-            logging.info(str(self._brn()) + 'GIT Commit 성공')
+            # logging.info(str(self._brn()) + 'GIT Commit 성공')
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT Commit Error \r\n' + str(e))
 
@@ -222,8 +224,13 @@ class GitManager:
                 res.append(value)
         return res
 
-    def get_last_commit(self):
+    def get_last_commit(self) -> str:
         return self._repo.git.rev_parse(self._repo.head, short=True)
+
+    def get_last_tag(self) -> str:
+        tags = sorted(self._repo.tags, key=lambda t: t.commit.committed_datetime)
+        latest_tag = str(tags[-1])
+        return latest_tag
 
     def destroy(self):
         shutil.rmtree(self.PATH_FOR_WORKING)

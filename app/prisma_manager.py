@@ -27,7 +27,7 @@ class PrismaManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self.CONFIG_DB = config['DATABASE']
-        self.PATH_FOR_SAVE_DIR = save_dir.joinpath('prisma')
+        self.PATH_FOR_SAVE_DIR = save_dir.joinpath(config['DEFAULT']['EXPORT_DIR'], 'prisma')
         self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
         self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_PRISMA.joinpath('schema.prisma')
         self._info = f"[{self.BRANCH} 브랜치] PRISMA"
@@ -142,8 +142,13 @@ class PrismaManager:
                 row[2] = option
             rows = self._convert_combine(rows)
             for row in rows:
-                schema = schema + '  ' + tab.join(row)
-                schema = schema + '\n'
+                desc = ''
+                item = row
+                if len(item) > 3:
+                    desc = item.pop()
+                    desc = str(desc).replace('\n', ' ')  # 메모의 개행 공백 치환
+                schema = schema + '  ' + tab.join(item)
+                schema = schema + (' // ' + desc + '\n' if desc != '' else '\n')
             schema = schema + '}\n'
         except Exception as e:
             logging.error(f'{self._info} 스키마 변환 Error: {table_name}\n{str(e)}')
