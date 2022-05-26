@@ -13,10 +13,10 @@ else:
     from app.libs.excel_to_db.app import *
 
 
-# async def sync_prisma(branch: str):
-#     # 프리즈마 초기화
-#     prisma = PrismaManager(branch)
-#     prisma.sync()
+async def sync_prisma(branch: str):
+    # 프리즈마 초기화
+    prisma = PrismaManager(branch)
+    prisma.sync()
 
 
 async def update_table(branch: str, server_type: ServerType):
@@ -229,7 +229,7 @@ def test(branch: str):
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    # excel_to_data_all('test')
+    excel_to_data_all('local')
     # excel_to_data('local', 'all')
     # excel_to_data_all('test')
     # check_excel('test')
