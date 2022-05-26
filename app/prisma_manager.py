@@ -53,28 +53,33 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            res = run(['prisma generate'], shell=True)
-            if not res.stderr:
-                logging.info(f"{self._info} 초기화 완료")
-                return True
+            # res = run(['prisma generate'], shell=True)
+            # if not res.stderr:
+            #     logging.info(f"{self._info} 초기화 완료")
+            return True
         except Exception as e:
-            logging.error(f"{self._info} 초기화 에러: /n {str(e)}")
+            print(e)
+            logging.error(f"{self._info} 초기화 에러: \n {str(e)}")
         return False
 
     # .env 파일에  디비 경로를 설정
     # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"
     def _init_prisma_config(self):
         db_path = self._get_db_by_branch()
-        db_path = 'DATABASE_URL="' + db_path + '"'
+        db_conn = f'DATABASE_URL="{db_path}"'
         with open(self.PATH_FOR_ENV, 'w', encoding='utf-8') as f:
-            f.write(db_path)
+            f.write(db_conn)
 
     # 브랜치 명으로 Config설정에 있는 디비 경로를 가져온다.
     def _get_db_by_branch(self) -> str:
         db_name = {
             "main": "DEV2",
         }.get(self.BRANCH, str(self.BRANCH).upper())
-        return self.CONFIG_DB[db_name]
+        if db_name in self.CONFIG_DB:
+            return self.CONFIG_DB[db_name]
+        else:
+            logging.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
+            return db_name
 
     def migrate(self, option: MigrateType, migrate_id: str):
         self.init_prisma()

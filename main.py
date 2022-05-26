@@ -208,6 +208,8 @@ async def migrate(branch: str):
     await b_manager.insert_all_table(server_data.get_jsonmap())
     await b_manager.insert_all_table(info_data.get_jsonmap())
 
+    g_manager.destroy()
+
 
 def test(branch: str):
     """
@@ -229,7 +231,7 @@ def test(branch: str):
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    excel_to_data_all('local')
+    # excel_to_data_all('test')
     # excel_to_data('local', 'all')
     # excel_to_data_all('test')
     # check_excel('test')

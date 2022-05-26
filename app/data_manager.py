@@ -449,7 +449,7 @@ class DataManager:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))
 
     def _get_jsonpath_server(self) -> list:
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*data/*.json"))
+        return list(Path(self.PATH_FOR_JSON).rglob(r"*server/*.json"))
 
     def _get_jsonpath_client(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*client/*.json"))
@@ -477,7 +477,6 @@ class DataManager:
                 json_path = self._get_jsonpath_info()
             elif target == ServerType.CLIENT:
                 json_path = self._get_jsonpath_client()
-
             for _path in json_path:
                 file_name = _path.stem
                 with open(_path, 'r') as f:
@@ -521,7 +520,7 @@ class DataManager:
         for col in df.columns:
             desc = df[col].values[self.row_for_desc] if self.row_for_desc != -1 else ''
             row = [col, df[col].values[self.row_for_data_type], df[col].values[self.row_for_data_option], desc]
-        table.append(row)
+            table.append(row)
         return {_path.stem: table}
 
     def _read_excel_for_data(self, path: Path) -> DataFrame:
