@@ -231,7 +231,7 @@ def test(branch: str):
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    # excel_to_data_all('test')
+    excel_to_data_all('local')
     # excel_to_data('test', 'all', 0)
     # excel_to_data_all('test')
     # check_excel('test')

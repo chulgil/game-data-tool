@@ -134,22 +134,19 @@ class GitManager:
             # 변경사항이 없다면 무시
             if not compare_url:
                 msg = f"[EXCEL변환요청:{username}] {_info} 변경사항이 없어 종료합니다."
-                self.teams.text(msg)
-                self.teams.send()
+                self.teams.text(msg).send()
                 logging.info(msg)
                 return ''
 
             # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
             if self._is_bot_user(username):
                 msg = f"{_info} 변경 히스토리 URL : {compare_url}"
-                self.teams.text(msg)
-                self.teams.send()
+                self.teams.text(msg).send()
                 logging.info(msg)
                 return ''
 
-            msg = f"[EXCEL변환요청:{username}] {_info} 변경사항을 적용합니다. 잠시만 기다려주세요..."
-            self.teams.text(msg)
-            self.teams.send()
+            msg = f"[EXCEL변환요청:{username}] {_info} 변경사항을 적용합니다."
+            self.teams.text(msg).send()
             logging.info(msg)
             return branch
         except Exception as e:
@@ -169,7 +166,9 @@ class GitManager:
             logging.info(str(self._brn()) + "변경된 파일 : " + str(self._repo.untracked_files))
             return True
 
-        logging.info(str(self._brn()) + "변경된 데이터가 없습니다.")
+        msg = str(self._brn()) + "변경된 데이터가 없습니다."
+        self.teams.text(msg).send()
+        logging.info(msg)
         return False
 
     def _is_empty_branch(self) -> bool:
