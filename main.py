@@ -108,7 +108,7 @@ def get_branch_from_webhook(webhook: dict) -> str:
     return g_manager.get_branch_from_webhook(webhook)
 
 
-def excel_to_data(branch: str, server_type: str, git_head_back=0):
+def excel_to_data(branch: str, server_type: str, git_head_back=1):
     """
     변경된 Excel추출후 json, prisma schema파일 저장
     @param branch: Git브랜치
