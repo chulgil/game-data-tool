@@ -160,7 +160,9 @@ class GitManager:
     def is_modified(self) -> bool:
         changed = [item.a_path for item in self._repo.index.diff(None)]
         if len(changed) > 0:
-            logging.info(str(self._brn()) + "변경된 파일 : " + str(changed))
+            msg = str(self._brn()) + "변경된 파일 : " + str(changed)
+            logging.info(msg)
+            self.teams.text(msg).send()
             return True
         if len(self._repo.untracked_files) > 0:
             logging.info(str(self._brn()) + "변경된 파일 : " + str(self._repo.untracked_files))
