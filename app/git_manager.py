@@ -28,8 +28,14 @@ class GitTarget(Enum):
 
 class GitManager:
 
-    def __init__(self, target: GitTarget):
+    def __init__(self, target: GitTarget, commit: dict = None):
+        self._info = ''
         self.BRANCH = None
+        if commit is not None and 'branch' in commit:
+            self.BRANCH = commit["branch"]
+        self.COMMIT = commit
+
+        self.COMMIT_ID = ''
         self.GIT_TARGET = target
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
@@ -68,6 +74,11 @@ class GitManager:
             del writer
             self._origin = self._repo.remotes.origin
             logging.info(str(self._brn()) + 'GIT 초기화 성공')
+
+            if self.COMMIT is not None:
+                self.GIT_PUSH_MSG = f'{self.GIT_PUSH_MSG} [{self.COMMIT["committer"]["name"]}] {self.COMMIT["message"]}'
+                self.COMMIT_ID = self.COMMIT["id"]
+
         except Exception as e:
             logging.error(str(self._brn()) + 'GIT Clone Error \r\n' + str(e))
 
@@ -99,11 +110,17 @@ class GitManager:
             return '[' + self._repo.active_branch.name + ' 브랜치] '
         return ''
 
-    def checkout(self, branch: str) -> bool:
+    def checkout(self, branch: str, commit_id: str = '') -> bool:
         try:
-            self._repo.head.reset(index=True, working_tree=True)
-            self._repo.git.checkout(branch)
-            self.BRANCH = branch
+
+            if self.COMMIT_ID != '':
+                commit_id = self.COMMIT_ID
+            if commit_id != '':
+                self._repo.head.reset(commit=commit_id, index=True, working_tree=True)
+            else:
+                self._repo.head.reset(index=True, working_tree=True)
+                self.BRANCH = branch
+                self._repo.git.checkout(branch)
             logging.info(str(self._brn()) + 'GIT CEHCKOUT 성공')
             return True
         except Exception as e:
@@ -116,13 +133,41 @@ class GitManager:
             self._repo.index.commit(self.GIT_PUSH_MSG)
             # logging.info(str(self._brn()) + 'GIT Commit 성공')
         except Exception as e:
-            logging.error(str(self._brn()) + 'GIT Commit Error \r\n' + str(e))
+            logging.error(str(self._brn()) + 'GIT Commit Error \kr\n' + str(e))
 
     # Ref :
     # https://docs.gitea.io/en-us/webhooks/
     # https://nixing.mx/posts/configure-gitea-webhooks.html
-    def get_branch_from_webhook(self, webhook: dict) -> str:
+    def get_commit_from_webhook(self, webhook: dict) -> dict:
+        """
+        :param webhook: from git server
+        :return:
+        dict {
+            "branch" : "test",
+            "id": "5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
+            "message": "teste\n",
+            "url": "http://url:3000/SPTeam/data-for-designer/commit/5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
+            "author": {
+              "name": "기획자",
+              "email": "designer@snowpipe.co.kr",
+              "username": "designer"
+            },
+            "committer": {
+              "name": "기획자",
+              "email": "designer@snowpipe.co.kr",
+              "username": "designer"
+            },
+            "verification": null,
+            "timestamp": "2022-05-04T16:40:46+09:00",
+            "added": [],
+            "removed": [],
+            "modified": [
+              "excel/data/zone_data.json"
+            ]
+        }
+        """
         try:
+            res = {}
             username = webhook["head_commit"]["committer"]["username"]
             compare_url = webhook["compare_url"]
 
@@ -136,22 +181,24 @@ class GitManager:
                 msg = f"[EXCEL변환요청:{username}] {_info} 변경사항이 없어 종료합니다."
                 self.teams.text(msg).send()
                 logging.info(msg)
-                return ''
+                return res
 
             # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
             if self._is_bot_user(username):
                 msg = f"{_info} 변경 히스토리 URL : {compare_url}"
                 self.teams.text(msg).send()
                 logging.info(msg)
-                return ''
+                return res
 
             msg = f"[EXCEL변환요청:{username}] {_info} 변경사항을 적용합니다."
             self.teams.text(msg).send()
             logging.info(msg)
-            return branch
+            res = webhook["head_commit"]
+            res["branch"] = branch
+            return res
         except Exception as e:
             logging.exception(f"Webhook format Error : {webhook}")
-        return ''
+        return {}
 
     # 자동봇 유저인지 확인
     def _is_bot_user(self, name: str):
@@ -168,7 +215,7 @@ class GitManager:
             logging.info(str(self._brn()) + "변경된 파일 : " + str(self._repo.untracked_files))
             return True
 
-        msg = str(self._brn()) + "변경된 데이터가 없습니다."
+        msg = f'[{self.GIT_TARGET.name}] {str(self._brn())} 변경된 데이터가 없습니다.'
         self.teams.text(msg).send()
         logging.info(msg)
         return False
@@ -188,21 +235,6 @@ class GitManager:
             data = data + self._get_diff_excel(_diff)
         if len(data) == 0:
             logging.info(str(self._brn()) + "변경된 EXCEL이 없습니다.")
-            return []
-
-        # 중복제거
-        data = set(data)
-        return list(data)
-
-    def get_modified_json(self, head_cnt=1) -> list:
-        """과거 이력중 JSON파일 경로만 추출
-        """
-        data = []
-        for i in range(1, head_cnt + 1):
-            _diff = self._repo.index.diff(f'HEAD~{i}')
-            data = data + self._get_diff_excel(_diff)
-        if len(data) == 0:
-            logging.info(str(self._brn()) + "변경된 Json이 없습니다.")
             return []
 
         # 중복제거

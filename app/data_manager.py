@@ -100,15 +100,14 @@ class DataManager:
         # 헤더행을 제외한 행부터 추출
         data_df = df.iloc[self.row_for_data_start:]
         data_df = data_df.reset_index(drop=True)
-
-        # 정의된 DB형식으로 데이터 포멧
-        self._translate_asdb(data_df, df.iloc[1], option_df)
+        type_df = df.iloc[self.row_for_data_type]
+        self._translate_asdb(data_df, type_df, option_df)
 
         # Option값 @Id가 존재하면 데이터의 중복값 체크
-        self._check_duplicated(data_df, df.iloc[1], option_df)
+        self._check_duplicated(data_df, type_df, option_df)
 
         # Pandas Dataframe 데이터 타입으로 변환
-        data_df = self._set_pandas_type(data_df, df.iloc[self.row_for_data_type])
+        data_df = self._set_pandas_type(data_df, type_df)
 
         return data_df
 

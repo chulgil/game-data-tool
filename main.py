@@ -14,8 +14,14 @@ else:
 
 
 async def sync_prisma(branch: str):
+    g_manager = GitManager(GitTarget.EXCEL)
+
+    if not g_manager.checkout(branch):
+        g_manager.destroy()
+        return
+
     # 프리즈마 초기화
-    prisma = PrismaManager(branch)
+    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.sync()
 
 
@@ -49,7 +55,7 @@ def excel_to_json_all(branch: str, working_dir: Path):
     d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
-def excel_to_json(branch: str, modified_list: list, server_type: str, working_dir: Path):
+def excel_to_json(branch: str, modified_list: list, server_type: ServerType, working_dir: Path):
     """
     변경된 Excel만 추출후 Json변환
     @param branch: 브랜치
@@ -58,9 +64,9 @@ def excel_to_json(branch: str, modified_list: list, server_type: str, working_di
     @param working_dir:
     @return:
     """
-    logging.info(f"[{branch} 브랜치] 변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {server_type}]")
+    logging.info(f"[{branch} 브랜치] 변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {server_type.name}]")
 
-    d_manager = DataManager(branch, ServerType.value_of(server_type), working_dir)
+    d_manager = DataManager(branch, server_type, working_dir)
 
     # Excel로드후 Json변환
     d_manager.excel_to_json(modified_list)
@@ -103,12 +109,12 @@ def excel_to_schema_all(branch: str, working_dir: Path):
     p_manager.save(table_info)
 
 
-def get_branch_from_webhook(webhook: dict) -> str:
+def get_commit_from_webhook(webhook: dict) -> dict:
     g_manager = GitManager(GitTarget.EXCEL)
-    return g_manager.get_branch_from_webhook(webhook)
+    return g_manager.get_commit_from_webhook(webhook)
 
 
-def excel_to_data(branch: str, server_type: str, git_head_back=1):
+def excel_to_data(branch: str, server_type: ServerType, git_head_back=1):
     """
     변경된 Excel추출후 json, prisma schema파일 저장
     @param branch: Git브랜치
@@ -171,6 +177,64 @@ def excel_to_data_all(branch: str):
     g_manager.destroy()
 
 
+def excel_to_data_modified(commit: dict = None):
+    """
+    전체 Excel추출후 json, prisma schema파일 저장
+    @param commit:
+            dict {
+            "branch" : "test",
+            "id": "5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
+            "message": "teste\n",
+            "url": "http://url:3000/SPTeam/data-for-designer/commit/5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
+            "author": {
+              "name": "기획자",
+              "email": "designer@snowpipe.co.kr",
+              "username": "designer"
+            },
+            "committer": {
+              "name": "기획자",
+              "email": "designer@snowpipe.co.kr",
+              "username": "designer"
+            },
+            "verification": null,
+            "timestamp": "2022-05-04T16:40:46+09:00",
+            "added": [],
+            "removed": [],
+            "modified": [
+              "excel/data/zone_data.json"
+            ]
+        }
+    """
+    # Git 초기화 및 다운로드
+
+    branch = commit["branch"]
+    g_manager = GitManager(GitTarget.EXCEL, commit)
+
+    # # 체크아웃 성공시에만 진행
+    if not g_manager.checkout(branch):
+        g_manager.destroy()
+        return
+
+    modified_list = g_manager.get_modified_excel()
+    if len(modified_list) == 0:
+        g_manager.destroy()
+        return
+    excel_to_json(branch, modified_list, ServerType.ALL, g_manager.PATH_FOR_WORKING)
+    excel_to_schema_all(branch, g_manager.PATH_FOR_WORKING)
+
+    # 수정된 파일이 있다면
+    if g_manager.is_modified():
+        excel_to_csharp(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
+        f_manager = FtpManager(branch, g_manager.get_last_tag())
+        d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
+        f_manager.send(d_manager.get_json())
+
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        g_manager.push()
+
+    g_manager.destroy()
+
+
 def check_excel(branch: str):
     # Git 초기화 및 다운로드
     g_manager = GitManager(GitTarget.EXCEL)
@@ -217,21 +281,39 @@ def test(branch: str):
     @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL)
 
-    # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
-        g_manager.destroy()
-        return
+    commit = {
+        "branch": "test",
+        "id": "dfb3c4c1613603f8e1263993e3e797bfa4b1859b",
+        "message": "Test: 데이터 체크\n",
+        "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/9298c34c094f40cff82648864e9abc7203b8dadd",
+        "author": {
+            "name": "CGLee",
+            "email": "cglee@snowpipe.co.kr",
+            "username": "CGLee"
+        },
+        "committer": {
+            "name": "CGLee",
+            "email": "cglee@snowpipe.co.kr",
+            "username": "CGLee"
+        },
+        "verification": None,
+        "timestamp": "2022-05-30T12:12:14+09:00",
+        "added": [],
+        "removed": [],
+        "modified": [
+            "excel/data/sub2_table_info.xlsx"
+        ]
+    }
+    excel_to_data_modified(commit)
+    # g_manager.destroy()
 
-    excel_to_csharp(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
 
-    g_manager.destroy()
-
+#
 
 if __name__ == '__main__' or __name__ == "decimal":
     # For test
-    excel_to_data_all('local')
+    # excel_to_data_all('local')
     # excel_to_data('test', 'all', 0)
     # excel_to_data_all('test')
     # check_excel('test')
