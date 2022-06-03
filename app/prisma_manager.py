@@ -1,4 +1,3 @@
-import logging
 import os
 from enum import Enum, auto
 from pathlib import Path
@@ -18,11 +17,14 @@ class MigrateType(Enum):
 class PrismaManager:
 
     def __init__(self, branch: str, save_dir: Path):
+        from . import LogManager
+        self.splog = LogManager(branch, save_dir)
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma')
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
+
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
@@ -43,10 +45,10 @@ class PrismaManager:
             res = run(['prisma db pull'], shell=True)
             res = run(['prisma generate'], shell=True)
             if not res.stderr:
-                logging.info(f"{self._info} 동기화 완료")
+                self.splog.info(f"{self._info} 동기화 완료")
                 return True
         except Exception as e:
-            logging.error(f"{self._info} 동기화 에러: {str(e)}")
+            self.splog.error(f"{self._info} 동기화 에러: {str(e)}")
         return False
 
     def init_prisma(self) -> bool:
@@ -59,7 +61,7 @@ class PrismaManager:
             return True
         except Exception as e:
             print(e)
-            logging.error(f"{self._info} 초기화 에러: \n {str(e)}")
+            self.splog.error(f"{self._info} 초기화 에러: \n {str(e)}")
         return False
 
     # .env 파일에  디비 경로를 설정
@@ -78,7 +80,7 @@ class PrismaManager:
         if db_name in self.CONFIG_DB:
             return self.CONFIG_DB[db_name]
         else:
-            logging.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
+            self.splog.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
             return db_name
 
     def migrate(self, option: MigrateType, migrate_id: str):
@@ -103,12 +105,12 @@ class PrismaManager:
                 run([f'prisma db push --accept-data-loss'], shell=True, check=True, stdout=PIPE,
                     stderr=STDOUT)
 
-            logging.error(f'Prisma 마이그레이션 완료: {str(option)}')
+            self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')
 
         except CalledProcessError as e:
-            logging.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
+            self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
         except Exception as e:
-            logging.error(f'{self._info} 마이그레이션 Error: \n{str(e)}')
+            self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e)}')
 
     def save(self, table_info: dict):
         table_name = ''
@@ -118,14 +120,14 @@ class PrismaManager:
             rows = table_info[key]
             new_schema = self._convet_schema(table_name, rows)
             if new_schema != '':
-                logging.info(f'{self._info} 스키마 저장 완료: {table_name}')
+                self.splog.info(f'{self._info} 스키마 저장 완료: {table_name}')
                 schema = schema + new_schema
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_SAVE_SCHEMA, "w", encoding='utf-8') as f:
                 f.write(schema)
         except Exception as e:
-            logging.error(f'{self._info} 스키마 저장 Error: {table_name}\n{str(e)}')
+            self.splog.error(f'{self._info} 스키마 저장 Error: {table_name}\n{str(e)}')
 
     def _convet_schema(self, table_name: str, rows: list) -> str:
         """
@@ -156,7 +158,7 @@ class PrismaManager:
                 schema = schema + (' // ' + desc + '\n' if desc != '' else '\n')
             schema = schema + '}\n'
         except Exception as e:
-            logging.error(f'{self._info} 스키마 변환 Error: {table_name}\n{str(e)}')
+            self.splog.error(f'{self._info} 스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
 
     @staticmethod
@@ -231,6 +233,7 @@ class PrismaManager:
 generator db {
   provider  = "prisma-client-py"
   interface = "asyncio"
+  output = "."
 }
 
 datasource db {

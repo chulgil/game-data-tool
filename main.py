@@ -1,14 +1,19 @@
 import asyncio
 import logging
+import colorlog
 from pathlib import Path
 
 if __name__ == '__main__' or __name__ == "decimal":
     from app import *
 
+    _format = '[%(levelname)-7s] %(asctime)s: %(message)s '
+    _format_console = colorlog.ColoredFormatter(_format, "%m/%d/%Y %H:%M:%S ")
     logger = logging.getLogger()
-    logging.basicConfig(
-        format='%(asctime)s %(message)s', datefmt='%m/%d/%Y %I:%M:%S %p',
-        filename='out.log', filemode="w", encoding='utf-8', level=logging.INFO)
+    handler = logging.FileHandler('out.log', 'w', 'utf-8')
+    handler.setFormatter(_format_console)
+    logger.setLevel(logging.INFO)
+    logger.addHandler(handler)
+
 else:
     from app.libs.excel_to_db.app import *
 
@@ -47,6 +52,7 @@ async def update_table(branch: str, server_type: ServerType):
 def excel_to_json_all(branch: str, working_dir: Path):
     """전체 Excel을 추출후 Json변환
         """
+
     logging.info(f"[{branch} 브랜치] 전체 Excel로드후 Json변환을 진행합니다.")
 
     # 전체 Excel로드후 Json변환
@@ -72,28 +78,47 @@ def excel_to_json(branch: str, modified_list: list, server_type: ServerType, wor
     d_manager.excel_to_json(modified_list)
 
 
-def excel_to_csharp(branch: str, excel_work_path: Path, commit_id: str):
+def excel_to_entity(branch: str, excel_work_path: Path, commit_id: str):
     logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
     d_manager = DataManager(branch, ServerType.CLIENT, excel_work_path)
-    g_manager = GitManager(GitTarget.CLIENT)
+    g_manager_client = GitManager(GitTarget.CLIENT)
     # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
-        g_manager.destroy()
+    if not g_manager_client.checkout(branch):
+        g_manager_client.destroy()
         return
-    c_manager = CSharpManager(branch, commit_id, g_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(branch, commit_id, g_manager_client.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
     c_manager.save_enum(d_manager.get_enum_data())
-    d_manager.save_json_all(g_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+    d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
 
     # 수정된 파일이 있다면
-    if g_manager.is_modified():
+    if g_manager_client.is_modified():
         # 변환된 Json파일을 Git서버로 자동 커밋
-        g_manager.push()
-    g_manager.destroy()
+        g_manager_client.push()
+    g_manager_client.destroy()
 
 
-def excel_to_schema_all(branch: str, working_dir: Path):
+def excel_to_enum(branch: str, excel_work_path: Path, commit_id: str):
+    logging.info(f"[{branch} 브랜치] 전체 Excel로드후 Enum 스크립트 변환을 진행합니다.")
+
+    d_manager = DataManager(branch, ServerType.CLIENT, excel_work_path)
+    g_manager_client = GitManager(GitTarget.CLIENT)
+    # 체크아웃 성공시에만 진행
+    if not g_manager_client.checkout(branch):
+        g_manager_client.destroy()
+        return
+    c_manager = CSharpManager(branch, commit_id, g_manager_client.PATH_FOR_WORKING)
+    c_manager.save_enum(d_manager.get_enum_data())
+
+    # 수정된 파일이 있다면
+    if g_manager_client.is_modified():
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        g_manager_client.push()
+    g_manager_client.destroy()
+
+
+def excel_to_schema(branch: str, working_dir: Path):
     """
     전체 Excel추출후 아래 데이터 타입만 Prisma 스키마변환
     server_type: 기획데이터:server Info데이터:info
@@ -114,43 +139,9 @@ def get_commit_from_webhook(webhook: dict) -> dict:
     return g_manager.get_commit_from_webhook(webhook)
 
 
-def excel_to_data(branch: str, server_type: ServerType, git_head_back=1):
+async def excel_to_data_all(branch: str):
     """
-    변경된 Excel추출후 json, prisma schema파일 저장
-    @param branch: Git브랜치
-    @param server_type: 기획데이터:server Info데이터:info 클라데이터:client
-    @param git_head_back: Git Head~[git_head_back] 이력 가져오는 레벨
-    @return:
-    """
-    # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL)
-
-    # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
-        g_manager.destroy()
-        return
-
-    modified_list = g_manager.get_modified_excel(git_head_back)
-    if len(modified_list) == 0:
-        g_manager.destroy()
-        return
-    excel_to_json(branch, modified_list, server_type, g_manager.PATH_FOR_WORKING)
-    excel_to_schema_all(branch, g_manager.PATH_FOR_WORKING)
-
-    # 수정된 파일이 있다면
-    if g_manager.is_modified():
-        excel_to_csharp(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
-        f_manager = FtpManager(branch, g_manager.get_last_tag())
-        d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-        f_manager.send(d_manager.get_json())
-        # 변환된 Json파일을 Git서버로 자동 커밋
-        g_manager.push()
-    g_manager.destroy()
-
-
-def excel_to_data_all(branch: str):
-    """
-    전체 Excel추출후 json, prisma schema파일 저장
+    최신 Excel Git 브랜치를 복제한후 데이터 변환을 호출한다.
     @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
@@ -160,27 +151,19 @@ def excel_to_data_all(branch: str):
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
-
     excel_to_json_all(branch, g_manager.PATH_FOR_WORKING)
-    excel_to_schema_all(branch, g_manager.PATH_FOR_WORKING)
-
-    # 수정된 파일이 있다면
+    #
     if g_manager.is_modified():
-        excel_to_csharp(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
-        f_manager = FtpManager(branch, g_manager.get_last_tag())
-        d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-        f_manager.send(d_manager.get_json())
-
-        # 변환된 Json파일을 Git서버로 자동 커밋
         g_manager.push()
 
-    g_manager.destroy()
+    await excel_to_server(branch, g_manager)
 
 
-def excel_to_data_modified(commit: dict = None):
+async def excel_to_data_modified(commit: dict = None):
     """
-    전체 Excel추출후 json, prisma schema파일 저장
-    @param commit:
+    Git Push 발생후 Webhook에서 이 메서드가 호출됨
+    git commit id를 기준으로 리포지토리를 복제한후 데이터 변환을 호출한다.
+    @param commit: 호출 파라미터 상세
             dict {
             "branch" : "test",
             "id": "5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
@@ -205,13 +188,11 @@ def excel_to_data_modified(commit: dict = None):
             ]
         }
     """
-    # Git 초기화 및 다운로드
-
     branch = commit["branch"]
     g_manager = GitManager(GitTarget.EXCEL, commit)
 
     # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
+    if not g_manager.checkout(commit["id"]):
         g_manager.destroy()
         return
 
@@ -219,18 +200,45 @@ def excel_to_data_modified(commit: dict = None):
     if len(modified_list) == 0:
         g_manager.destroy()
         return
+
     excel_to_json(branch, modified_list, ServerType.ALL, g_manager.PATH_FOR_WORKING)
-    excel_to_schema_all(branch, g_manager.PATH_FOR_WORKING)
 
-    # 수정된 파일이 있다면
+    # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
     if g_manager.is_modified():
-        excel_to_csharp(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
-        f_manager = FtpManager(branch, g_manager.get_last_tag())
-        d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-        f_manager.send(d_manager.get_json())
-
-        # 변환된 Json파일을 Git서버로 자동 커밋
         g_manager.push()
+
+    await excel_to_server(branch, g_manager)
+
+
+def data_to_client(branch, g_manager):
+    g_manager_client = GitManager(GitTarget.CLIENT)
+    # 체크아웃 성공시에만 진행
+    if not g_manager_client.checkout(branch):
+        g_manager_client.destroy()
+        return
+    d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
+    d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
+    # 수정된 파일이 있다면
+    if g_manager_client.is_modified():
+        # 변환된 Json파일을 Git서버로 자동 커밋
+        g_manager_client.push()
+    g_manager_client.destroy()
+
+    f_manager = FtpManager(branch, g_manager.get_last_tag())
+    f_manager.send(d_manager.get_json())
+
+
+async def excel_to_server(branch: str, g_manager: GitManager):
+    teams = LogManager(branch, g_manager.PATH_FOR_WORKING)
+    if g_manager.is_modified_excel_column():
+        teams.send_designer(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
+        excel_to_schema(branch, g_manager.PATH_FOR_WORKING)
+        excel_to_entity(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
+    else:
+        teams.send_designer(f'EXCEL파일에 변동이 있어 서버업데이트를 진행합니다.')
+        excel_to_enum(branch, g_manager.PATH_FOR_WORKING, g_manager.get_last_commit())
+        data_to_client(branch, g_manager)
+        await data_to_db(branch, g_manager)
 
     g_manager.destroy()
 
@@ -265,17 +273,18 @@ async def migrate(branch: str):
     # commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, branch)
-
-    server_data = DataManager(branch, ServerType.SERVER, g_manager.PATH_FOR_WORKING)
-    info_data = DataManager(branch, ServerType.INFO, g_manager.PATH_FOR_WORKING)
-    b_manager = DBManager(branch)
-    await b_manager.insert_all_table(server_data.get_jsonmap())
-    await b_manager.insert_all_table(info_data.get_jsonmap())
-
+    await data_to_db(branch, g_manager.PATH_FOR_WORKING)
     g_manager.destroy()
 
 
-def test(branch: str):
+async def data_to_db(branch: str, save_path: Path):
+    d_manager = DataManager(branch, ServerType.ALL, save_path)
+    b_manager = DBManager(branch, save_path)
+    await b_manager.insert_all_table(d_manager.get_jsonmap(ServerType.SERVER))
+    await b_manager.insert_all_table(d_manager.get_jsonmap(ServerType.INFO))
+
+
+async def test(branch: str):
     """
     전체 Excel추출후 json, prisma schema파일 저장
     @param branch: Git브랜치
@@ -284,7 +293,7 @@ def test(branch: str):
 
     commit = {
         "branch": "test",
-        "id": "dfb3c4c1613603f8e1263993e3e797bfa4b1859b",
+        "id": "89daf96c304500023db505ef1f87b373ec3ee1cd",
         "message": "Test: 데이터 체크\n",
         "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/9298c34c094f40cff82648864e9abc7203b8dadd",
         "author": {
@@ -305,18 +314,29 @@ def test(branch: str):
             "excel/data/sub2_table_info.xlsx"
         ]
     }
-    excel_to_data_modified(commit)
+    await excel_to_data_modified(commit)
     # g_manager.destroy()
 
 
 #
 
 if __name__ == '__main__' or __name__ == "decimal":
+    # branch = 'local'
+    # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
+    # g_manager = GitManager(GitTarget.EXCEL)
+    # if not g_manager.checkout(branch):
+    #     g_manager.destroy()
+    # else:
+    #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
+    #     g_manager = GitManager(GitTarget.CLIENT)
+    #     # 체크아웃 성공시에만 진행
+    #     c_manager = CSharpManager(branch, 'commit_test', g_manager.PATH_FOR_WORKING)
+    #     d_manager.get_enum_data()
+
     # For test
-    # excel_to_data_all('local')
-    # excel_to_data('test', 'all', 0)
-    # excel_to_data_all('test')
+    asyncio.run(excel_to_data_all('test'))
+    # asyncio.run(excel_to_data_modified('test'))
     # check_excel('test')
     # asyncio.run(migrate('test'))
-    # test('test')
+    # asyncio.run(test('test'))
     pass

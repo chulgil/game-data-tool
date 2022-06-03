@@ -1,11 +1,9 @@
 import os
 import json
-import logging
 import shutil
 from re import match
 from typing import Optional
 
-import pymsteams as pymsteams
 import yaml
 from dateutil import parser
 import pandas as pd
@@ -38,8 +36,11 @@ class ServerType(Enum):
 class DataManager:
 
     def __init__(self, branch: str, server_type: ServerType, working_dir: Path):
-        pandas.set_option('display.max_column', 10)  # print()에서 전체항목 표시
+        pandas.set_option('display.max_column', 50)  # print()에서 전체항목 표시
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
+
+        from . import LogManager
+        self.splog = LogManager(branch, working_dir)
 
         # Config 파일 설정
         self.ROOT_DIR = Path(__file__).parent.parent
@@ -48,7 +49,6 @@ class DataManager:
 
         self.BRANCH = branch
         self.SERVER_TYPE = server_type
-        self._error_msg = []
         self._info = f'[{branch} 브랜치]'
         self.PATH_FOR_WORKING = working_dir
 
@@ -59,12 +59,12 @@ class DataManager:
         self.row_for_data_type = 2
         self.row_for_data_option = 3
         self.row_for_data_start = 4
+        self.row_for_max_print = 50
 
         self._set_config(config)
         self._set_folder()
 
     def _set_config(self, config):
-        self.teams = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
         self.PATH_FOR_EXCEL = self.PATH_FOR_WORKING.joinpath(config['DEFAULT']['EXCEL_DIR'])
         self.PATH_FOR_DATA = self.PATH_FOR_EXCEL.joinpath('data')
         self.PATH_FOR_ENUM = self.PATH_FOR_EXCEL.joinpath('enum')
@@ -194,14 +194,12 @@ class DataManager:
         paths = str(save_path).split('/')
         name = paths.pop()
         path = paths.pop()
-        logging.info(f"{self._info} [{_server_type}] Json 파일 저장 성공 : {path}/{name}")
+        self.splog.info(f"{self._info} [{_server_type}] Json 파일 저장 성공 : {path}/{name}")
 
-        if len(self._error_msg) > 0:
+        if self.splog.has_warning():
             msg = f'{self._info} [{_server_type}] Excel파일에 미검증 데이터 존재 [{file_name}]'
-            self._error_msg.insert(0, msg)
-            logging.warning('\n'.join(self._error_msg))
-            self.teams.text('\n\n'.join(self._error_msg)).send()
-            self._error_msg = []
+            self.splog.add_warning(msg, 0)
+            self.splog.send_designer()
 
     def _check_duplicated(self, data_df: DataFrame, header_df: DataFrame, option_df: DataFrame) -> bool:
         """
@@ -226,8 +224,7 @@ class DataManager:
                         row_id = i + self.row_for_data_start + 2
                         msg = 'Duplicate values exist'
                         data_df.loc[i][col] = f'{self.ERROR_FOR_EXCEL} {msg}'
-                        warning = f'컬럼[{col}] 행[{row_id}] {msg}'
-                        self._error_msg.append(warning)
+                        self.splog.add_warning(f'컬럼[{col}] 행[{row_id}] {msg}')
                         res = True
         return res
 
@@ -253,6 +250,7 @@ class DataManager:
                     schema_type = option_df[col]
                 row_id = i + self.row_for_data_start + 2
                 info = f'컬럼[{col}] 행[{row_id}]'
+                # print(f'{field_type} {field_value}')
                 data_df.loc[i][col] = self._value_astype(field_type, field_value, schema_type, info)
 
     def _set_pandas_type(self, data_df: DataFrame, type_df: DataFrame) -> DataFrame:
@@ -266,7 +264,7 @@ class DataManager:
                 return data_df
             return data_df.astype(res, errors='ignore')
         except Exception as e:
-            logging.warning(str(e))
+            self.splog.error(str(e))
 
     @staticmethod
     def _astype(column_type: str) -> str:
@@ -299,8 +297,6 @@ class DataManager:
         """
         try:
             column_type = column_type.lower()
-            if column_type == '':
-                return
             if column_value == '':
                 default = match(r'@default\(?(\S+)\)', schema_type)
                 if default:
@@ -308,13 +304,13 @@ class DataManager:
                     column_value = column_value.replace('\'', '')
                     column_value = column_value.replace('"', '')
             if not match(r'@null', schema_type):  # not null type
-                if column_value == '':
+                if column_value == '' and column_type != '':
                     raise Exception('공백은 허용되지 않습니다.')
 
             if column_value == '':
-                return None
+                return ''
 
-            if column_type == "string":
+            if column_type == "string" or column_type == "":
                 return str(column_value)
             elif column_type == "float" or column_type == "double":
                 return float(column_value)
@@ -335,9 +331,8 @@ class DataManager:
             else:
                 return str(column_value)
         except Exception as e:
-            msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
-            self._error_msg.append(f"{info} {str(e)}")
-            return msg
+            self.splog.add_error(f"{info} {str(e)}")
+            return f'{self.ERROR_FOR_EXCEL} {str(e)}'
 
     def _iso8601(self, date_text: str) -> str:
         try:
@@ -368,17 +363,16 @@ class DataManager:
                 target_col = _target[1]
                 path = list(Path(self.PATH_FOR_DATA).rglob(rf"{target_table}.xls*"))
                 if len(path) == 0:
-                    logging.warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
+                    self.splog.add_warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
                     continue
                 res.append([path[0], col, target_col])
                 return res
         except Exception as e:
-            logging.warning(str(e))
+            self.splog.error(f'{self._info} {str(e)}')
 
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
         try:
-            _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
             _start_row = self.row_for_data_start
             origin_df = self._read_excel_for_data(origin_path)
             target_df = self._read_excel_for_data(target_path)
@@ -392,11 +386,11 @@ class DataManager:
                 if len(matched) == 0:
                     _warnings.append(f'원본 행[{_start_row + row_id - 1}] 의 참조 값[{value}]')
             if len(_warnings) > 0:
+                _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
                 _warnings.insert(0, self._info + ' ' + _msg_head)
-                self.teams.text('\n\n'.join(_warnings)).send()
-                logging.warning('\n'.join(_warnings))
+                self.splog.add_warning(_warnings)
         except Exception as e:
-            logging.warning(e)
+            self.splog.error(f'{self._info} {str(e)}')
 
     def check_excel_for_relation(self, excel_list: list):
 
@@ -410,9 +404,8 @@ class DataManager:
                 for info in rel_data:
                     self._check_relation_data(_path, info[0], info[1], info[2])
             except Exception as e:
-                msg = f'{self._info} Excel Check Error: \n{str(e)}'
-                logging.exception(msg)
-                self._error_msg.append(msg)
+                self.splog.add_warning(f'{self._info} Excel Check Error: \n{str(e)}')
+        self.splog.send_designer()
 
     def excel_to_json(self, excel_list: list):
 
@@ -433,10 +426,8 @@ class DataManager:
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
 
             except Exception as e:
-                msg = f'{self._info} Excel to Json Error: [{_path.stem}]\n{str(e)}'
-                self.teams.text(msg).send()
-                self._error_msg = []
-                logging.error(msg)
+                self.splog.add_warning(f'{self._info} Excel to Json Error: [{_path.stem}]\n{str(e)}')
+        self.splog.send_designer()
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*"))
@@ -481,7 +472,7 @@ class DataManager:
                 with open(_path, 'r') as f:
                     res[file_name] = json.load(f)
         except Exception as e:
-            self._error_msg.append(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
+            self.splog.add_error(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
         return res
 
     def delete_json_all(self):
@@ -583,14 +574,10 @@ class DataManager:
                     self._check_enum_data(row, res)
                     res[row.enum_type][row.enum_id] = [row.enum_value, row.comment]
             except Exception as e:
-                msg = f'{self._info} [Enum] Excel Error [{_path.stem}]'
-                logging.error(msg)
-            if len(self._error_msg) > 0:
-                msg = f'{self._info} [Enum] Excel 파일에 미검증 데이터 존재 [{_path.stem}]'
-                self._error_msg.insert(0, msg)
-                logging.warning('\n'.join(self._error_msg))
-                self.teams.text('\n\n'.join(self._error_msg)).send()
-                self._error_msg = []
+                self.splog.add_warning(f'{self._info} [Enum] Excel Error [{_path.stem}]')
+        if self.splog.has_warning():
+            self.splog.add_warning(f'{self._info} [Enum] Excel 파일에 미검증 데이터 존재', 0)
+            self.splog.send_designer()
         return res
 
     def _check_enum_data(self, row, data: dict):
@@ -602,11 +589,9 @@ class DataManager:
         if len(_data) == 0:
             return
         if row.enum_id in _data:
-            msg = f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.'
-            self._error_msg.append(msg)
+            self.splog.add_warning(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
         if row.enum_value in _values:
-            msg = f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.'
-            self._error_msg.append(msg)
+            self.splog.add_warning(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
 
     def _set_base_index(self, df: DataFrame) -> DataFrame:
         """
@@ -660,4 +645,4 @@ class DataManager:
 
     def save_json_all(self, save_path: Path, target: ServerType = None):
         with open(save_path, "w", encoding='utf-8') as f:
-            f.write(self.get_json(target))
+            json.dump(self.get_jsonmap(target), f, ensure_ascii=False, indent=4, separators=(',', ': '))
