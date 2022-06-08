@@ -52,7 +52,7 @@ class LogManager:
 
             # Excel Git Repo에 로그파일 저장 : 보류
             # self.logger.addHandler(self.file_handler)
-            self.logger.addHandler(self.main_handler)
+            # self.logger.addHandler(self.main_handler)
         except Exception as e:
             pass
 

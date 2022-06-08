@@ -257,12 +257,14 @@ async def excel_to_data_modified(g_manager: GitManager):
 
 async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
-    check_excel(g_manager)
+    # check_excel(g_manager)
     excel_to_json_all(g_manager)
     excel_to_schema(g_manager)
     g_manager.save_base_tag_to_config(g_manager.NEW_TAG)
-
     resource_url = data_to_client_data(g_manager)
+    prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+    prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
+
     await data_to_db(g_manager)
     await tag_to_db(g_manager, resource_url)
 
@@ -379,53 +381,31 @@ async def test(branch: str):
     #     ]
     # }
     webhook = {
-        "ref": "refs/heads/local",
-        "before": "e6e8968956803412d8a19be5d888776a6c1f3fac",
-        "after": "20135418ad31c3c34820d9244401963939218be5",
-        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/e6e8968956803412d8a19be5d888776a6c1f3fac...20135418ad31c3c34820d9244401963939218be5",
-        "commits": [
-            {
-                "id": "20135418ad31c3c34820d9244401963939218be5",
-                "message": "[Excel자동변환]",
-                "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/20135418ad31c3c34820d9244401963939218be5",
-                "author": {
-                    "name": "spbot",
-                    "email": "spbot@snowpipe.co.kr",
-                    "username": "spbot"
-                },
-                "committer": {
-                    "name": "spbot",
-                    "email": "spbot@snowpipe.co.kr",
-                    "username": "spbot"
-                },
-                "timestamp": "2022-06-08T19:45:33+09:00",
-                "added": [],
-                "removed": [],
-                "modified": [
-                    "export/prisma/schema.prisma"
-                ]
-            }
-        ],
+        "ref": "refs/tags/v0.4.1_local",
+        "before": "0000000000000000000000000000000000000000",
+        "after": "e6e8968956803412d8a19be5d888776a6c1f3fac",
+        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/0000000000000000000000000000000000000000...e6e8968956803412d8a19be5d888776a6c1f3fac",
+        "commits": [],
         "head_commit": {
-            "id": "20135418ad31c3c34820d9244401963939218be5",
-            "message": "[Excel자동변환]",
-            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/20135418ad31c3c34820d9244401963939218be5",
+            "id": "e6e8968956803412d8a19be5d888776a6c1f3fac",
+            "message": "[서버/이철길] 테스트 데이터 추가\n",
+            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/e6e8968956803412d8a19be5d888776a6c1f3fac",
             "author": {
-                "name": "spbot",
-                "email": "spbot@snowpipe.co.kr",
-                "username": "spbot"
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
             },
             "committer": {
-                "name": "spbot",
-                "email": "spbot@snowpipe.co.kr",
-                "username": "spbot"
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
             },
-            "timestamp": "2022-06-08T19:45:33+09:00",
+            "timestamp": "2022-06-08T19:40:10+09:00",
             "added": [],
-            "removed": [],
-            "modified": [
-                "export/prisma/schema.prisma"
-            ]
+            "removed": [
+                "excel/data/info/~$server_info.xlsx"
+            ],
+            "modified": []
         },
         "repository": {
             "id": 8,
@@ -450,6 +430,8 @@ async def test(branch: str):
             "name": "data-for-designer",
             "full_name": "SPTeam/data-for-designer",
             "description": "",
+            "starred_repos_count": 0,
+            "username": "CGLee"
         }
     }
 
