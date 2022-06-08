@@ -1,4 +1,3 @@
-import logging
 import io
 import yaml
 from pathlib import Path
@@ -7,7 +6,7 @@ import ftplib
 
 class FtpManager:
 
-    def __init__(self, branch: str, version: str):
+    def __init__(self, branch: str, version: str, log_path: Path):
         self.BRANCH = branch
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
@@ -17,12 +16,16 @@ class FtpManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
+        from . import LogManager
+        self.splog = LogManager(self.BRANCH, log_path)
+        self.splog.PREFIX = self._info
 
     def _set_config(self, config):
         self.FTP_URL = config['FTPSERVER']['URL']
         self.FTP_USER = config['FTPSERVER']['USER']
         self.FTP_PASS = config['FTPSERVER']['PASS']
         self.FTP_DIR = config['FTPSERVER']['EXPORT_DIR']
+        self.RES_URL = config['FTPSERVER']['RESOURCE_URL']
 
     def send(self, save_data: str):
         try:
@@ -34,9 +37,10 @@ class FtpManager:
             bio = io.BytesIO(save_data.encode())
             ftp_server.storbinary(f'STOR {self.EXPORT_JSON}', bio)
             ftp_server.quit()
-            logging.info(self._info + 'FTP전송 완료')
+            self.splog.info('FTP전송 완료')
         except Exception as e:
-            logging.error(self._info + 'FTP전송 실패 \n' + str(e))
+            self.splog.warning(f'FTP전송 실패 \n{str(e)}')
+        self.destroy()
 
     def mkdir(self, ftp_server: ftplib, current_dir: str):
         if current_dir != "":
@@ -47,3 +51,9 @@ class FtpManager:
                 _new_dir = current_dir.split("/")[-1]
                 ftp_server.mkd(_new_dir)
                 ftp_server.cwd(_new_dir)
+
+    def get_resource_url(self) -> str:
+        return str(Path().joinpath(self.RES_URL, self.FTP_DIR, self.BRANCH, self.VERSION, self.EXPORT_JSON))
+
+    def destroy(self):
+        self.splog.destory()

@@ -19,6 +19,7 @@ class LogManager:
             self._error = []
             test = uuid.uuid4().hex
             self.logger = logging.getLogger(test)
+            self.PREFIX = ''
             self.BRANCH = branch
             self.PATH_FOR_ROOT = Path(__file__).parent.parent
             self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
@@ -32,9 +33,9 @@ class LogManager:
             self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'])
             self.row_for_max_buffer = 50
             if self.is_service_branch(branch):
-                self.teams_target = self.teams_test
-            else:
                 self.teams_target = self.teams_designer
+            else:
+                self.teams_target = self.teams_test
 
             _format_file = '[%(levelname)-7s] %(asctime)s: %(message)s '
             _format_console = '[%(levelname)-7s] %(asctime)s: %(message)s '
@@ -60,32 +61,32 @@ class LogManager:
 
     def add_info(self, msg, idx: int = None):
         if idx:
-            self._info.insert(idx, msg)
+            self._info.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
                 self._info = self._info + msg
             else:
-                self._info.append(msg)
+                self._info.append(f'{self.PREFIX} {str(msg)}')
         self._info = self._info[:self.row_for_max_buffer]
 
     def add_warning(self, msg, idx: int = None):
         if idx:
-            self._warning.insert(idx, msg)
+            self._warning.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
                 self._warning = self._warning + msg
             else:
-                self._warning.append(msg)
+                self._warning.append(f'{self.PREFIX} {str(msg)}')
         self._warning = self._warning[:self.row_for_max_buffer]
 
     def add_error(self, msg: str, idx: int = None):
         if idx:
-            self._error.insert(idx, msg)
+            self._error.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
                 self._error = self._error + msg
             else:
-                self._error.append(msg)
+                self._error.append(f'{self.PREFIX} {str(msg)}')
         self._error = self._error[:self.row_for_max_buffer]
 
     def has_info(self) -> bool:
@@ -101,7 +102,7 @@ class LogManager:
         if msg == '':
             return
         if msg:
-            self.logger.info(msg)
+            self.logger.info(f'{self.PREFIX} {str(msg)}')
             return
         if self.has_info():
             self.logger.info('\n'.join(self._info))
@@ -111,7 +112,7 @@ class LogManager:
         if msg == '':
             return
         if msg:
-            self.logger.warning(msg)
+            self.logger.warning(f'{self.PREFIX} {str(msg)}')
             return
         if self.has_warning():
             self.logger.warning('\n'.join(self._warning))
@@ -121,7 +122,7 @@ class LogManager:
         if msg == '':
             return
         if msg:
-            self.logger.error(msg)
+            self.logger.error(f'{self.PREFIX} {str(msg)}')
             return
         if self.has_error():
             self.logger.error('\n'.join(self._error))
@@ -129,39 +130,36 @@ class LogManager:
 
     def send_designer(self, msg: str = None):
         if msg:
-            # self.logger.info(msg)
-            # self.target.text(msg).send()
-            pass
+            self.logger.info(f'{self.PREFIX} {str(msg)}')
+            self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
         else:
             if self.has_info():
-                # self.target.text('\n\n'.join(self._info)).send()
+                self.teams_target.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
-                # self.target.text('\n\n'.join(self._warning)).send()
+                self.teams_target.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
-    def send_developer(self, msg):
+    def send_developer(self, msg: str = None):
         if not self.is_service_branch(self.BRANCH):
             return
         if msg:
-            # self.developer.text(msg).send()
-            # self.logger.info(msg)
-            pass
+            self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
+            self.logger.info(f'{self.PREFIX} {str(msg)}')
         else:
             if self.has_info():
-                # self.developer.text('\n\n'.join(self._info)).send()
+                self.teams_developer.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
-                # self.developer.text('\n\n'.join(self._warning)).send()
+                self.teams_developer.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
     @staticmethod
     def is_service_branch(branch) -> bool:
-        if branch != 'main' and branch != 'dev' \
-                and branch != 'qa' and branch != 'qa2' and branch != 'qa3' \
-                and branch != 'cbt' and branch != 'obt':
-            return False
-        return True
+        if branch == 'main' or branch == 'dev' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
+                or branch == 'cbt' or branch == 'obt':
+            return True
+        return False
 
     def destory(self):
         self.info()

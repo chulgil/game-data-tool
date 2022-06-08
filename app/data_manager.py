@@ -331,7 +331,7 @@ class DataManager:
             else:
                 return str(column_value)
         except Exception as e:
-            self.splog.add_error(f"{info} {str(e)}")
+            self.splog.warning(f"{info} {str(e)}")
             return f'{self.ERROR_FOR_EXCEL} {str(e)}'
 
     def _iso8601(self, date_text: str) -> str:
@@ -368,7 +368,8 @@ class DataManager:
                 res.append([path[0], col, target_col])
                 return res
         except Exception as e:
-            self.splog.error(f'{self._info} {str(e)}')
+            self.splog.add_warning(f'{self._info} {str(e)}')
+            self.splog.send_designer()
 
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
@@ -390,7 +391,8 @@ class DataManager:
                 _warnings.insert(0, self._info + ' ' + _msg_head)
                 self.splog.add_warning(_warnings)
         except Exception as e:
-            self.splog.error(f'{self._info} {str(e)}')
+            self.splog.add_warning(f'{self._info} {str(e)}')
+            self.splog.send_designer()
 
     def check_excel_for_relation(self, excel_list: list):
 
