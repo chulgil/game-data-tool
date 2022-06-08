@@ -247,11 +247,11 @@ async def excel_to_data_modified(g_manager: GitManager):
 
 
 async def excel_to_data_taged(g_manager: GitManager):
-    g_manager.splog.info("새로운 태그요청이 존재하여 EXCEL변환을 시작합니다.")
-    # check_excel(g_manager)
-    # excel_to_json_all(g_manager)
-    # excel_to_schema(g_manager)
-    # g_manager.save_base_tag_to_config(g_manager.NEW_TAG)
+    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
+    check_excel(g_manager)
+    excel_to_json_all(g_manager)
+    excel_to_schema(g_manager)
+    g_manager.save_base_tag_to_config(g_manager.NEW_TAG)
 
     resource_url = data_to_client_data(g_manager)
     await data_to_db(g_manager)
