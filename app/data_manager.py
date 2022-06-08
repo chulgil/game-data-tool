@@ -426,7 +426,8 @@ class DataManager:
                 # 파일 이름으로 JSON 파일 저장 : CLIENT
                 if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
-
+            except FileNotFoundError as e:
+                pass
             except Exception as e:
                 self.splog.add_warning(f'{self._info} Excel to Json Error: [{_path.stem}]\n{str(e)}')
         self.splog.send_designer()

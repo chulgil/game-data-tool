@@ -1,3 +1,4 @@
+import os
 import uuid
 from enum import Enum, auto
 from typing import Optional
@@ -29,7 +30,7 @@ class GitManager:
 
     def __init__(self, target: GitTarget, webhook=None):
         self.info = ''
-        self.BRANCH = 'main'
+        self.BRANCH = None
         self.COMMIT_ID = ''
         self.BASE_COMMIT_ID = ''
         self.GIT_PUSH_MSG = ''
@@ -38,6 +39,7 @@ class GitManager:
         self.GIT_TARGET = target
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+        os.chdir(self.PATH_FOR_ROOT)
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
@@ -48,12 +50,11 @@ class GitManager:
 
         self._init_git()
         if isinstance(webhook, dict):
-            self.load_commit_from_webhook(webhook)
             self.load_tag_from_webhook(webhook)
+            self.load_commit_from_webhook(webhook)
 
     def _set_config(self, config):
 
-        # self.PATH_FOR_WORKING = self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'], str(self.GIT_TARGET.name))
         self.PATH_FOR_WORKING = self._random_path(config)
         self.PATH_FOR_WORKING_BASE = self._random_path(config)
         if self.GIT_TARGET == GitTarget.EXCEL:
@@ -137,6 +138,7 @@ class GitManager:
             if commit_id != '':
                 self._repo.head.reset(commit=commit_id, index=True, working_tree=True)
                 self.load_branch_from_commit(commit_id)
+                self._repo.git.checkout(self.BRANCH)
             else:
                 self.BRANCH = branch
                 self.splog.BRANCH = branch

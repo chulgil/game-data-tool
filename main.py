@@ -16,6 +16,12 @@ if __name__ == '__main__' or __name__ == "decimal":
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
+    stream_handler = logging.StreamHandler()
+    stream_handler.setLevel(logging.INFO)
+    stream_handler.setFormatter(_format_console)
+    logger.addHandler(stream_handler)
+
+
 else:
     from app.libs.excel_to_db.app import *
 
@@ -167,7 +173,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
     """
     Git Push 발생후 Webhook에서 이 메서드가 호출됨
     git commit id를 기준으로 리포지토리를 복제한후 데이터 변환을 호출한다.
-    @param commit: 호출 파라미터 상세
+    @param webhook: 호출 파라미터 상세
             dict {
             "branch" : "test",
             "id": "5dc78789cadafe7bc73adf8031a9b6ba9236af2c",
@@ -191,11 +197,16 @@ async def excel_to_data_from_webhook(webhook: dict = None):
               "excel/data/zone_data.json"
             ]
         }
+
     """
     g_manager = GitManager(GitTarget.EXCEL, webhook)
+    # # 체크아웃 성공시에만 진행
+    if not g_manager.checkout():
+        g_manager.destroy()
+        return
+
     username = webhook["head_commit"]["committer"]["username"]
     compare_url = webhook["compare_url"]
-    g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
 
     # 변경사항이 없다면 무시
     if not compare_url:
@@ -203,14 +214,12 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         return
 
     # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
-    if g_manager.is_bot_user():
-        g_manager.splog.send_designer(f"변경 히스토리 URL : {webhook['compare_url']}")
+    bot = g_manager.is_bot_user()
+    if bot:
+        g_manager.splog.send_designer(f"변경 히스토리 URL : {compare_url}")
         return
 
-    # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout():
-        g_manager.destroy()
-        return
+    g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
 
     _new_tag = g_manager.NEW_TAG
     branch = g_manager.BRANCH
@@ -370,31 +379,77 @@ async def test(branch: str):
     #     ]
     # }
     webhook = {
-        "ref": "refs/tags/v0.5.0",
-        "before": "0000000000000000000000000000000000000000",
-        "after": "407e08ff1935a12472a257793e4917d3344d69a3",
-        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/0000000000000000000000000000000000000000...407e08ff1935a12472a257793e4917d3344d69a3",
-        "commits": [],
+        "ref": "refs/heads/local",
+        "before": "e6e8968956803412d8a19be5d888776a6c1f3fac",
+        "after": "20135418ad31c3c34820d9244401963939218be5",
+        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/e6e8968956803412d8a19be5d888776a6c1f3fac...20135418ad31c3c34820d9244401963939218be5",
+        "commits": [
+            {
+                "id": "20135418ad31c3c34820d9244401963939218be5",
+                "message": "[Excel자동변환]",
+                "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/20135418ad31c3c34820d9244401963939218be5",
+                "author": {
+                    "name": "spbot",
+                    "email": "spbot@snowpipe.co.kr",
+                    "username": "spbot"
+                },
+                "committer": {
+                    "name": "spbot",
+                    "email": "spbot@snowpipe.co.kr",
+                    "username": "spbot"
+                },
+                "timestamp": "2022-06-08T19:45:33+09:00",
+                "added": [],
+                "removed": [],
+                "modified": [
+                    "export/prisma/schema.prisma"
+                ]
+            }
+        ],
         "head_commit": {
-            "id": "bdc2ae8a94accdef8c56f3079c8c724bc283a86e",
-            "message": "http://local.sp.snowpipe.net:3000/SPTeam/ProjectSP-Server/src/branch/main/Docs/GameDesign/v0.5.0.md",
-            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/bdc2ae8a94accdef8c56f3079c8c724bc283a86e",
+            "id": "20135418ad31c3c34820d9244401963939218be5",
+            "message": "[Excel자동변환]",
+            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/20135418ad31c3c34820d9244401963939218be5",
             "author": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
+                "name": "spbot",
+                "email": "spbot@snowpipe.co.kr",
+                "username": "spbot"
             },
             "committer": {
-                "name": "yeungpyo",
-                "email": "pyo112@snowpipe.co.kr",
-                "username": "pyo"
+                "name": "spbot",
+                "email": "spbot@snowpipe.co.kr",
+                "username": "spbot"
             },
-            "timestamp": "2022-06-07T20:08:56+09:00",
+            "timestamp": "2022-06-08T19:45:33+09:00",
             "added": [],
             "removed": [],
             "modified": [
-                "excel/data/disaster_pattern_data.xlsx"
+                "export/prisma/schema.prisma"
             ]
+        },
+        "repository": {
+            "id": 8,
+            "owner": {
+                "id": 2,
+                "login": "SPTeam",
+                "full_name": "",
+                "email": "",
+                "avatar_url": "http://local.sp.snowpipe.net:3000/avatars/0b4e480645d9e5c45dfdf455829cd61d",
+                "language": "",
+                "last_login": "0001-01-01T00:00:00Z",
+                "created": "2022-04-25T15:47:09+09:00",
+                "location": "",
+                "website": "",
+                "description": "",
+                "visibility": "limited",
+                "followers_count": 0,
+                "following_count": 0,
+                "starred_repos_count": 0,
+                "username": "SPTeam"
+            },
+            "name": "data-for-designer",
+            "full_name": "SPTeam/data-for-designer",
+            "description": "",
         }
     }
 

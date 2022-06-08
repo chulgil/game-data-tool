@@ -1,13 +1,10 @@
-import os
+import logging
 import pymsteams as pymsteams
-from pathlib import Path
 import uuid
 import yaml
 import logging
-from io import StringIO
 from pathlib import Path
 import colorlog
-from datetime import date
 
 
 class LogManager:
