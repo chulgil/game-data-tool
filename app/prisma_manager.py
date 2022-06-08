@@ -55,9 +55,9 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            # res = run(['prisma generate'], shell=True)
-            # if not res.stderr:
-            #     logging.info(f"{self._info} 초기화 완료")
+            res = run(['prisma generate'], shell=True)
+            if not res.stderr:
+                self.splog.info(f"{self._info} 초기화 완료")
             return True
         except Exception as e:
             print(e)
