@@ -17,6 +17,8 @@ class DBManager:
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
 
         try:
+            from prisma_cleanup import cleanup
+            cleanup()
             from prisma import Client
             self.db = Client()
             # Config 파일 설정
