@@ -1,9 +1,7 @@
 import asyncio
 import logging
-from typing import Optional
 
 import colorlog
-from pathlib import Path
 
 if __name__ == '__main__' or __name__ == "decimal":
     from app import *
@@ -46,9 +44,6 @@ async def update_table(branch: str, server_type: ServerType):
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
-
-    # 프리즈마 초기화
-    p_manager = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
 
     # 변환된 Json파일을 디비로 저장
     b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
@@ -94,7 +89,8 @@ def excel_to_entity(g_manager: GitManager):
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
         return
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager_client.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
+                              g_manager_client.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
     c_manager.save_enum(d_manager.get_enum_data())
     d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
@@ -115,7 +111,8 @@ def excel_to_enum(g_manager: GitManager):
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
         return
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager_client.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
+                              g_manager_client.PATH_FOR_WORKING)
     c_manager.save_enum(d_manager.get_enum_data())
 
     # 수정된 파일이 있다면
@@ -147,7 +144,7 @@ def get_commit_from_webhook(webhook: dict) -> dict:
     return res
 
 
-async def excel_to_data_all(branch: str):
+async def excel_to_data_all_from_branch(branch: str):
     """
     최신 Excel Git 브랜치를 복제한후 데이터 변환을 호출한다.
     @param branch: Git브랜치
@@ -221,20 +218,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
 
     g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
 
-    _new_tag = g_manager.NEW_TAG
-    branch = g_manager.BRANCH
-    g_manager.destroy()
-
-    # 새로운 태그 요청 이후 PUSH가 있을 것을 가정하여 최신 Git을 Clone
-    g_manager = GitManager(GitTarget.EXCEL)
-
-    # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
-        g_manager.destroy()
-        return
-
-    if _new_tag != '':
-        g_manager.NEW_TAG = _new_tag
+    if g_manager.NEW_TAG != '':
         await excel_to_data_taged(g_manager)
     else:
         await excel_to_data_modified(g_manager)
@@ -257,16 +241,37 @@ async def excel_to_data_modified(g_manager: GitManager):
 
 async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
-    check_excel(g_manager)
-    excel_to_json_all(g_manager)
-    excel_to_entity(g_manager)
-    excel_to_schema(g_manager)
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
     data_to_client_data(g_manager)
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
+
+
+async def excel_to_data_all_from_tag(tag: str):
+    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager.load_branch_from_tag(tag)
+    if not g_manager.checkout():
+        g_manager.destroy()
+        return
+    g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
+    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
+    check_excel(g_manager)
+    excel_to_json_all(g_manager)
+    excel_to_entity(g_manager)
+    excel_to_schema(g_manager)
+    excel_to_enum(g_manager)
+    g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
+    if g_manager.is_modified():
+        g_manager.push()
+
+    data_to_client_data(g_manager)
+    prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+    prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
+    await data_to_db(g_manager)
+    await tag_to_db(g_manager)
+    g_manager.destroy()
 
 
 def data_to_client_data(g_manager: GitManager):
@@ -289,7 +294,7 @@ def data_to_client_data(g_manager: GitManager):
         if not g_manager_client.checkout(g_manager.BRANCH):
             g_manager_client.destroy()
             return
-        g_manager_client.push_tag_to_client(g_manager_client.COMMIT_ID, g_manager.NEW_TAG)
+        g_manager_client.push_tag_to_client(g_manager.NEW_TAG)
         g_manager_client.destroy()
 
 
@@ -333,7 +338,6 @@ async def migrate(branch: str):
         g_manager.destroy()
         return
 
-    # commit = g_manager.get_last_commit()
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, branch)
     await data_to_db(g_manager)
@@ -357,10 +361,9 @@ async def tag_to_db(g_manager: GitManager):
     await b_manager.destory()
 
 
-async def test(branch: str):
+async def test():
     """
     전체 Excel추출후 json, prisma schema파일 저장
-    @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
 
@@ -461,5 +464,5 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all('test'))
     # asyncio.run(excel_to_data_modified('test'))
     # asyncio.run(migrate('test'))
-    asyncio.run(test('test'))
+    asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
     pass

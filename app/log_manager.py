@@ -46,9 +46,9 @@ class LogManager:
             self.main_handler.setFormatter(self.FORM_CONSOLE)
 
             # ------- FILE LOGGER
-            self.file_handler = logging.FileHandler(self.PATH_FOR_SAVE, 'w', 'utf-8')
-            self.file_handler.setLevel(logging.INFO)
-            self.file_handler.setFormatter(self.FORM_FILE)
+            # self.file_handler = logging.FileHandler(self.PATH_FOR_SAVE, 'w', 'utf-8')
+            # self.file_handler.setLevel(logging.INFO)
+            # self.file_handler.setFormatter(self.FORM_FILE)
 
             # Excel Git Repo에 로그파일 저장 : 보류
             # self.logger.addHandler(self.file_handler)
@@ -128,13 +128,13 @@ class LogManager:
     def send_designer(self, msg: str = None):
         if msg:
             self.logger.info(f'{self.PREFIX} {str(msg)}')
-            # self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+            self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
         else:
             if self.has_info():
-                # self.teams_target.text('\n\n'.join(self._info)).send()
+                self.teams_target.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
-                # self.teams_target.text('\n\n'.join(self._warning)).send()
+                self.teams_target.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
     def send_developer(self, msg: str = None):

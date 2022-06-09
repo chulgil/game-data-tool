@@ -121,8 +121,10 @@ class GitManager:
     def load_branch_from_tag(self, tag: str):
         res = self._repo.git.branch('-a', '--contains', f'tags/{tag}')
         branch = res.split('/').pop()
-        # print(f'Branch : {branch}')
+        commit_id = self._repo.git.rev_parse(tag, short=True)
         self.BRANCH = branch
+        self.COMMIT_ID = commit_id
+        self.NEW_TAG = tag
         return branch
 
     def load_branch_from_commit(self, commit_id: str):
@@ -185,10 +187,8 @@ class GitManager:
                 return None
             tag = str(z.group(1))
             commit = webhook['head_commit']
-            self.NEW_TAG = tag
             self.HEAD_COMMIT = commit
             self.GIT_PUSH_MSG = f'{self.GIT_PUSH_MSG} [{commit["committer"]["name"]}] : {commit["message"]}'
-            self.COMMIT_ID = commit["id"]
             self.load_branch_from_tag(tag)
             return tag
         except Exception as e:
@@ -325,7 +325,7 @@ class GitManager:
         try:
             data = {'LAST_TAG': tag}
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
-                config = yaml.dump(data, f)
+                yaml.dump(data, f)
             self.BASE_TAG = tag
         except IOError as e:
             self.splog.warning(str(e))
@@ -434,7 +434,7 @@ class GitManager:
                     res.append(f"데이터 항목 {v1[x][y]} : {v2[x][y]}")
         return res
 
-    def push_tag_to_client(self, commit_id, tag: str):
+    def push_tag_to_client(self, tag: str):
         if self.GIT_TARGET is not GitTarget.CLIENT:
             return
         if tag in self._repo.tags:
