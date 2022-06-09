@@ -7,19 +7,18 @@ from pathlib import Path
 class DBManager:
 
     def __init__(self, branch: str, working_dir):
+        from . import LogManager
+        self.splog = LogManager(branch, working_dir)
+        self.BRANCH = branch
+        self._info = f'[{branch} 브랜치]'
+        self.splog.PREFIX = self._info
+        self.PATH_FOR_WORKING = working_dir
+        self.PATH_FOR_ROOT = Path(__file__).parent.parent
+        self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+
         try:
             from prisma import Client
             self.db = Client()
-
-            from . import LogManager
-            self.splog = LogManager(branch, working_dir)
-            self.BRANCH = branch
-            self._info = f'[{branch} 브랜치]'
-            self.splog.PREFIX = self._info
-            self.PATH_FOR_WORKING = working_dir
-            self.PATH_FOR_ROOT = Path(__file__).parent.parent
-            self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
-
             # Config 파일 설정
             with open(self.PATH_FOR_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
