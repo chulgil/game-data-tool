@@ -277,9 +277,7 @@ def data_to_client_data(g_manager: GitManager):
 
     d_manager = DataManager(g_manager.BRANCH, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
     d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
-    # 수정된 파일이 있다면
     if g_manager_client.is_modified():
-        # 변환된 Json파일을 Git서버로 자동 커밋
         g_manager_client.push()
     g_manager_client.destroy()
 

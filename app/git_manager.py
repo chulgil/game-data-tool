@@ -133,7 +133,7 @@ class GitManager:
         return branch
 
     def _checkout(self, cmd: str):
-        if cmd in self._repo.heads:
+        if cmd in self._repo.remote().refs:
             self._repo.git.checkout(cmd)
         else:
             self._repo.git.checkout('-b', cmd)
