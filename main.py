@@ -205,22 +205,20 @@ async def excel_to_data_from_webhook(webhook: dict = None):
     username = webhook["head_commit"]["committer"]["username"]
     compare_url = webhook["compare_url"]
 
-    # 변경사항이 없다면 무시
-    if not compare_url:
-        g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항이 없어 종료합니다.")
-        return
-
-    # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
-    bot = g_manager.is_bot_user()
-    if bot:
-        g_manager.splog.send_designer(f"변경 히스토리 URL : {compare_url}")
-        return
-
-    g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
-
     if g_manager.NEW_TAG != '':
         await excel_to_data_taged(g_manager)
     else:
+        # 변경사항이 없다면 무시
+        if not compare_url:
+            g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항이 없어 종료합니다.")
+            return
+
+        # 봇 PUSH 인 경우는 다시 PUSH하지 않고 메시지만 보낸다.
+        if g_manager.is_bot_user():
+            g_manager.splog.send_designer(f"변경 히스토리 URL : {compare_url}")
+            return
+
+        g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
         await excel_to_data_modified(g_manager)
 
     # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
