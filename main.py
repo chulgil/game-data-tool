@@ -94,7 +94,7 @@ def excel_to_entity(g_manager: GitManager):
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
         return
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager_client.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager_client.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
     c_manager.save_enum(d_manager.get_enum_data())
     d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
@@ -115,7 +115,7 @@ def excel_to_enum(g_manager: GitManager):
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
         return
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager_client.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager_client.PATH_FOR_WORKING)
     c_manager.save_enum(d_manager.get_enum_data())
 
     # 수정된 파일이 있다면
@@ -259,6 +259,7 @@ async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
     check_excel(g_manager)
     excel_to_json_all(g_manager)
+    excel_to_entity(g_manager)
     excel_to_schema(g_manager)
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
     data_to_client_data(g_manager)
@@ -270,7 +271,6 @@ async def excel_to_data_taged(g_manager: GitManager):
 
 def data_to_client_data(g_manager: GitManager):
     g_manager_client = GitManager(GitTarget.CLIENT)
-    # 체크아웃 성공시에만 진행
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
         return
@@ -286,6 +286,13 @@ def data_to_client_data(g_manager: GitManager):
     f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
     f_manager.send(d_manager.get_json())
     g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
+    if g_manager.NEW_TAG != '':
+        g_manager_client = GitManager(GitTarget.CLIENT)
+        if not g_manager_client.checkout(g_manager.BRANCH):
+            g_manager_client.destroy()
+            return
+        g_manager_client.push_tag_to_client(g_manager_client.COMMIT_ID, g_manager.NEW_TAG)
+        g_manager_client.destroy()
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -332,6 +339,7 @@ async def migrate(branch: str):
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, branch)
     await data_to_db(g_manager)
+    await tag_to_db(g_manager)
     g_manager.destroy()
 
 

@@ -132,6 +132,14 @@ class GitManager:
         self.BRANCH = branch
         return branch
 
+    def _checkout(self, cmd: str):
+        if cmd in self._repo.heads:
+            self._repo.git.checkout(cmd)
+        else:
+            self._repo.git.checkout('-b', cmd)
+            self.splog.info(f"브랜치를 새로 생성합니다. [{cmd}]")
+            self.push()
+
     def checkout(self, branch: str = '', commit_id: str = '') -> bool:
         try:
             if self.COMMIT_ID != '':
@@ -139,13 +147,13 @@ class GitManager:
             if commit_id != '':
                 self._repo.head.reset(commit=commit_id, index=True, working_tree=True)
                 self.load_branch_from_commit(commit_id)
-                self._repo.git.checkout(self.BRANCH)
+                self._checkout(self.BRANCH)
             else:
                 self.BRANCH = branch
                 self.splog.BRANCH = branch
-                self.COMMIT_ID = self.get_last_commit()
                 self._repo.head.reset(index=True, working_tree=True)
-                self._repo.git.checkout(branch)
+                self._checkout(branch)
+                self.COMMIT_ID = self.get_last_commit()
 
             # 비교할 파일이 존재하면 리포지토리를 복제한다.
             self.BASE_TAG = self.get_base_tag_from_branch()
@@ -318,6 +326,7 @@ class GitManager:
             data = {'LAST_TAG': tag}
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 config = yaml.dump(data, f)
+            self.BASE_TAG = tag
         except IOError as e:
             self.splog.warning(str(e))
 
@@ -424,6 +433,17 @@ class GitManager:
                 if v1[x][y] != v2[x][y]:
                     res.append(f"데이터 항목 {v1[x][y]} : {v2[x][y]}")
         return res
+
+    def push_tag_to_client(self, commit_id, tag: str):
+        if self.GIT_TARGET is not GitTarget.CLIENT:
+            return
+        if tag in self._repo.tags:
+            self.splog.info(f'TAG[{tag}]가 이미 존재하여 삭제합니다.')
+            self._repo.delete_tag(self._repo.tags[tag])
+            self._origin.push(f':refs/tags/{tag}')
+        self.splog.info(f'TAG[{tag}]를 생성 합니다.')
+        self._repo.create_tag(tag, message='Automatic tag "{0}"'.format(tag))
+        self._origin.push(self._repo.tags)
 
     def destroy(self):
         try:
