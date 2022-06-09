@@ -167,7 +167,7 @@ class GitManager:
 
             self.info = self._brn()
             self.splog.PREFIX = self.info
-            self.splog.info('GIT CEHCKOUT 성공')
+            self.splog.info(f'GIT CEHCKOUT 성공 [{self.COMMIT_ID}]')
             return True
         except Exception as e:
             self.splog.error(f'GIT CHECKOUT Error \r\n{str(e)}')
