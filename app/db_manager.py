@@ -1,5 +1,4 @@
 from datetime import datetime
-import os
 import yaml
 from pathlib import Path
 
@@ -15,7 +14,6 @@ class DBManager:
         self.PATH_FOR_WORKING = working_dir
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
-        os.chdir(self.PATH_FOR_ROOT)
         try:
 
             from prisma import Client

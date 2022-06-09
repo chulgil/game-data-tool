@@ -84,7 +84,6 @@ class PrismaManager:
             return db_name
 
     def migrate(self, option: MigrateType, migrate_id: str):
-        self.init_prisma()
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
@@ -231,7 +230,7 @@ class PrismaManager:
 generator db {
   provider  = "prisma-client-py"
   interface = "asyncio"
-  output = "."
+  // output = "." # Local only for test
 }
 
 datasource db {

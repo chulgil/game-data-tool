@@ -57,6 +57,7 @@ class GitManager:
 
         self.PATH_FOR_WORKING = self._random_path(config)
         self.PATH_FOR_WORKING_BASE = self._random_path(config)
+        self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
         if self.GIT_TARGET == GitTarget.EXCEL:
             self.GIT_URL = config['GITSERVER']['EXCEL_SSH']
         elif self.GIT_TARGET == GitTarget.CLIENT:
@@ -147,7 +148,7 @@ class GitManager:
                 self._repo.git.checkout(branch)
 
             # 비교할 파일이 존재하면 리포지토리를 복제한다.
-            self.BASE_TAG = self.get_base_tag_from_config()
+            self.BASE_TAG = self.get_base_tag_from_branch()
             if self.BASE_TAG != '':
                 _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_BASE, branch=self.BRANCH)
                 _old_repo.git.checkout(self.BASE_TAG)
@@ -296,14 +297,13 @@ class GitManager:
         latest_tag = str(tags[-1])
         return latest_tag
 
-    def get_base_tag_from_config(self) -> str:
+    def get_base_tag_from_branch(self) -> str:
         """
-        Branch에 있는 config.yml파일로 부터 마지막 태그를 읽어들인다.
+        Branch에 있는 config.yaml파일로 부터 마지막 태그를 읽어들인다.
         :return:
         """
         try:
-            _path = self.PATH_FOR_WORKING.joinpath('config.yml')
-            with open(_path, 'r') as f:
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
             if 'LAST_TAG' in config:
                 return config['LAST_TAG']
@@ -313,12 +313,31 @@ class GitManager:
             self.splog.warning(str(e))
         return ''
 
-    def save_base_tag_to_config(self, tag):
+    def save_base_tag_to_branch(self, tag):
         try:
             data = {'LAST_TAG': tag}
-            _path = self.PATH_FOR_WORKING.joinpath('config.yml')
-            with open(_path, 'w') as f:
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 config = yaml.dump(data, f)
+        except IOError as e:
+            self.splog.warning(str(e))
+
+    def get_client_resource_from_branch(self) -> dict:
+        try:
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
+                config = yaml.safe_load(f)
+            return {'res_ver': config["CLIENT_RES_VER"], 'res_url': config["CLIENT_RES_URL"]}
+        except IOError as e:
+            self.splog.warning(str(e))
+        return {}
+
+    def save_client_resource_to_branch(self, resource_url: str):
+        try:
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
+                config = yaml.safe_load(f)
+            config["CLIENT_RES_VER"] = self.COMMIT_ID
+            config["CLIENT_RES_URL"] = resource_url
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
+                config = yaml.dump(config, f)
         except IOError as e:
             self.splog.warning(str(e))
 

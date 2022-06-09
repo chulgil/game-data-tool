@@ -26,7 +26,7 @@ else:
     from app.libs.excel_to_db.app import *
 
 
-async def sync_prisma(branch: str):
+def sync_prisma(branch: str):
     g_manager = GitManager(GitTarget.EXCEL)
 
     if not g_manager.checkout(branch):
@@ -42,19 +42,19 @@ async def update_table(branch: str, server_type: ServerType):
     # Git 초기화 및 다운로드
     g_manager = GitManager(GitTarget.EXCEL)
 
-    # 프리즈마 초기화
-    p_manager = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-
     # 체크아웃 성공시에만 진행
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
 
+    # 프리즈마 초기화
+    p_manager = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+
     # 변환된 Json파일을 디비로 저장
-    manager = DBManager(branch)
+    b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
     d_manager = DataManager(branch, server_type, g_manager.PATH_FOR_WORKING)
     json_map = d_manager.get_jsonmap()
-    await manager.restore_all_table(json_map)
+    await b_manager.restore_all_table(json_map)
 
 
 def excel_to_json_all(g_manager: GitManager):
@@ -257,24 +257,24 @@ async def excel_to_data_modified(g_manager: GitManager):
 
 async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
-    # check_excel(g_manager)
+    check_excel(g_manager)
     excel_to_json_all(g_manager)
     excel_to_schema(g_manager)
-    g_manager.save_base_tag_to_config(g_manager.NEW_TAG)
-    resource_url = data_to_client_data(g_manager)
+    g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
+    data_to_client_data(g_manager)
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
-
     await data_to_db(g_manager)
-    await tag_to_db(g_manager, resource_url)
+    await tag_to_db(g_manager)
 
 
-def data_to_client_data(g_manager: GitManager) -> Optional[str]:
+def data_to_client_data(g_manager: GitManager):
     g_manager_client = GitManager(GitTarget.CLIENT)
     # 체크아웃 성공시에만 진행
     if not g_manager_client.checkout(g_manager.BRANCH):
         g_manager_client.destroy()
-        return None
+        return
+
     d_manager = DataManager(g_manager.BRANCH, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
     d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
     # 수정된 파일이 있다면
@@ -285,7 +285,7 @@ def data_to_client_data(g_manager: GitManager) -> Optional[str]:
 
     f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
     f_manager.send(d_manager.get_json())
-    return f_manager.get_resource_url()
+    g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -303,9 +303,9 @@ async def excel_to_server(g_manager: GitManager):
         teams.send_developer()
     else:
         teams.send_designer(f'EXCEL파일에 변동이 있어 서버업데이트를 진행합니다.')
-        resource_url = data_to_client_data(g_manager)
+        data_to_client_data(g_manager)
         await data_to_db(g_manager)
-        await tag_to_db(g_manager, resource_url)
+        await tag_to_db(g_manager)
     teams.destory()
 
 
@@ -343,10 +343,11 @@ async def data_to_db(g_manager: GitManager):
     await b_manager.destory()
 
 
-async def tag_to_db(g_manager: GitManager, resource_url):
+async def tag_to_db(g_manager: GitManager):
     b_manager = DBManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
-    if g_manager.NEW_TAG != '':
-        await b_manager.update_version_info(g_manager.COMMIT_ID, resource_url)
+    res_info = g_manager.get_client_resource_from_branch()
+    if len(res_info.keys()) > 0:
+        await b_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
     await b_manager.destory()
 
 
