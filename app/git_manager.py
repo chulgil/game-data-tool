@@ -150,6 +150,7 @@ class GitManager:
                 self._repo.head.reset(commit=commit_id, index=True, working_tree=True)
                 self.load_branch_from_commit(commit_id)
                 self._checkout(self.BRANCH)
+                self.COMMIT_ID = self.get_current_commit()
             else:
                 self.BRANCH = branch
                 self.splog.BRANCH = branch
@@ -296,6 +297,9 @@ class GitManager:
             if self.COMPILE_JSON.match(value):
                 res.append(value)
         return res
+
+    def get_current_commit(self) -> str:
+        return self._repo.git.rev_parse(self.COMMIT_ID, short=True)
 
     def get_last_commit(self) -> str:
         return self._repo.git.rev_parse(self._repo.head, short=True)

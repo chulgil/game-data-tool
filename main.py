@@ -462,5 +462,5 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all('test'))
     # asyncio.run(excel_to_data_modified('test'))
     # asyncio.run(migrate('test'))
-    asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
+    # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
     pass
