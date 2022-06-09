@@ -7,22 +7,25 @@ from pathlib import Path
 class DBManager:
 
     def __init__(self, branch: str, working_dir):
-        from prisma import Client
-        self.db = Client()
+        try:
+            from prisma import Client
+            self.db = Client()
 
-        from . import LogManager
-        self.splog = LogManager(branch, working_dir)
-        self.BRANCH = branch
-        self._info = f'[{branch} 브랜치]'
-        self.splog.PREFIX = self._info
-        self.PATH_FOR_WORKING = working_dir
-        self.PATH_FOR_ROOT = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+            from . import LogManager
+            self.splog = LogManager(branch, working_dir)
+            self.BRANCH = branch
+            self._info = f'[{branch} 브랜치]'
+            self.splog.PREFIX = self._info
+            self.PATH_FOR_WORKING = working_dir
+            self.PATH_FOR_ROOT = Path(__file__).parent.parent
+            self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
 
-        # Config 파일 설정
-        with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = yaml.safe_load(f)
-        self.DBLIST = config['DATABASE']
+            # Config 파일 설정
+            with open(self.PATH_FOR_CONFIG, 'r') as f:
+                config = yaml.safe_load(f)
+            self.DBLIST = config['DATABASE']
+        except Exception as e:
+            self.splog.error(f'PRISMA DB 초기화 ERROR : \n{e}')
 
     async def restore_all_table(self, json_map: dict):
         await self.db.connect()
