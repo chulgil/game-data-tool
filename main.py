@@ -198,7 +198,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
     """
     g_manager = GitManager(GitTarget.EXCEL, webhook)
     # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout() or not webhook["head_commit"]:
+    if not webhook["head_commit"] or not g_manager.checkout():
         g_manager.destroy()
         return
 
