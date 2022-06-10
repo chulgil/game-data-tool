@@ -119,6 +119,7 @@ class GitManager:
         return ''
 
     def load_branch_from_tag(self, tag: str):
+        self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{tag}]")
         res = self._repo.git.branch('-a', '--contains', f'tags/{tag}')
         branch = res.split('/').pop()
         commit_id = self._repo.git.rev_parse(tag, short=True)
@@ -128,6 +129,7 @@ class GitManager:
         return branch
 
     def load_branch_from_commit(self, commit_id: str):
+        self.splog.info(f"커밋아이디로 브랜치를 설정합니다. [{commit_id}]")
         res = self._repo.git.branch('-a', '--contains', commit_id)
         branch = res.split('/').pop()
         # print(f'Branch : {branch}')
