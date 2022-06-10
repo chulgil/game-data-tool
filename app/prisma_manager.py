@@ -17,6 +17,9 @@ class MigrateType(Enum):
 class PrismaManager:
 
     def __init__(self, branch: str, save_dir: Path):
+        from prisma_cleanup import cleanup
+        cleanup()
+        
         from . import LogManager
         self.splog = LogManager(branch, save_dir)
         self.BRANCH = branch
@@ -85,7 +88,7 @@ class PrismaManager:
 
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
-            self.sync()
+            self.init_prisma()
 
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
