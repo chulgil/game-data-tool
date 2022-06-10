@@ -42,7 +42,7 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
-            # res = run(['prisma db pull'], shell=True)
+            res = run(['prisma db pull'], shell=True)
             res = run(['prisma generate'], shell=True)
             if not res.stderr:
                 self.splog.info(f"{self._info} 동기화 완료")
@@ -85,7 +85,7 @@ class PrismaManager:
 
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
-            self.init_prisma()
+            self.sync()
 
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
@@ -103,8 +103,8 @@ class PrismaManager:
             elif option == MigrateType.FORCE:
                 run([f'prisma db push --accept-data-loss'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
+            self.init_prisma()
             self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')
-            self.sync()
 
         except CalledProcessError as e:
             self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
