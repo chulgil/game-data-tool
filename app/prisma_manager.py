@@ -17,9 +17,6 @@ class MigrateType(Enum):
 class PrismaManager:
 
     def __init__(self, branch: str, save_dir: Path):
-        from prisma_cleanup import cleanup
-        cleanup()
-        
         from . import LogManager
         self.splog = LogManager(branch, save_dir)
         self.BRANCH = branch
@@ -41,6 +38,8 @@ class PrismaManager:
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.mkdir(self.PATH_FOR_SAVE_DIR)
 
+        self.init_prisma()
+
     def sync(self) -> bool:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
@@ -57,10 +56,18 @@ class PrismaManager:
     def init_prisma(self) -> bool:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
+            from prisma_cleanup import cleanup
+            cleanup()
+
+            # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
+            with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
+                schema = f.read()
+
+            with open(self.PATH_FOR_BASE_SCHEMA, 'w') as f:
+                f.write(schema)
+
             self._init_prisma_config()
-            res = run(['prisma generate'], shell=True)
-            if not res.stderr:
-                self.splog.info(f"{self._info} 초기화 완료")
+            self.prisma_generate()
             return True
         except Exception as e:
             print(e)
@@ -86,9 +93,13 @@ class PrismaManager:
             self.splog.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
             return db_name
 
+    def prisma_generate(self):
+        res = run(['prisma generate'], shell=True)
+        if not res.stderr:
+            self.splog.info(f"{self._info} 초기화 완료")
+
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
-            self.init_prisma()
 
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
@@ -106,7 +117,7 @@ class PrismaManager:
             elif option == MigrateType.FORCE:
                 run([f'prisma db push --accept-data-loss'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
-            self.init_prisma()
+            self.prisma_generate()
             self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')
 
         except CalledProcessError as e:
