@@ -300,7 +300,7 @@ async def excel_to_server(g_manager: GitManager):
     teams = LogManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     if g_manager.is_modified_excel_enum():
         excel_to_enum(g_manager)
-        msg = 'Enum 데이터에 변동 사항이 있습니다. 확인 후 개발 진행이 필요합니다.'
+        msg = 'Enum 데이터에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         teams.add_warning(msg)
         teams.send_developer()
         teams.send_designer(msg)
@@ -309,12 +309,12 @@ async def excel_to_server(g_manager: GitManager):
         teams.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
         excel_to_entity(g_manager)
         excel_to_schema(g_manager)
-        msg = '기획 데이터에 변동 사항이 있습니다. 확인 후 개발 진행이 필요합니다.'
+        msg = '기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         teams.add_warning(msg)
         teams.send_developer()
         teams.send_designer(msg)
     else:
-        teams.send_designer(f'EXCEL파일에 변동이 있어 데이터 업데이트를 진행합니다.')
+        teams.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
         data_to_client_data(g_manager)
         await data_to_db(g_manager)
         await tag_to_db(g_manager)
@@ -467,4 +467,13 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_modified('test'))
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
+
+    # key = 'cjdekaehdvkfkrhsdkvkxm@))$!!)@gh'
+
+    # aes = AESCipher(key)
+    # en = aes.encrypt("test")
+    # print(en)
+    # de = aes.decrypt(en)
+    # print(de)
+    # asyncio.run(excel_to_data_all_from_branch('local'))
     pass

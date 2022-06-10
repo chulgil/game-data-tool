@@ -412,6 +412,7 @@ class GitManager:
                 diffs = diffs + diff
         if len(diffs) > 0:
             self.splog.add_info(diffs)
+            return True
         return res
 
     @staticmethod
