@@ -163,9 +163,12 @@ class GitManager:
             # 비교할 파일이 존재하면 리포지토리를 복제한다.
             self.BASE_TAG = self.get_base_tag_from_branch()
             if self.BASE_TAG != '':
-                _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_BASE, branch=self.BRANCH)
-                _old_repo.git.checkout(self.BASE_TAG)
-                self.BASE_COMMIT_ID = _old_repo.commit().hexsha
+                try:
+                    _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_BASE, branch=self.BRANCH)
+                    _old_repo.git.checkout(self.BASE_TAG)
+                    self.BASE_COMMIT_ID = _old_repo.commit().hexsha
+                except Exception as e:
+                    self.splog.info(f'GIT 브랜치에 BASE TAG가 존재하지 않습니다. [{self.BASE_TAG}]')
 
             self.info = self._brn()
             self.splog.PREFIX = self.info
