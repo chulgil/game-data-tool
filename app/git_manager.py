@@ -349,11 +349,17 @@ class GitManager:
         return {}
 
     def save_client_resource_to_branch(self, resource_url: str):
+        config = {}
         try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
-            config["CLIENT_RES_VER"] = self.COMMIT_ID
-            config["CLIENT_RES_URL"] = resource_url
+        except IOError as e:
+            self.splog.warning(str(e))
+
+        config["CLIENT_RES_VER"] = self.COMMIT_ID
+        config["CLIENT_RES_URL"] = resource_url
+
+        try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 config = yaml.dump(config, f)
         except IOError as e:
