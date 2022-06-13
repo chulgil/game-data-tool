@@ -61,6 +61,9 @@ class DataManager:
         self.row_for_data_start = 4
         self.row_for_max_print = 50
 
+        self.IDX_DATA_TYPE_FROM_SERVER_TYPE = 1
+        self.IDX_DATA_OPTION_FROM_SERVER_TYPE = 2
+
         self._set_config(config)
         self._set_folder()
 
@@ -130,7 +133,7 @@ class DataManager:
         return res
 
     def _get_data_option(self, df: DataFrame) -> Optional[DataFrame]:
-        if self._is_data_option_row(df):
+        if self._is_data_option_row(df.iloc[self.row_for_data_option].values):
             return df.iloc[self.row_for_data_option]
         return None
 
@@ -144,24 +147,26 @@ class DataManager:
                 res[col] = value
         return res
 
-    def _is_data_type_row(self, df: DataFrame) -> bool:
+    @staticmethod
+    def _is_data_type_row(row: DataFrame) -> bool:
         """엑셀 데이터에서 해당 행에 데이터 타입 정보가 포함되어 있는지 확인한다.
             id table_id             table_sub_id    item_rate
             1   long      int            int        float
         """
         _match = r'int|string|datetime|float|short'
-        filtered = list(filter(lambda v: match(_match, str(v)), df.iloc[self.row_for_data_type].values))
+        filtered = list(filter(lambda v: match(_match, str(v)), row))
         if len(filtered) > 0:
             return True
         return False
 
-    def _is_data_option_row(self, df: DataFrame) -> bool:
+    @staticmethod
+    def _is_data_option_row(row: DataFrame) -> bool:
         """엑셀 데이터에서 해당 행에 스키마 정보가 포함되어 있는지 확인한다.
             id table_id             table_sub_id    item_rate
             1   long      int             int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
-        filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), df.iloc[self.row_for_data_option].values))
+        filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), row))
         if len(filtered) > 0:
             return True
         return False
@@ -371,42 +376,67 @@ class DataManager:
             self.splog.add_warning(f'{self._info} {str(e)}')
             self.splog.send_designer()
 
+    def _get_server_type_index(self, df: DataFrame):
+        _idx = 0
+        _type = None
+        _row_for_max = self.ROW_FOR_MAX_HEADER
+        _row_for_current = len(df.index)
+        if _row_for_current < self.ROW_FOR_MAX_HEADER:
+            _row_for_max = _row_for_current
+
+        for i in range(_row_for_max):
+            _type = ServerType.value_of(df.iloc[i][0])
+            if _type == ServerType.ALL or _type == ServerType.SERVER \
+                    or _type == ServerType.CLIENT or _type == ServerType.INFO:
+                _idx = i
+        return _idx
+
+    def _get_start_index(self, df: DataFrame):
+        idx = self._get_server_type_index(df)
+        idx_option = idx + self.IDX_DATA_OPTION_FROM_SERVER_TYPE
+        if self._is_data_option_row(df.iloc[idx_option].values):
+            idx = idx_option
+        else:
+            idx = idx + self.IDX_DATA_TYPE_FROM_SERVER_TYPE
+        idx = idx + 1
+        return idx
+
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
-        try:
-            _start_row = self.row_for_data_start
-            origin_df = self._read_excel_for_data(origin_path)
-            target_df = self._read_excel_for_data(target_path)
-            odata = origin_df.iloc[_start_row:]
-            tdata = target_df.iloc[_start_row:]
-            _warnings = []
-            for row_id, value in odata[origin_col].items():
-                if value == 0 or value == '' or value is None:
-                    continue
-                matched = tdata[tdata[target_col] == value].index.values
-                if len(matched) == 0:
-                    _warnings.append(f'원본 행[{_start_row + row_id - 1}] 의 참조 값[{value}]')
-            if len(_warnings) > 0:
-                _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
-                _warnings.insert(0, self._info + ' ' + _msg_head)
-                self.splog.add_warning(_warnings)
-        except Exception as e:
-            self.splog.add_warning(f'{self._info} {str(e)}')
-            self.splog.send_designer()
+        _start_row = self.row_for_data_start
+        origin_df = self._read_excel_for_data(origin_path)
+        target_df = self._read_excel_for_data(target_path)
+        oidx = self._get_start_index(origin_df)
+        tidx = self._get_start_index(target_df)
+        odata = origin_df.iloc[oidx:]
+        tdata = target_df.iloc[tidx:]
+        _warnings = []
+        for row_id, value in odata[origin_col].items():
+            if value == 0 or value == '' or value is None:
+                continue
+            if target_col not in tdata:
+                continue
+
+            values = tdata[target_col].values
+            if value not in values:
+                _warnings.append(f'원본 행[{oidx + row_id - 1}] 의 참조 값[{value}]')
+
+        if len(_warnings) > 0:
+            _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
+            _warnings.insert(0, self._info + ' ' + _msg_head)
+            self.splog.add_warning(_warnings)
 
     def check_excel_for_relation(self, excel_list: list):
 
         # Excel파일 가져오기
         for excel in excel_list:
-            try:
-                _path = Path(self.PATH_FOR_WORKING).joinpath(excel)
-                rel_data = self._get_relation_infos(_path)
-                if rel_data is None:
-                    continue
-                for info in rel_data:
-                    self._check_relation_data(_path, info[0], info[1], info[2])
-            except Exception as e:
-                self.splog.add_warning(f'{self._info} Excel Check Error: \n{str(e)}')
+            _path = Path(self.PATH_FOR_WORKING).joinpath(excel)
+            rel_data = self._get_relation_infos(_path)
+            if rel_data is None:
+                continue
+            for info in rel_data:
+                self._check_relation_data(_path, info[0], info[1], info[2])
+
         self.splog.send_designer()
 
     def excel_to_json(self, excel_list: list):
@@ -528,10 +558,10 @@ class DataManager:
             dup_df = df.loc[:, df.columns.duplicated()]
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 중복된 컬럼이 존재합니다. \n{dup_df.columns.tolist()}")
 
-        if not self._is_data_type_row(df):
+        if not self._is_data_type_row(df.iloc[self.row_for_data_type].values):
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 데이터 타입 (int, string ...)이 있는지 확인해 주세요. \n[{path.stem}]")
 
-        if not self._is_data_option_row(df):
+        if not self._is_data_option_row(df.iloc[self.row_for_data_option].values):
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 디비스키마열 @id가 있는지 확인해 주세요. \n[{path.stem}]")
 
         invalid_option = self.get_invalid_option_row(df)
@@ -616,18 +646,7 @@ class DataManager:
         # 6 : 0 | test |  2022.04.09 | 2021-03-09T00:00:00
         # --------------------------------------------------------------
         """
-        _idx_server_type = 0
-        _row_for_max = self.ROW_FOR_MAX_HEADER
-        _row_for_current = len(df.index)
-        if _row_for_current < self.ROW_FOR_MAX_HEADER:
-            _row_for_max = _row_for_current
-
-        for i in range(_row_for_max):
-            _type = ServerType.value_of(df.iloc[i][0])
-            if _type == ServerType.ALL or _type == ServerType.SERVER \
-                    or _type == ServerType.CLIENT or _type == ServerType.INFO:
-                _idx_server_type = i
-
+        _idx_server_type = self._get_server_type_index(df)
         if _idx_server_type < 1:
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 서버타입 열이 있는지 확인해 주세요. ")
 
@@ -640,7 +659,7 @@ class DataManager:
         self.row_for_data_type = _idx_header + 1
         self.row_for_data_option = _idx_header + 2
         self.row_for_data_start = _idx_header + 2
-        if self._is_data_option_row(df):
+        if self._is_data_option_row(df.iloc[self.row_for_data_option].values):
             self.row_for_data_start = _idx_header + 3
 
         if self.row_for_server_type > 0:

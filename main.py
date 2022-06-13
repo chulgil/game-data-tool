@@ -309,7 +309,7 @@ async def excel_to_server(g_manager: GitManager):
         teams.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
         excel_to_entity(g_manager)
         excel_to_schema(g_manager)
-        if not g_manager.splog.is_service_branch():
+        if not g_manager.splog.is_service_branch(g_manager.BRANCH):
             data_to_client_data(g_manager)
         msg = '기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         teams.add_warning(msg)
@@ -377,11 +377,12 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    # branch = 'local'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
-    # g_manager = GitManager(GitTarget.EXCEL)
-    # if not g_manager.checkout(branch):
-    #     g_manager.destroy()
+    g_manager = GitManager(GitTarget.EXCEL)
+    if not g_manager.checkout(branch):
+        g_manager.destroy()
+    check_excel(g_manager)
     # else:
     #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
     #     g_manager = GitManager(GitTarget.CLIENT)
@@ -401,5 +402,5 @@ if __name__ == '__main__' or __name__ == "decimal":
     # print(en)
     # de = aes.decrypt(en)
     # print(de)
-    asyncio.run(migrate('test'))
+    # asyncio.run(migrate('test'))
     pass
