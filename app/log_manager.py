@@ -128,13 +128,13 @@ class LogManager:
     def send_designer(self, msg: str = None):
         if msg:
             self.logger.info(f'{self.PREFIX} {str(msg)}')
-            # self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+            self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
         else:
             if self.has_info():
-                # self.teams_target.text('\n\n'.join(self._info)).send()
+                self.teams_target.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
-                # self.teams_target.text('\n\n'.join(self._warning)).send()
+                self.teams_target.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
     def send_developer(self, msg: str = None):
