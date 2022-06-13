@@ -271,7 +271,7 @@ class GitManager:
             return True
         return False
 
-    def get_modified_excel(self, head_cnt=1) -> list:
+    def get_modified_excel(self, head_cnt=2) -> list:
         """과거 이력중 엑셀파일 경로만 추출
         """
         data = []
@@ -417,7 +417,7 @@ class GitManager:
         for path in _mod_files:
             _old = data_old.get_schema(path)
             _new = data_new.get_schema(path)
-            diff = self.diff_schema(_old, _new)
+            diff = self.diff_schema(path, _old, _new)
             if len(diff) > 0:
                 diffs.append(f'변경 컬럼 내역 : [{path}]')
                 diffs = diffs + diff
@@ -426,8 +426,7 @@ class GitManager:
             return True
         return res
 
-    @staticmethod
-    def diff_schema(old_schema: dict, new_schema: dict) -> list:
+    def diff_schema(self, path: str, old_schema: dict, new_schema: dict) -> list:
         """
         스키마 구성 ->
         table : [
@@ -437,17 +436,26 @@ class GitManager:
         ]
         """
         res = []
-        v1 = list(old_schema.values())[0]
-        v2 = list(new_schema.values())[0]
+        info = {0: "데이터 필드", 1: "데이터 타입", 2: "스키마 타입", 3: "데이터 주석"}
+        try:
+            v1 = list(old_schema.values())[0]
+            v2 = list(new_schema.values())[0]
+            if len(v1) == 0 or len(v2) == 0:
+                return res
+            if len(v1) != len(v2):
+                return [f"컬럼 수 {len(v1)} : {len(v2)}"]
+            if len(v1[0]) != len(v2[0]):
+                return [f"데이터 정의행 {len(v1[0])} : {len(v2[0])}"]
 
-        if len(v1) != len(v2):
-            return [f"컬럼 수 {len(v1)} : {len(v2)}"]
-        if len(v1[0]) != len(v2[0]):
-            return [f"데이터 정의행 {len(v1[0])} : {len(v2[0])}"]
-        for x in range(len(v1)):
-            for y in range(len(v1[0])):
-                if v1[x][y] != v2[x][y]:
-                    res.append(f"데이터 항목 {v1[x][y]} : {v2[x][y]}")
+            for x in range(len(v1)):
+                for y in range(len(v1[0])):
+                    if v1[x][y] != v2[x][y]:
+                        old = 'null' if v1[x][y] == '' else v1[x][y]
+                        new = 'null' if v2[x][y] == '' else v2[x][y]
+                        res.append(f"[{info[y]}] {old} -> {new}")
+        except Exception as e:
+            self.splog.error(f"스키마 비교 Error : {path} \r {str(e)}")
+
         return res
 
     def push_tag_to_client(self, tag: str):

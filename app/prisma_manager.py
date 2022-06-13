@@ -56,8 +56,8 @@ class PrismaManager:
     def init_prisma(self) -> bool:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
-            from prisma_cleanup import cleanup
-            cleanup()
+            # from prisma_cleanup import cleanup
+            # cleanup()
 
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
@@ -70,7 +70,6 @@ class PrismaManager:
             self.prisma_generate()
             return True
         except Exception as e:
-            print(e)
             self.splog.error(f"{self._info} 초기화 에러: \n {str(e)}")
         return False
 
@@ -100,14 +99,6 @@ class PrismaManager:
 
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
-
-            # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
-            with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
-                schema = f.read()
-
-            with open(self.PATH_FOR_BASE_SCHEMA, 'w') as f:
-                f.write(schema)
-
             if option == MigrateType.DEV:
                 run([f'prisma migrate dev --name {migrate_id}'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
@@ -115,7 +106,8 @@ class PrismaManager:
                 run([f'prisma migrate dev --create-only'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
             elif option == MigrateType.FORCE:
-                run([f'prisma db push --accept-data-loss'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+                run([f'prisma db push --accept-data-loss --force-reset'], shell=True, check=True, stdout=PIPE,
+                    stderr=STDOUT)
 
             self.prisma_generate()
             self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')

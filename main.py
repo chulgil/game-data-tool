@@ -260,11 +260,11 @@ async def excel_to_data_all_from_tag(tag: str):
     excel_to_entity(g_manager)
     excel_to_schema(g_manager)
     excel_to_enum(g_manager)
+    data_to_client_data(g_manager)
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
     if g_manager.is_modified():
         g_manager.push()
 
-    data_to_client_data(g_manager)
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
     await data_to_db(g_manager)
@@ -309,6 +309,8 @@ async def excel_to_server(g_manager: GitManager):
         teams.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
         excel_to_entity(g_manager)
         excel_to_schema(g_manager)
+        if not g_manager.splog.is_service_branch():
+            data_to_client_data(g_manager)
         msg = '기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         teams.add_warning(msg)
         teams.send_developer()
@@ -318,6 +320,7 @@ async def excel_to_server(g_manager: GitManager):
         data_to_client_data(g_manager)
         await data_to_db(g_manager)
         await tag_to_db(g_manager)
+
     teams.destory()
 
 
@@ -363,91 +366,14 @@ async def tag_to_db(g_manager: GitManager):
     await b_manager.destory()
 
 
-async def test():
-    """
-    전체 Excel추출후 json, prisma schema파일 저장
-    """
-    # Git 초기화 및 다운로드
+async def test(branch: str):
+    g_manager = GitManager(GitTarget.EXCEL)
+    if not g_manager.checkout(branch):
+        g_manager.destroy()
+        return
 
-    # commit = {
-    #     "branch": "test",
-    #     "id": "89daf96c304500023db505ef1f87b373ec3ee1cd",
-    #     "message": "Test: 데이터 체크\n",
-    #     "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/9298c34c094f40cff82648864e9abc7203b8dadd",
-    #     "author": {
-    #         "name": "CGLee",
-    #         "email": "cglee@snowpipe.co.kr",
-    #         "username": "CGLee"
-    #     },
-    #     "committer": {
-    #         "name": "CGLee",
-    #         "email": "cglee@snowpipe.co.kr",
-    #         "username": "CGLee"
-    #     },
-    #     "verification": None,
-    #     "timestamp": "2022-05-30T12:12:14+09:00",
-    #     "added": [],
-    #     "removed": [],
-    #     "modified": [
-    #         "excel/data/sub2_table_info.xlsx"
-    #     ]
-    # }
-    webhook = {
-        "ref": "refs/tags/v0.4.1_local",
-        "before": "0000000000000000000000000000000000000000",
-        "after": "e6e8968956803412d8a19be5d888776a6c1f3fac",
-        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/0000000000000000000000000000000000000000...e6e8968956803412d8a19be5d888776a6c1f3fac",
-        "commits": [],
-        "head_commit": {
-            "id": "e6e8968956803412d8a19be5d888776a6c1f3fac",
-            "message": "[서버/이철길] 테스트 데이터 추가\n",
-            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/e6e8968956803412d8a19be5d888776a6c1f3fac",
-            "author": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
-            },
-            "committer": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
-            },
-            "timestamp": "2022-06-08T19:40:10+09:00",
-            "added": [],
-            "removed": [
-                "excel/data/info/~$server_info.xlsx"
-            ],
-            "modified": []
-        },
-        "repository": {
-            "id": 8,
-            "owner": {
-                "id": 2,
-                "login": "SPTeam",
-                "full_name": "",
-                "email": "",
-                "avatar_url": "http://local.sp.snowpipe.net:3000/avatars/0b4e480645d9e5c45dfdf455829cd61d",
-                "language": "",
-                "last_login": "0001-01-01T00:00:00Z",
-                "created": "2022-04-25T15:47:09+09:00",
-                "location": "",
-                "website": "",
-                "description": "",
-                "visibility": "limited",
-                "followers_count": 0,
-                "following_count": 0,
-                "starred_repos_count": 0,
-                "username": "SPTeam"
-            },
-            "name": "data-for-designer",
-            "full_name": "SPTeam/data-for-designer",
-            "description": "",
-            "starred_repos_count": 0,
-            "username": "CGLee"
-        }
-    }
-
-    await excel_to_data_from_webhook(webhook)
+    g_manager.is_modified_excel_column()
+    g_manager.destroy()
 
 
 if __name__ == '__main__' or __name__ == "decimal":
@@ -475,5 +401,5 @@ if __name__ == '__main__' or __name__ == "decimal":
     # print(en)
     # de = aes.decrypt(en)
     # print(de)
-    # asyncio.run(excel_to_data_all_from_branch('local'))
+    asyncio.run(migrate('test'))
     pass
