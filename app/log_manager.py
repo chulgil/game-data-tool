@@ -56,8 +56,8 @@ class LogManager:
         except Exception as e:
             pass
 
-    def add_info(self, msg, idx: int = None):
-        if idx:
+    def add_info(self, msg, idx: int = -1):
+        if idx > -1:
             self._info.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
@@ -66,8 +66,8 @@ class LogManager:
                 self._info.append(f'{self.PREFIX} {str(msg)}')
         self._info = self._info[:self.row_for_max_buffer]
 
-    def add_warning(self, msg, idx: int = None):
-        if idx:
+    def add_warning(self, msg, idx: int = -1):
+        if idx > -1:
             self._warning.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
@@ -76,8 +76,8 @@ class LogManager:
                 self._warning.append(f'{self.PREFIX} {str(msg)}')
         self._warning = self._warning[:self.row_for_max_buffer]
 
-    def add_error(self, msg: str, idx: int = None):
-        if idx:
+    def add_error(self, msg: str, idx: int = -1):
+        if idx > -1:
             self._error.insert(idx, f'{self.PREFIX} {str(msg)}')
         else:
             if isinstance(msg, list):
