@@ -372,17 +372,26 @@ async def test(branch: str):
         g_manager.destroy()
         return
 
-    g_manager.is_modified_excel_column()
+    import json
+    d_manager = DataManager(g_manager.BRANCH, ServerType.ALL, g_manager.PATH_FOR_WORKING)
+    data = json.dumps(d_manager.get_jsonmap())
+
+    key = 'cjdekaehdvkfkrhsdkvkxm@))$!!)@gh'
+    aes = AESCipher(key)
+    en = aes.encrypt(data)
+    de = aes.decrypt(en)
+    data_to_client_data(g_manager)
+
     g_manager.destroy()
 
 
 if __name__ == '__main__' or __name__ == "decimal":
     branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
-    g_manager = GitManager(GitTarget.EXCEL)
-    if not g_manager.checkout(branch):
-        g_manager.destroy()
-    check_excel(g_manager)
+    # g_manager = GitManager(GitTarget.EXCEL)
+    # if not g_manager.checkout(branch):
+    #     g_manager.destroy()
+    # check_excel(g_manager)
     # else:
     #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
     #     g_manager = GitManager(GitTarget.CLIENT)
@@ -395,12 +404,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    # key = 'cjdekaehdvkfkrhsdkvkxm@))$!!)@gh'
+    asyncio.run(test(branch))
 
-    # aes = AESCipher(key)
-    # en = aes.encrypt("test")
-    # print(en)
-    # de = aes.decrypt(en)
-    # print(de)
-    # asyncio.run(migrate('test'))
     pass
