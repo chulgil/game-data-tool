@@ -98,10 +98,6 @@ class PrismaManager:
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
-            from prisma_cleanup import cleanup
-            cleanup()
-            self.prisma_generate()
-
             if option == MigrateType.DEV:
                 run([f'prisma migrate dev --name {migrate_id}'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
 
