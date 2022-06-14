@@ -372,16 +372,6 @@ async def test(branch: str):
         g_manager.destroy()
         return
 
-    import json
-    d_manager = DataManager(g_manager.BRANCH, ServerType.ALL, g_manager.PATH_FOR_WORKING)
-    data = json.dumps(d_manager.get_jsonmap())
-
-    key = 'cjdekaehdvkfkrhsdkvkxm@))$!!)@gh'
-    aes = AESCipher(key)
-    en = aes.encrypt(data)
-    de = aes.decrypt(en)
-    data_to_client_data(g_manager)
-
     g_manager.destroy()
 
 
@@ -404,6 +394,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    asyncio.run(test(branch))
+    # asyncio.run(test(branch))
 
     pass
