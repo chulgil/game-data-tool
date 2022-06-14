@@ -1,7 +1,6 @@
 from datetime import datetime
 import yaml
 from pathlib import Path
-from prisma import Client
 
 
 class DBManager:
@@ -16,7 +15,8 @@ class DBManager:
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         try:
-            self.db = Client()
+            from prisma import Prisma
+            self.db = Prisma()
             # Config 파일 설정
             with open(self.PATH_FOR_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
