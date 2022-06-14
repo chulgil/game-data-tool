@@ -478,5 +478,6 @@ class GitManager:
             pass
 
     def _random_path(self, config) -> Path:
+        # return self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'])
         return self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'],
                                            str(date.today()) + '_' + uuid.uuid4().hex)

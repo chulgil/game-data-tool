@@ -216,6 +216,9 @@ class PrismaManager:
         dt = datatype.lower()
         res = option
         res = re.sub(r'\(\'(\W+)\'\)', r'("\1")', res)
+        if re.findall(r'@enum', res):
+            res = re.sub(r'@enum\(\S+\)', '', res)
+            res = re.sub(r'@default\(\S+\)', '', res)
         if dt == 'string':
             res = re.sub(r'@size\((\d+)\)', r'@db.NVarChar(\1)', res)
         if dt == 'short':

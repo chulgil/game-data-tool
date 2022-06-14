@@ -1,5 +1,6 @@
 import os
 import json
+import re
 import shutil
 from re import match
 from typing import Optional
@@ -66,6 +67,8 @@ class DataManager:
 
         self._set_config(config)
         self._set_folder()
+
+        self.ENUM_DATA = self.get_enum_data()
 
     def _set_config(self, config):
         self.PATH_FOR_EXCEL = self.PATH_FOR_WORKING.joinpath(config['DEFAULT']['EXCEL_DIR'])
@@ -303,12 +306,21 @@ class DataManager:
         try:
             column_type = column_type.lower()
             if column_value == '':
-                default = match(r'@default\(?(\S+)\)', schema_type)
+                default = re.findall(r'@default\(?(\S+)\)', schema_type)
                 if default:
-                    column_value = default.group(1)
+                    column_value = default[0]
                     column_value = column_value.replace('\'', '')
                     column_value = column_value.replace('"', '')
-            if not match(r'@null', schema_type):  # not null type
+
+            enum_type = re.findall(r'@enum\(?(\S+)\)', schema_type)
+            if enum_type:
+                _enum_type = enum_type[0]
+                enum_value = self._value_from_enum(_enum_type, column_value)
+                if enum_value < 0:
+                    raise Exception(f'Enum타입이 존재하지 않습니다. : {_enum_type} [{column_value}]')
+                return int(enum_value)
+
+            if not re.search(r'@null', schema_type):  # not null type
                 if column_value == '' and column_type != '':
                     raise Exception('공백은 허용되지 않습니다.')
 
@@ -338,6 +350,15 @@ class DataManager:
         except Exception as e:
             self.splog.add_warning(f"{info} {str(e)}")
             return f'{self.ERROR_FOR_EXCEL} {str(e)}'
+
+    def _value_from_enum(self, enum_type: str, enum_key: str) -> int:
+        if self.ENUM_DATA.keys() == 0:
+            return -1
+        if enum_type not in self.ENUM_DATA:
+            return -1
+        if enum_key not in self.ENUM_DATA[enum_type]:
+            return -1
+        return self.ENUM_DATA[enum_type][enum_key][0]
 
     def _iso8601(self, date_text: str) -> str:
         try:
@@ -556,7 +577,7 @@ class DataManager:
 
         if True in df.columns.duplicated():
             dup_df = df.loc[:, df.columns.duplicated()]
-            raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 중복된 컬럼이 존재합니다. \n{dup_df.columns.tolist()}")
+            raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 중복된 컬럼이 존재합니다. [{path.stem}]\n{dup_df.columns.tolist()}")
 
         if not self._is_data_type_row(df.iloc[self.row_for_data_type].values):
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 데이터 타입 (int, string ...)이 있는지 확인해 주세요. \n[{path.stem}]")
@@ -605,11 +626,12 @@ class DataManager:
                 data_df = self._get_filtered_data(df, ['ALL', 'SERVER', 'CLIENT', 'MEMO'])
 
                 head = data_df.columns
+                enum_type = {}
                 for i, row in data_df.iterrows():
                     if row.enum_type not in res:
                         res[row.enum_type] = {}
                     self._check_enum_data(row, res)
-                    res[row.enum_type][row.enum_id] = [row.enum_value, row.comment]
+                    res[row.enum_type][row.enum_value] = [row.enum_id, row.comment]
             except Exception as e:
                 self.splog.add_warning(f'{self._info} [Enum] Excel Error [{_path.stem}]')
         if self.splog.has_warning():

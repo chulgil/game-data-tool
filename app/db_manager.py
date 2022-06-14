@@ -78,7 +78,7 @@ class DBManager:
             )
             self.splog.add_info(f'테이블 데이터 RESTORE 성공 : {table_name}')
         except Exception as e:
-            self.splog.add_error(f'테이블 데이터 RESTORE 실패 : {table_name} \n {json_data.pop()} \n {str(e)}')
+            self.splog.add_error(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
 
     async def insert_table(self, table_name: str, json_data: list):
         try:

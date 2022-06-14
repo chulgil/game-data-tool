@@ -1,12 +1,7 @@
-import os
 import logging
-import shutil
-from re import match
-from typing import Optional
-
-import pymsteams as pymsteams
 import yaml
-from dateutil import parser
+import pymsteams as pymsteams
+from re import match
 from pathlib import Path
 
 
@@ -35,18 +30,18 @@ class CSharpManager:
         self.GIT_URL = config['GITSERVER']['EXCEL_URL']
 
     def save_entity(self, table_info: dict):
-        table_name = ''
-        schema = ''
+        _table_name = ''
+        _schema = ''
         for key in table_info.keys():
-            table_name = str(key).upper()
+            _table_name = str(key).upper()
             rows = table_info[key]
-            new_schema = self._convet_entity(table_name, rows)
+            new_schema = self._convet_entity(_table_name, rows)
             if new_schema != '':
-                logging.info(f'{self._info} 스키마 저장 완료: {table_name}')
-                schema = schema + new_schema
-        schema = self._get_default_entity(schema)
+                logging.info(f'{self._info} 스키마 저장 완료: {_table_name}')
+                _schema = _schema + new_schema
+        _schema = self._get_default_entity(_schema)
         with open(self.PATH_FOR_ENTITY, "w", encoding='utf-8') as f:
-            f.write(schema)
+            f.write(_schema)
 
     def save_enum(self, enum_info: dict):
         """
@@ -58,19 +53,19 @@ class CSharpManager:
                 2: ['Ranged', '원거리 딜러']
             }
         """
-        enum_name = ''
-        schema = ''
-        for enum_name, enum_data in enum_info.items():
-            schema = schema + self._convert_enum(enum_name, enum_data, 1)
-        schema = self._get_default_csharp(schema)
+        _enum_name = ''
+        _schema = ''
+        for _enum_name, enum_data in enum_info.items():
+            _schema = _schema + self._convert_enum(_enum_name, enum_data, 1)
+        _schema = self._get_default_csharp(_schema)
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_ENUM, "w", encoding='utf-8') as f:
-                f.write(schema)
+                f.write(_schema)
         except Exception as e:
             logging.error(f'{self._info} ENUM 저장 Error: {self.PATH_FOR_ENUM.stem}\n{str(e)}')
 
-    def _convet_entity(self, table_name: str, rows: list, indent: int = 0) -> str:
+    def _convet_entity(self, table_name: str, rows: list) -> str:
         """
         C# 스크립트 포멧으로 변환 :
         디비필드, 디비타입, 스키마타입
@@ -104,10 +99,10 @@ class CSharpManager:
         newline = '\n' + start
         codeline = newline + self.TAB
         enum_rows = []
-        for id, item in enum_data.items():
+        for _id, item in enum_data.items():
             _str = ''
-            enum_key = item[0]
-            enum_value = id
+            enum_key = _id
+            enum_value = item[0]
             enum_desc = item[1]
             _str = f'{enum_key} = {enum_value},'
             if enum_desc != '':
@@ -129,7 +124,11 @@ class CSharpManager:
         elif res == 'datetime':
             res = 'DateTime'
 
-        from re import match
+        enum_type = match(r'@enum\(?(\S+)\)', option)
+        if enum_type:
+            res = enum_type.group(1)
+            return res
+
         if match(r'@null', option):
             res = res + '?'
         return res

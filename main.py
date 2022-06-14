@@ -80,46 +80,23 @@ def excel_to_json(server_type: ServerType, g_manager: GitManager):
     d_manager.excel_to_json(g_manager.get_modified_excel())
 
 
-def excel_to_entity(g_manager: GitManager):
+def excel_to_entity(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
     d_manager = DataManager(g_manager.BRANCH, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-    g_manager_client = GitManager(GitTarget.CLIENT)
-    # 체크아웃 성공시에만 진행
-    if not g_manager_client.checkout(g_manager.BRANCH):
-        g_manager_client.destroy()
-        return
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
-                              g_manager_client.PATH_FOR_WORKING)
+                              gc_manager.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
     c_manager.save_enum(d_manager.get_enum_data())
-    d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
-
-    # 수정된 파일이 있다면
-    if g_manager_client.is_modified():
-        # 변환된 Json파일을 Git서버로 자동 커밋
-        g_manager_client.push()
-    g_manager_client.destroy()
+    d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
 
-def excel_to_enum(g_manager: GitManager):
+def excel_to_enum(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 Enum 스크립트 변환을 진행합니다.")
-
     d_manager = DataManager(g_manager.BRANCH, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-    g_manager_client = GitManager(GitTarget.CLIENT)
-    # 체크아웃 성공시에만 진행
-    if not g_manager_client.checkout(g_manager.BRANCH):
-        g_manager_client.destroy()
-        return
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
-                              g_manager_client.PATH_FOR_WORKING)
+                              gc_manager.PATH_FOR_WORKING)
     c_manager.save_enum(d_manager.get_enum_data())
-
-    # 수정된 파일이 있다면
-    if g_manager_client.is_modified():
-        # 변환된 Json파일을 Git서버로 자동 커밋
-        g_manager_client.push()
-    g_manager_client.destroy()
 
 
 def excel_to_schema(g_manager: GitManager):
@@ -240,7 +217,14 @@ async def excel_to_data_modified(g_manager: GitManager):
 async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
-    data_to_client_data(g_manager)
+
+    gc_manager = GitManager(GitTarget.CLIENT)
+    if not gc_manager.checkout(g_manager.BRANCH):
+        gc_manager.destroy()
+        return
+
+    data_to_client_data(g_manager, gc_manager)
+
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
     await data_to_db(g_manager)
@@ -253,14 +237,22 @@ async def excel_to_data_all_from_tag(tag: str):
     if not g_manager.checkout():
         g_manager.destroy()
         return
+    gc_manager = GitManager(GitTarget.CLIENT)
+    if not gc_manager.checkout():
+        gc_manager.destroy()
+        return
     g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
+
     check_excel(g_manager)
     excel_to_json_all(g_manager)
-    excel_to_entity(g_manager)
     excel_to_schema(g_manager)
-    excel_to_enum(g_manager)
-    data_to_client_data(g_manager)
+    excel_to_entity(g_manager, gc_manager)
+    excel_to_enum(g_manager, gc_manager)
+    data_to_client_data(g_manager, gc_manager)
+    if gc_manager.is_modified():
+        gc_manager.push()
+    gc_manager.destroy()
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
     if g_manager.is_modified():
         g_manager.push()
@@ -272,17 +264,9 @@ async def excel_to_data_all_from_tag(tag: str):
     g_manager.destroy()
 
 
-def data_to_client_data(g_manager: GitManager):
-    g_manager_client = GitManager(GitTarget.CLIENT)
-    if not g_manager_client.checkout(g_manager.BRANCH):
-        g_manager_client.destroy()
-        return
-
+def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
     d_manager = DataManager(g_manager.BRANCH, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-    d_manager.save_json_all(g_manager_client.PATH_FOR_WORKING.joinpath("data_all.json"))
-    if g_manager_client.is_modified():
-        g_manager_client.push()
-    g_manager_client.destroy()
+    d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
     f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
     f_manager.send(d_manager.get_json())
@@ -297,31 +281,37 @@ def data_to_client_data(g_manager: GitManager):
 
 
 async def excel_to_server(g_manager: GitManager):
-    teams = LogManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+    gc_manager = GitManager(GitTarget.CLIENT)
+    if not gc_manager.checkout(g_manager.BRANCH):
+        gc_manager.destroy()
+        return
+
     if g_manager.is_modified_excel_enum():
-        excel_to_enum(g_manager)
+        excel_to_enum(g_manager, gc_manager)
         msg = 'Enum 데이터에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
-        teams.add_warning(msg)
-        teams.send_developer()
-        teams.send_designer(msg)
+        g_manager.splog.add_warning(msg)
+        g_manager.splog.send_developer()
+        g_manager.splog.send_designer(msg)
 
     if g_manager.is_modified_excel_column():
-        teams.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
-        excel_to_entity(g_manager)
+        g_manager.splog.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
+        excel_to_entity(g_manager, gc_manager)
         excel_to_schema(g_manager)
         if not g_manager.splog.is_service_branch(g_manager.BRANCH):
-            data_to_client_data(g_manager)
+            data_to_client_data(g_manager, gc_manager)
         msg = '기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
-        teams.add_warning(msg)
-        teams.send_developer()
-        teams.send_designer(msg)
+        g_manager.splog.add_warning(msg)
+        g_manager.splog.send_developer()
+        g_manager.splog.send_designer(msg)
     else:
-        teams.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
-        data_to_client_data(g_manager)
+        g_manager.splog.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
+        data_to_client_data(g_manager, gc_manager)
         await data_to_db(g_manager)
         await tag_to_db(g_manager)
 
-    teams.destory()
+    if gc_manager.is_modified():
+        gc_manager.push()
+    gc_manager.destroy()
 
 
 def check_excel(g_manager: GitManager):
@@ -371,12 +361,17 @@ async def test(branch: str):
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
-
-    g_manager.destroy()
+    d_manager = DataManager(g_manager.BRANCH, ServerType.ALL, g_manager.PATH_FOR_WORKING)
+    d_manager.delete_json_all()
+    d_manager.excel_to_json(d_manager.get_excelpath_all())
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
+                              g_manager.PATH_FOR_WORKING)
+    c_manager.save_enum(d_manager.ENUM_DATA)
+    c_manager.save_entity(d_manager.get_schema_all())
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'local'
+    branch = 'test'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # g_manager = GitManager(GitTarget.EXCEL)
     # if not g_manager.checkout(branch):
@@ -394,6 +389,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    # asyncio.run(test(branch))
+    asyncio.run(migrate(branch))
 
     pass
