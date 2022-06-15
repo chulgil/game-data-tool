@@ -644,9 +644,8 @@ class DataManager:
         if self.CHECK_FOR_ID:
             _column_id = df.columns[0]
             if _column_id != self.CHECK_FOR_ID:
-                self.splog.add_warning(
+                self.splog.send_designer(
                     f"Excel양식에 미검증 데이터 존재 : 파일명[ {path.stem} ] 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
-                self.splog.send_designer()
 
         return df
 
