@@ -228,7 +228,6 @@ async def excel_to_data_taged(g_manager: GitManager):
 
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
-    prisma.sync()
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
 
@@ -337,7 +336,6 @@ async def migrate(branch: str):
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, branch)
-    prisma.sync()
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
     g_manager.destroy()
