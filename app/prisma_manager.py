@@ -44,6 +44,10 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             self._init_prisma_config()
+
+            from prisma_cleanup import cleanup
+            cleanup()
+
             res = run(['prisma db pull'], shell=True)
             res = run(['prisma generate'], shell=True)
             if not res.stderr:
