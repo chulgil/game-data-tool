@@ -486,7 +486,7 @@ class DataManager:
 
             values = tdata[target_col].values
             if value not in values:
-                _warnings.append(f'원본 행[{oidx + row_id - 1}] 의 참조 값[{value}]')
+                _warnings.append(f'원본 행의 참조 값[{value}]')
 
         if len(_warnings) > 0:
             _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
@@ -523,6 +523,12 @@ class DataManager:
                 # 파일 이름으로 JSON 파일 저장 : CLIENT
                 if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:
                     self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
+
+                if self.CHECK_FOR_ID:
+                    _column_id = df.columns[0]
+                    if _column_id != self.CHECK_FOR_ID:
+                        self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
+
                 if self.splog.has_warning():
                     self.splog.add_warning(f'{self._info} Excel to Json Error: [{_path.stem}]\n', 0)
                     self.splog.send_designer()
@@ -640,12 +646,6 @@ class DataManager:
         invalid_option = self.get_invalid_option_row(df)
         if len(invalid_option.values()) > 0:
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n[{path.stem}] \n{invalid_option}")
-
-        if self.CHECK_FOR_ID:
-            _column_id = df.columns[0]
-            if _column_id != self.CHECK_FOR_ID:
-                self.splog.send_designer(
-                    f"Excel양식에 미검증 데이터 존재 : 파일명[ {path.stem} ] 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
 
         return df
 

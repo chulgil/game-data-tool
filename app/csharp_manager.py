@@ -12,7 +12,7 @@ class CSharpManager:
         self.TAG = tag
         self.COMMIT_ID = commit_id
         self._error_msg = []
-        self._info = f'[{branch} 브랜치]'
+        self._info = f'[{branch} 브랜치] C#'
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_SAVE = save_dir
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
