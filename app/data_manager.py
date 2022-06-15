@@ -456,8 +456,17 @@ class DataManager:
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
         _start_row = self.row_for_data_start
-        origin_df = self._read_excel_for_data(origin_path)
-        target_df = self._read_excel_for_data(target_path)
+        try:
+            origin_df = self._read_excel_for_data(origin_path)
+        except Exception as e:
+            self.splog.add_warning(f'{self._info} Excel check Error: [{origin_path.stem}]\n{str(e)}')
+            return
+        try:
+            target_df = self._read_excel_for_data(target_path)
+        except Exception as e:
+            self.splog.add_warning(f'{self._info} Excel check Error: [{target_path.stem}]\n{str(e)}')
+            return
+
         oidx = self._get_start_index(origin_df)
         tidx = self._get_start_index(target_df)
         odata = origin_df.iloc[oidx:]
@@ -590,7 +599,12 @@ class DataManager:
 
         if target is None:
             target = self.SERVER_TYPE
-        df = self._read_excel_for_data(_path)
+        try:
+            df = self._read_excel_for_data(_path)
+        except Exception as e:
+            self.splog.add_warning(f'{self._info} Excel get_schema Error: [{excel_path.stem}]\n{str(e)}')
+            return res
+
         if target == ServerType.CLIENT:
             df = self._get_filtered_column(df, ['ALL', 'CLIENT'])
         else:
