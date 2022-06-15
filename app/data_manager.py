@@ -81,6 +81,7 @@ class DataManager:
         self.PATH_FOR_SERVER = self.PATH_FOR_JSON.joinpath("server")
         self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
         self.PATH_FOR_CLIENT = self.PATH_FOR_JSON.joinpath("client")
+        self.CHECK_FOR_ID = config['DEFAULT']['CHECK_SCHEMA_ID']
 
     def _set_folder(self):
         # JSON 폴더 초기화
@@ -383,10 +384,15 @@ class DataManager:
             if option_df is None:
                 return res
             for col, value in option_df.items():
-                z = match(r'@ref\((\S+)\)', str(value))
-                if z is None:
+                z = re.findall(r'@ref\(?(\S+)\)', str(value))
+                if len(z) == 0:
                     continue
-                _target = str(z.group(1)).split('.')
+                _target = str(z[0]).split('.')
+                if len(_target) == 1:
+                    self.splog.add_warning(
+                        f'EXCEL양식에 미검증 데이터 존재 : 파일명[ {file_path.stem} ] 컬럼[ {col} ] 릴레이션 옵션이 잘못 되었습니다. {value}')
+                    self.splog.add_warning(f'올바른 사용예 : @ref(테이블명.아이디)')
+                    continue
                 target_table = _target[0]
                 target_col = _target[1]
                 path = list(Path(self.PATH_FOR_DATA).rglob(rf"{target_table}.xls*"))
@@ -396,7 +402,7 @@ class DataManager:
                 res.append([path[0], col, target_col])
                 return res
         except Exception as e:
-            self.splog.add_warning(f'{self._info} {str(e)}')
+            self.splog.add_warning(f'{self._info} EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
             self.splog.send_designer()
 
     def _get_server_type_index(self, df: DataFrame):
@@ -634,6 +640,12 @@ class DataManager:
         invalid_option = self.get_invalid_option_row(df)
         if len(invalid_option.values()) > 0:
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 디비스키마열에 오류가 있는지 확인해 주세요. \n[{path.stem}] \n{invalid_option}")
+
+        if self.CHECK_FOR_ID:
+            _column_id = df.columns[0]
+            if _column_id != self.CHECK_FOR_ID:
+                self.splog.add_warning(
+                    f"Excel양식에 미검증 데이터 존재 : 파일명[ {path.stem} ] 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
 
         return df
 
