@@ -58,7 +58,9 @@ class FtpManager:
                 ftp_server.cwd(_new_dir)
 
     def get_resource_url(self) -> str:
-        return str(Path().joinpath(self.RES_URL, self.FTP_DIR, self.BRANCH, self.VERSION, self.EXPORT_JSON))
+        res_path = str(Path().joinpath(self.FTP_DIR, self.BRANCH, self.VERSION, self.EXPORT_JSON))
+        res_url = f"{self.RES_URL}/{res_path}"
+        return res_url
 
     def destroy(self):
         self.splog.destory()

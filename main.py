@@ -362,7 +362,6 @@ async def test(branch: str):
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
-    check_excel(g_manager)
     g_manager.destroy()
 
 
@@ -385,6 +384,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    asyncio.run(excel_to_data_all_from_branch(branch))
+    asyncio.run(test(branch))
 
     pass
