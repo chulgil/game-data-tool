@@ -278,6 +278,7 @@ class GitManager:
         for i in range(1, head_cnt + 1):
             _diff = self._repo.index.diff(f'HEAD~{i}')
             data = data + self._get_diff_excel(_diff, self.COMPILE_EXCEL)
+            data = data + self._get_diff_excel(_diff, self.COMPILE_ENUM)
         if len(data) == 0:
             self.splog.info('변경된 EXCEL이 없습니다.')
             return []

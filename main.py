@@ -180,6 +180,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         return
 
     username = webhook["head_commit"]["committer"]["username"]
+    message = webhook["head_commit"]["message"]
     compare_url = webhook["compare_url"]
 
     if g_manager.NEW_TAG != '':
@@ -195,7 +196,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
             g_manager.splog.send_designer(f"변경 히스토리 URL : {compare_url}")
             return
 
-        g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다.")
+        g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다. \n\n {message}")
         await excel_to_data_modified(g_manager)
 
     # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
@@ -227,6 +228,7 @@ async def excel_to_data_taged(g_manager: GitManager):
 
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
+    prisma.sync()
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
 
@@ -335,6 +337,7 @@ async def migrate(branch: str):
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, branch)
+    prisma.sync()
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
     g_manager.destroy()
@@ -361,17 +364,12 @@ async def test(branch: str):
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
-    d_manager = DataManager(g_manager.BRANCH, ServerType.ALL, g_manager.PATH_FOR_WORKING)
-    d_manager.delete_json_all()
-    d_manager.excel_to_json(d_manager.get_excelpath_all())
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
-                              g_manager.PATH_FOR_WORKING)
-    c_manager.save_enum(d_manager.ENUM_DATA)
-    c_manager.save_entity(d_manager.get_schema_all())
+    await excel_to_data_modified(g_manager)
+    g_manager.destroy()
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # g_manager = GitManager(GitTarget.EXCEL)
     # if not g_manager.checkout(branch):
@@ -389,6 +387,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    asyncio.run(migrate(branch))
+    asyncio.run(excel_to_data_all_from_branch(branch))
 
     pass

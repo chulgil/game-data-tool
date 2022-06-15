@@ -64,6 +64,8 @@ class DataManager:
 
         self.IDX_DATA_TYPE_FROM_SERVER_TYPE = 1
         self.IDX_DATA_OPTION_FROM_SERVER_TYPE = 2
+        self.IDX_DATA_DESC_FROM_SERVER_TYPE = -1
+        self.IDX_DATA_DESCNEW_FROM_SERVER_TYPE = -2
 
         self._set_config(config)
         self._set_folder()
@@ -422,6 +424,35 @@ class DataManager:
         idx = idx + 1
         return idx
 
+    def _get_desc_row(self, df: DataFrame):
+        """
+        0  id  name
+        1  삭제예정
+        2  맵아이디  맵이름
+        3  ALL  ALL
+        4  @id
+        :param df:
+        :return:
+        """
+        row = {}
+        idx = self._get_server_type_index(df)
+        idx_desc = idx + self.IDX_DATA_DESC_FROM_SERVER_TYPE
+        idx_desc_new = idx + self.IDX_DATA_DESCNEW_FROM_SERVER_TYPE
+
+        if idx_desc < 0:
+            for col in df.columns:
+                row[col] = ''
+            return row
+
+        for col in df.columns:
+            row[col] = df[col][idx_desc]
+            if idx_desc_new > -1:
+                desc_new = df[col][idx_desc_new]
+                if desc_new == '':
+                    continue
+                row[col] = desc_new
+        return row
+
     def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
         _start_row = self.row_for_data_start
@@ -565,9 +596,10 @@ class DataManager:
         else:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
         table = []
+
         for col in df.columns:
-            desc = df[col].values[self.row_for_desc] if self.row_for_desc != -1 else ''
-            row = [col, df[col].values[self.row_for_data_type], df[col].values[self.row_for_data_option], desc]
+            desc = self._get_desc_row(df)
+            row = [col, df[col].values[self.row_for_data_type], df[col].values[self.row_for_data_option], desc[col]]
             table.append(row)
         return {_path.stem: table}
 
