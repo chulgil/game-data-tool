@@ -410,9 +410,9 @@ class GitManager:
         if len(_mod_files) == 0:
             return res
 
-        from . import DataManager, ServerType
-        data_old = DataManager(self.BRANCH, ServerType.ALL, self.PATH_FOR_WORKING_BASE)
-        data_new = DataManager(self.BRANCH, ServerType.ALL, self.PATH_FOR_WORKING)
+        from . import DataManager, ConvertType
+        data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_BASE)
+        data_new = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING)
 
         diffs = []
         for path in _mod_files:

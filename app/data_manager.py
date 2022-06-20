@@ -17,11 +17,15 @@ import numpy as np
 import pandas
 
 
-class ServerType(Enum):
+class ConvertType(Enum):
     ALL = auto()
     SERVER = auto()
     CLIENT = auto()
     INFO = auto()
+    MARKDOWN = auto()
+    MARKDOWN_ENUM = auto()
+    MARKDOWN_PROTOCOL = auto()
+    MARKDOWN_ENTITY = auto()
     NONE = auto()
 
     @classmethod
@@ -31,12 +35,12 @@ class ServerType(Enum):
             if k == value.upper():
                 return v
         else:
-            return ServerType.NONE
+            return ConvertType.NONE
 
 
 class DataManager:
 
-    def __init__(self, branch: str, server_type: ServerType, working_dir: Path):
+    def __init__(self, branch: str, convert_type: ConvertType, working_dir: Path):
         pandas.set_option('display.max_column', 50)  # print()에서 전체항목 표시
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
@@ -49,7 +53,7 @@ class DataManager:
             config = yaml.safe_load(f)
 
         self.BRANCH = branch
-        self.SERVER_TYPE = server_type
+        self.CONVERT_TYPE = convert_type
         self._info = f'[{branch} 브랜치]'
         self.PATH_FOR_WORKING = working_dir
 
@@ -68,9 +72,11 @@ class DataManager:
         self.IDX_DATA_DESCNEW_FROM_SERVER_TYPE = -2
 
         self._set_config(config)
-        self._set_folder()
 
-        self.ENUM_DATA = self.get_enum_data()
+        self.ENUM_DATA = {}
+        if convert_type != ConvertType.MARKDOWN:
+            self._set_folder()
+            self.ENUM_DATA = self.get_enum_data()
 
     def _set_config(self, config):
         self.PATH_FOR_EXCEL = self.PATH_FOR_WORKING.joinpath(config['DEFAULT']['EXCEL_DIR'])
@@ -78,9 +84,15 @@ class DataManager:
         self.PATH_FOR_ENUM = self.PATH_FOR_EXCEL.joinpath('enum')
         self.ERROR_FOR_EXCEL = config['DEFAULT']['ERROR_TEXT']
         self.PATH_FOR_JSON = self.PATH_FOR_WORKING.joinpath(config['DEFAULT']['EXPORT_DIR'], "json")
-        self.PATH_FOR_SERVER = self.PATH_FOR_JSON.joinpath("server")
-        self.PATH_FOR_INFO = self.PATH_FOR_JSON.joinpath("info")
-        self.PATH_FOR_CLIENT = self.PATH_FOR_JSON.joinpath("client")
+        self.PATH_FOR_JSON_SERVER = self.PATH_FOR_JSON.joinpath("server")
+        self.PATH_FOR_JSON_INFO = self.PATH_FOR_JSON.joinpath("info")
+        self.PATH_FOR_JSON_CLIENT = self.PATH_FOR_JSON.joinpath("client")
+
+        self.PATH_FOR_MARKDOWN = self.PATH_FOR_WORKING.joinpath("server")
+        self.PATH_FOR_MD_PROTOCOL = self.PATH_FOR_JSON.joinpath(self.PATH_FOR_MARKDOWN, "protocol")
+        self.PATH_FOR_MD_ENUM = self.PATH_FOR_JSON.joinpath(self.PATH_FOR_MARKDOWN, "enum")
+        self.PATH_FOR_MD_ENTITY = self.PATH_FOR_JSON.joinpath(self.PATH_FOR_MARKDOWN, "entity")
+
         self.CHECK_FOR_ID = config['DEFAULT']['CHECK_SCHEMA_ID']
 
     def _set_folder(self):
@@ -88,15 +100,15 @@ class DataManager:
         # if Path(self.PATH_FOR_JSON).is_dir():
         #     shutil.rmtree(self.PATH_FOR_JSON)
         # JSON 폴더 생성
-        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.SERVER:
-            if not Path(self.PATH_FOR_SERVER).is_dir():
-                os.makedirs(self.PATH_FOR_SERVER)
-        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.INFO:
-            if not Path(self.PATH_FOR_INFO).is_dir():
-                os.makedirs(self.PATH_FOR_INFO)
-        if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:
-            if not Path(self.PATH_FOR_CLIENT).is_dir():
-                os.makedirs(self.PATH_FOR_CLIENT)
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
+            if not Path(self.PATH_FOR_JSON_SERVER).is_dir():
+                os.makedirs(self.PATH_FOR_JSON_SERVER)
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
+            if not Path(self.PATH_FOR_JSON_INFO).is_dir():
+                os.makedirs(self.PATH_FOR_JSON_INFO)
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
+            if not Path(self.PATH_FOR_JSON_CLIENT).is_dir():
+                os.makedirs(self.PATH_FOR_JSON_CLIENT)
 
     def _get_filtered_data(self, df: DataFrame, targets: list) -> DataFrame:
 
@@ -172,7 +184,7 @@ class DataManager:
             1   long      int             int        float
             2  @auto      @id  @ref(sub_table_info.id)  @default(0)
         """
-        filtered = list(filter(lambda v: match(r'^@\D+$', str(v)), row))
+        filtered = list(filter(lambda v: match(r'^@[id|auto]+', str(v)), row))
         if len(filtered) > 0:
             return True
         return False
@@ -328,7 +340,8 @@ class DataManager:
                     raise Exception('공백은 허용되지 않습니다.')
 
             if column_value == '':
-                return ''
+                if column_type == "datetime":
+                    return None
 
             if column_type == "string" or column_type == "":
                 return str(column_value)
@@ -414,9 +427,9 @@ class DataManager:
             _row_for_max = _row_for_current
 
         for i in range(_row_for_max):
-            _type = ServerType.value_of(df.iloc[i][0])
-            if _type == ServerType.ALL or _type == ServerType.SERVER \
-                    or _type == ServerType.CLIENT or _type == ServerType.INFO:
+            _type = ConvertType.value_of(df.iloc[i][0])
+            if _type == ConvertType.ALL or _type == ConvertType.SERVER \
+                    or _type == ConvertType.CLIENT or _type == ConvertType.INFO:
                 _idx = i
         return _idx
 
@@ -432,11 +445,14 @@ class DataManager:
 
     def _get_desc_row(self, df: DataFrame):
         """
-        0  id  name
-        1  삭제예정
-        2  맵아이디  맵이름
-        3  ALL  ALL
-        4  @id
+        주석 행을 가져온다
+        Examples::
+            0  id  name
+            1  삭제예정
+            2  맵아이디  맵이름
+            3  ALL  ALL
+            4  @id
+
         :param df:
         :return:
         """
@@ -515,14 +531,16 @@ class DataManager:
                 # 첫번째 시트를 JSON 타겟으로 설정
                 df = self._read_excel_for_data(_path)
                 # 파일 이름으로 JSON 파일 저장 : DATA
-                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.SERVER:
-                    self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_SERVER, _path.stem)
+                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
+                    self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER,
+                                    _path.stem)
                 # 파일 이름으로 JSON 파일 저장 : INFO
-                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.INFO:
-                    self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_INFO, _path.stem)
+                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
+                    self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, _path.stem)
                 # 파일 이름으로 JSON 파일 저장 : CLIENT
-                if self.SERVER_TYPE == ServerType.ALL or self.SERVER_TYPE == ServerType.CLIENT:
-                    self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_CLIENT, _path.stem)
+                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
+                    self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT,
+                                    _path.stem)
 
                 if self.CHECK_FOR_ID:
                     _column_id = df.columns[0]
@@ -557,9 +575,244 @@ class DataManager:
     def _get_enumpath(self) -> list:
         return list(Path(self.PATH_FOR_ENUM).rglob(r"*.xls*"))
 
-    def get_jsonmap(self, target: ServerType = None) -> dict:
+    def get_markdown(self, target: ConvertType = None) -> dict:
         """
-        서버정보별로 json을 가져온다.
+        변환타입별로 MarkDown을 가져온다.
+        @return: 딕셔너리 값으로 리턴 { key (파일명) : value (Dict) }
+        """
+        res = {}
+
+        _path = self._get_path_markdown(target)
+        for _file in _path:
+            try:
+                f = open(_file, 'r')
+                markdown = f.read()
+                if target == ConvertType.MARKDOWN_ENUM:
+                    res.update(self._markdown_to_enum(markdown))
+                elif target == ConvertType.MARKDOWN_PROTOCOL:
+                    res.update(self._markdown_to_protocol(markdown))
+                elif target == ConvertType.MARKDOWN_ENTITY:
+                    res.update(self._markdown_to_entity(markdown))
+            except Exception as e:
+                self.splog.add_error(f'MarkDown Load Error : {str(e)}')
+
+            if self.splog.has_warning():
+                p = str(_file).split('/')
+                _path_md = '/'.join(p[len(p) - 3:])
+                self.splog.add_warning(f'MarkDown[{_path_md}] 변환 경고 :', 0)
+                self.splog.send_developer()
+                self.splog.warning()
+
+        return res
+
+    def _get_path_markdown(self, target: ConvertType) -> list:
+        _path = []
+        try:
+            if target == ConvertType.MARKDOWN_ENUM:
+                _path = list(Path(self.PATH_FOR_MD_ENUM).rglob(r"*.md"))
+            elif target == ConvertType.MARKDOWN_PROTOCOL:
+                _path = list(Path(self.PATH_FOR_MD_PROTOCOL).rglob(r"*.md"))
+            elif target == ConvertType.MARKDOWN_ENTITY:
+                _path = list(Path(self.PATH_FOR_MD_ENTITY).rglob(r"*.md"))
+            return _path
+        except Exception as e:
+            self.splog.send_developer(f'MarkDown 데이터 경로 Error :\r\n {str(e)}')
+            return _path
+
+    def _markdown_to_enum(self, markdown: str) -> dict:
+        """
+        MARKDOWN 형식을 Enum스크립트 변환을 위한 오브젝트 형식으로 리턴합니다.
+        Examples::
+            ## enum_info
+            > 설명
+            >
+            > 상세내용
+            | type        | Name          | desc        |
+            |-------------|---------------|-------------|
+            | long        | facility_key  | 치료소 key     |
+            | int[]       | test1         | desc test1  |
+            | game_design | game_design   | 게임디자인       |
+            ---
+
+        :param markdown:
+
+        :return:
+            'ActorType': {
+                None: [0, '사용안함'],
+                Melee: [1, '근접 딜러'],
+                Ranged: [2, '원거리 딜러']
+            }
+        """
+        res = {}
+        if markdown == '':
+            return res
+        try:
+
+            _match = re.split(r'-{3,}\n', markdown)
+            if not _match:
+                return res
+
+            for text in _match:
+                enum = re.findall(r'##([\w\W]+?)\n', text)[0]
+                enum = enum.strip()
+                desc = re.findall(r'>(.*)\n', text)
+                _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
+
+                if enum in res:
+                    self.splog.add_warning(f' Enum[{enum}] 이 중복됩니다. ')
+
+                _enum_values = []
+                _check_key = {}
+                _check_val = {}
+                for item in _list[2:]:
+                    _key = item[0].strip()
+                    _val = item[1].strip()
+                    _desc = item[2].strip()
+
+                    if _key in _check_key:
+                        self.splog.add_warning(f' Enum 데이터 {enum}[{_key}] 가 중복됩니다. ')
+                    if _val in _check_val:
+                        self.splog.add_warning(f' Enum 데이터 {enum}[{_val}] 가 중복됩니다. ')
+                    _check_key[_key] = None
+                    _check_val[_val] = None
+                    _enum_values.append([_key, _val, _desc])
+
+                items = {}
+                for item in sorted(_enum_values):
+                    items[item[1]] = [item[0], item[2]]
+                res[enum] = {}
+                res[enum]['desc'] = desc
+                res[enum]['items'] = items
+
+        except Exception as e:
+            print(e)
+
+        return res
+
+    def _markdown_to_entity(self, markdown: str) -> dict:
+        """
+        MARKDOWN 형식을 Entity스크립트 변환을 위한 오브젝트 형식으로 리턴합니다.
+        Examples::
+            ## goods_info
+            > 설명
+            >
+            > 상세내용
+            | type        | Name          | desc        |
+            |-------------|---------------|-------------|
+            | long        | facility_key  | 치료소 key     |
+            | int[]       | test1         | desc test1  |
+            | game_design | game_design   | 게임디자인       |
+            ---
+        :param markdown:
+        :return:
+            'ActorType': {
+                None: [0, '사용안함'],
+                Melee: [1, '근접 딜러'],
+                Ranged: [2, '원거리 딜러']
+            }
+        """
+        res = {}
+        if markdown == '':
+            return res
+        try:
+
+            _match = re.split(r'-{3,}\n', markdown)
+            if not _match:
+                return res
+
+            for text in _match:
+                _class = re.findall(r'##([\w\W]+?)\n', text)[0]
+                _class = _class.strip()
+                _desc = re.findall(r'>(.*)\n', text)
+                _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
+
+                if _class in res:
+                    self.splog.add_warning(f' 같은 Class[{_class}] 가 존재합니다. ')
+
+                res[_class] = {}
+                res[_class]['desc'] = _desc
+                res[_class]['items'] = _list[2:]
+
+        except Exception as e:
+            print(e)
+
+        return res
+
+    def _markdown_to_protocol(self, markdown: str) -> dict:
+        """
+        MARKDOWN 형식을 스크립트 변환을 위한 오브젝트 형식으로 리턴합니다.
+        Examples::
+            ## UnlockRewardBox
+            > 해당 요청은 보상박스 언락입니다.
+            >
+            > 요청과 응답 프로토콜은 아래와 같습니다.
+
+            ### Req : 1302
+            | type | Name         | desc    |
+            |:-----|:-------------|:--------|
+            | long | facility_key | 치료소 key |
+
+            ### Resp : 1303
+            | type         | Name        | desc   |
+            |:-------------|:------------|:-------|
+            | clinic_resp  | clinic_resp | 치료소 정보 |
+            | goods_info[] | goods_infos | 재화 정보  |
+            ---
+        :param markdown:
+        :return:
+            {'UnlockRewardBox':
+              { 'desc': [' 해당 요청은 보상박스 언락입니다.',' 요청과 응답 프로토콜은 아래와 같습니다.'],
+                'req_info': {'100': [(' long ', ' facility_key', ' 치료소key'),(' long ', ' facility_key ', ' 치료소 key ')]},
+                'res_info': {'101': [('clinic_resp', 'clinic_resp','치료소 정보'),('goods_info[]','goods_infos',' 재화정보')]}
+            }}
+        """
+        res = {}
+        _check = {}
+        if markdown == '':
+            return res
+        try:
+
+            _match = re.split(r'-{3,}\n', markdown)
+            if not _match:
+                return res
+
+            for text in _match:
+                _mk = re.findall(r'##([\s+|\S+]+)###([\s+|\S+]+)###([\s+|\S+]+)', text)
+                if _mk:
+                    _header = _mk[0][0]
+                    _req = _mk[0][1]
+                    _res = _mk[0][2]
+                    _class = re.findall(r'(.*)\n', _header)[0]
+                    _class = _class.strip()
+                    _desc = re.findall(r'>(.*)\n', _header)
+                    _req_id = re.findall(r':\s?(.+)\n', _req)[0]
+                    _req_list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', _req)
+                    _res_id = re.findall(r':\s?(.+)\n', _res)[0]
+                    _res_list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', _res)
+
+                    if _class in res:
+                        self.splog.add_warning(f' 같은 클래스[{_class}]가 존재합니다. ')
+                    if _req_id in _check:
+                        self.splog.add_warning(f' 같은 프로토콜ID[{_req_id}]가 클래스{_check[_req_id]}에 존재합니다. ')
+                    if _res_id in _check:
+                        self.splog.add_warning(f' 같은 프로토콜ID[{_res_id}]가 클래스{_check[_res_id]}에 존재합니다. ')
+                    _check[_req_id] = _class
+                    _check[_res_id] = _class
+
+                    res[_class] = {}
+                    res[_class]['desc'] = _desc
+                    res[_class]['req_info'] = {_req_id: _req_list[2:]}
+                    res[_class]['res_info'] = {_res_id: _res_list[2:]}
+
+
+        except Exception as e:
+            print(e)
+
+        return res
+
+    def get_jsonmap(self, target: ConvertType = None) -> dict:
+        """
+        변환타입별로 json을 가져온다.
         @return: 딕셔너리 값으로 리턴 { key (테이블명) : value (JsonData) }
         """
         res = {}
@@ -568,14 +821,14 @@ class DataManager:
 
         try:
             if target is None:
-                target = self.SERVER_TYPE
-            if target == ServerType.SERVER:
+                target = self.CONVERT_TYPE
+            if target == ConvertType.SERVER:
                 json_path = self._get_jsonpath_server()
-            elif target == ServerType.ALL:
+            elif target == ConvertType.ALL:
                 json_path = self.get_jsonpath_all()
-            elif target == ServerType.INFO:
+            elif target == ConvertType.INFO:
                 json_path = self._get_jsonpath_info()
-            elif target == ServerType.CLIENT:
+            elif target == ConvertType.CLIENT:
                 json_path = self._get_jsonpath_client()
             for _path in json_path:
                 file_name = _path.stem
@@ -586,16 +839,16 @@ class DataManager:
         return res
 
     def delete_json_all(self):
-        if self.SERVER_TYPE is not ServerType.ALL:
+        if self.CONVERT_TYPE is not ConvertType.ALL:
             return
         if Path(self.PATH_FOR_JSON).is_dir():
             shutil.rmtree(self.PATH_FOR_JSON)
         self._set_folder()
 
-    def get_schema_all(self, target: ServerType = None) -> dict:
+    def get_schema_all(self, target: ConvertType = None) -> dict:
         table_info = {}
         if target is None:
-            target = self.SERVER_TYPE
+            target = self.CONVERT_TYPE
         for _path in self.get_excelpath_all():
             try:
                 table_info.update(self.get_schema(_path, target))
@@ -603,21 +856,21 @@ class DataManager:
                 pass
         return table_info
 
-    def get_schema(self, excel_path: str, target: ServerType = None) -> dict:
+    def get_schema(self, excel_path: str, target: ConvertType = None) -> dict:
         res = {}
         _path = self.PATH_FOR_WORKING.joinpath(excel_path)
         if not _path.exists():
             return res
 
         if target is None:
-            target = self.SERVER_TYPE
+            target = self.CONVERT_TYPE
         try:
             df = self._read_excel_for_data(_path)
         except Exception as e:
             self.splog.add_warning(f'{self._info} Excel get_schema Error: [{excel_path.stem}]\n{str(e)}')
             return res
 
-        if target == ServerType.CLIENT:
+        if target == ConvertType.CLIENT:
             df = self._get_filtered_column(df, ['ALL', 'CLIENT'])
         else:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
@@ -661,21 +914,20 @@ class DataManager:
     def get_enum_data(self) -> dict:
         """
         Excel Enum Data를 딕셔너리로 가져온다.
-        # Input Data :
-        #----------------------------------------------------
-        # id                             625
-        # enum_type     enum_BuffContentType
-        # enum_id                          4
-        # enum_value                Relation
-        # comment                  인연(추가 예정)
-        #----------------------------------------------------
-        :return: {
-            'enum_ActorType': {
-                0: ['None', '사용안함'],
-                1: ['Melee', '근접 딜러'],
-                2: ['Ranged', '원거리 딜러']
+        Examples::
+            #----------------------------------------------------
+            # id                             625
+            # enum_type     enum_BuffContentType
+            # enum_id                          4
+            # enum_value                Relation
+            # comment                  인연(추가 예정)
+            #----------------------------------------------------
+        :return:
+            'ActorType': {
+                None: [0, '사용안함'],
+                Melee: [1, '근접 딜러'],
+                Ranged: [2, '원거리 딜러']
             }
-        }
         """
         res = {}
         for _path in self._get_enumpath():
@@ -713,18 +965,20 @@ class DataManager:
     def _set_base_index(self, df: DataFrame) -> DataFrame:
         """
         # 서버타입 행을 기준열로 설정
-        # 서버타입 SERVER CLIENT INFO 가 하나라도 열에 존재하면 기준 열로 설정
-        # Dataframe의 헤더 행을 기준행의 바로 윗 열의 id name reg_dt로 설정하고 1,2행은 처리에서 무시
-        # EXCEL의 데이터가 다음과 같을때 헤더데이터가 가변일수 있음
-        # --------------------------------------------------------------
-        # 0   memo
-        # 1   descripton
-        # 2    id     | name | reg_dt | reg_dt
-        # 3 : SERVER | SERVER | CLIENT |  SERVER <-- 서버타입
-        # 4 : int | string | datetime |  datetime
-        # 5 : @id | @default("") |  |
-        # 6 : 0 | test |  2022.04.09 | 2021-03-09T00:00:00
-        # --------------------------------------------------------------
+        Examples::
+            # --------------------------------------------------------------
+            # 0  memo
+            # 1  descripton
+            # 2  id     | name | reg_dt | reg_dt
+            # 3  SERVER | SERVER | CLIENT |  SERVER <-- 서버타입
+            # 4  int | string | datetime |  datetime
+            # 5  @id | @default("") |  |
+            # 6  0 | test |  2022.04.09 | 2021-03-09T00:00:00
+            # --------------------------------------------------------------
+        :note:
+            * 서버타입 SERVER CLIENT INFO 가 하나라도 열에 존재하면 기준 열로 설정
+            * Dataframe의 헤더 행을 기준행의 바로 윗 열의 id name reg_dt로 설정하고 1,2행은 처리에서 무시
+            * EXCEL의 데이터가 다음과 같을때 헤더데이터가 가변일수 있음
         """
         _idx_server_type = self._get_server_type_index(df)
         if _idx_server_type < 1:
@@ -746,9 +1000,9 @@ class DataManager:
             self.row_for_desc = 0
         return df
 
-    def get_json(self, target: ServerType = None):
+    def get_json(self, target: ConvertType = None):
         return json.dumps(self.get_jsonmap(target))
 
-    def save_json_all(self, save_path: Path, target: ServerType = None):
+    def save_json_all(self, save_path: Path, target: ConvertType = None):
         with open(save_path, "w", encoding='utf-8') as f:
             json.dump(self.get_jsonmap(target), f, ensure_ascii=False, indent=4, separators=(',', ': '))

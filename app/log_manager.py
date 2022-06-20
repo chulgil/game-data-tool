@@ -138,8 +138,8 @@ class LogManager:
                 self.warning()
 
     def send_developer(self, msg: str = None):
-        if not self.is_service_branch(self.BRANCH):
-            return
+        # if not self.is_service_branch(self.BRANCH):
+        #     return
         if msg:
             self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
             self.logger.info(f'{self.PREFIX} {str(msg)}')
