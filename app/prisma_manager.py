@@ -181,8 +181,7 @@ class PrismaManager:
             res = 'Int'
         else:
             res = col.title()
-        from re import match
-        if match(r'@null', option):
+        if re.findall(r'@null', option):
             res = res + '?'
         return res
 
