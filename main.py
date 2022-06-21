@@ -253,14 +253,14 @@ async def excel_to_data_all_from_tag(tag: str):
         g_manager.destroy()
         return
     gc_manager = GitManager(GitTarget.CLIENT)
-    if not gc_manager.checkout():
+    if not gc_manager.checkout(g_manager.BRANCH):
         gc_manager.destroy()
         return
     g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
 
     check_excel(g_manager)
-    excel_to_json_all(g_manager)
+    await excel_to_json_all(g_manager)
     excel_to_schema(g_manager)
     excel_to_entity(g_manager, gc_manager)
     excel_to_enum(g_manager, gc_manager)
@@ -372,27 +372,20 @@ async def tag_to_db(g_manager: GitManager):
 
 
 async def test(branch: str):
-    # Git 초기화 및 다운로드
-    # g_manager = GitManager(GitTarget.EXCEL)
-    #
-    # # 체크아웃 성공시에만 진행
-    # if not g_manager.checkout(branch):
-    #     g_manager.destroy()
-    #     return
-
     g_manager = GitManager(GitTarget.EXCEL)
     if not g_manager.checkout(branch):
         g_manager.destroy()
         return
     # gc_manager = GitManager(GitTarget.CLIENT)
-    # if not gc_manager.checkout():
+    # if not gc_manager.checkout(g_manager.BRANCH):
     #     gc_manager.destroy()
     #     return
-    g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
-    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
+    #
+    excel_to_entity(g_manager, g_manager)
+    # excel_to_enum(g_manager, gc_manager)
 
     # check_excel(g_manager)
-    await excel_to_json_all(g_manager)
+    # await excel_to_json_all(g_manager)
     # excel_to_schema(g_manager)
 
     # from pprint import pprint
@@ -400,7 +393,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'main'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # g_manager = GitManager(GitTarget.EXCEL)
     # if not g_manager.checkout(branch):
@@ -422,7 +415,8 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    asyncio.run(test(branch))
+    asyncio.run(excel_to_data_all_from_branch('main'))
+    # asyncio.run(test(branch))
     # sync_prisma(branch)
 
     pass

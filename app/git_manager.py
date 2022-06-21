@@ -345,7 +345,7 @@ class GitManager:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
             return {'res_ver': config["CLIENT_RES_VER"], 'res_url': config["CLIENT_RES_URL"]}
-        except IOError as e:
+        except Exception as e:
             self.splog.warning(str(e))
         return {}
 
