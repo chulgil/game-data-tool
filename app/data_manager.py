@@ -12,6 +12,8 @@ from pathlib import Path
 from pandas import DataFrame
 import warnings
 from enum import Enum, auto
+import asyncio
+from pprint import pprint
 
 import numpy as np
 import pandas
@@ -198,7 +200,7 @@ class DataManager:
         filtered = mask_df[mask_df.isin(targets)].keys()
         return df[filtered]
 
-    def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
+    async def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
         # 행의 개수가 0이면 무시
         if df.shape[1] == 0:
             return
@@ -522,40 +524,37 @@ class DataManager:
 
         self.splog.send_designer()
 
-    def excel_to_json(self, excel_list: list):
-
+    async def excel_to_json(self, excel_list: list):
+        tasks = []
         # Excel파일 가져오기
         for excel in excel_list:
             _path = Path(self.PATH_FOR_WORKING).joinpath(excel)
-            try:
-                # 첫번째 시트를 JSON 타겟으로 설정
-                df = self._read_excel_for_data(_path)
-                # 파일 이름으로 JSON 파일 저장 : DATA
-                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
-                    self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER,
-                                    _path.stem)
-                # 파일 이름으로 JSON 파일 저장 : INFO
-                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
-                    self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, _path.stem)
-                # 파일 이름으로 JSON 파일 저장 : CLIENT
-                if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
-                    self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT,
-                                    _path.stem)
+            tasks.append(asyncio.create_task(self._save_json_task(_path)))
+        await asyncio.gather(*tasks)
 
-                if self.CHECK_FOR_ID:
-                    _column_id = df.columns[0]
-                    if _column_id != self.CHECK_FOR_ID:
-                        self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
+    async def _save_json_task(self, path: Path):
+        # 첫번째 시트를 JSON 타겟으로 설정
+        df = self._read_excel_for_data(path)
+        # 파일 이름으로 JSON 파일 저장 : DATA
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
+            await self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER,
+                                  path.stem)
+        # 파일 이름으로 JSON 파일 저장 : INFO
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
+            await self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, path.stem)
+        # 파일 이름으로 JSON 파일 저장 : CLIENT
+        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
+            await self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT,
+                                  path.stem)
 
-                if self.splog.has_warning():
-                    self.splog.add_warning(f'{self._info} Excel to Json Error: [{_path.stem}]\n', 0)
-                    self.splog.send_designer()
+        if self.CHECK_FOR_ID:
+            _column_id = df.columns[0]
+            if _column_id != self.CHECK_FOR_ID:
+                self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
 
-            except FileNotFoundError as e:
-                pass
-            except Exception as e:
-                self.splog.add_warning(f'{self._info} Excel to Json Error: [{_path.stem}]\n{str(e)}')
-                self.splog.send_designer()
+        if self.splog.has_warning():
+            self.splog.add_warning(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
+            self.splog.send_designer()
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*"))
@@ -587,12 +586,14 @@ class DataManager:
             try:
                 f = open(_file, 'r')
                 markdown = f.read()
+
                 if target == ConvertType.MARKDOWN_ENUM:
                     res.update(self._markdown_to_enum(markdown))
                 elif target == ConvertType.MARKDOWN_PROTOCOL:
                     res.update(self._markdown_to_protocol(markdown))
                 elif target == ConvertType.MARKDOWN_ENTITY:
                     res.update(self._markdown_to_entity(markdown))
+
             except Exception as e:
                 self.splog.add_error(f'MarkDown Load Error : {str(e)}')
 
@@ -651,10 +652,12 @@ class DataManager:
             _match = re.split(r'-{3,}\n', markdown)
             if not _match:
                 return res
-
             for text in _match:
-                enum = re.findall(r'##([\w\W]+?)\n', text)[0]
-                enum = enum.strip()
+                enum = re.findall(r'##([\w\W]+?)\n', text)
+                if not enum:
+                    continue
+
+                enum = enum[0].strip()
                 desc = re.findall(r'>(.*)\n', text)
                 _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
 
@@ -678,14 +681,14 @@ class DataManager:
                     _enum_values.append([_key, _val, _desc])
 
                 items = {}
+
                 for item in sorted(_enum_values):
                     items[item[1]] = [item[0], item[2]]
                 res[enum] = {}
                 res[enum]['desc'] = desc
                 res[enum]['items'] = items
-
         except Exception as e:
-            print(e)
+            self.splog.add_warning(f'markdown_to_enum Error : {e}')
 
         return res
 
@@ -721,8 +724,10 @@ class DataManager:
                 return res
 
             for text in _match:
-                _class = re.findall(r'##([\w\W]+?)\n', text)[0]
-                _class = _class.strip()
+                _class = re.findall(r'##([\w\W]+?)\n', text)
+                if not _class:
+                    continue
+                _class = _class[0].strip()
                 _desc = re.findall(r'>(.*)\n', text)
                 _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
 
@@ -734,7 +739,7 @@ class DataManager:
                 res[_class]['items'] = _list[2:]
 
         except Exception as e:
-            print(e)
+            self.splog.add_warning(f'markdown_to_entity Error : {e}')
 
         return res
 
@@ -803,7 +808,6 @@ class DataManager:
                     res[_class]['desc'] = _desc
                     res[_class]['req_info'] = {_req_id: _req_list[2:]}
                     res[_class]['res_info'] = {_res_id: _res_list[2:]}
-
 
         except Exception as e:
             print(e)

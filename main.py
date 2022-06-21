@@ -55,7 +55,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         await b_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
 
 
-def excel_to_json_all(g_manager: GitManager):
+async def excel_to_json_all(g_manager: GitManager):
     """전체 Excel을 추출후 Json변환
         """
 
@@ -64,7 +64,7 @@ def excel_to_json_all(g_manager: GitManager):
     # 전체 Excel로드후 Json변환
     d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
     d_manager.delete_json_all()
-    d_manager.excel_to_json(d_manager.get_excelpath_all())
+    await d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
 def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
@@ -116,6 +116,18 @@ def excel_to_schema(g_manager: GitManager):
     p_manager.save(table_info)
 
 
+def markdown_to_script(g_manager: GitManager, gc_manager: GitManager):
+    g_manager.splog.info("전체 Markdown 로드 후 C# Script변환을 진행합니다.")
+    d_manager = DataManager(branch, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(branch, g_manager.BASE_TAG, g_manager.COMMIT_ID, gc_manager.PATH_FOR_WORKING)
+    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_PROTOCOL)
+    c_manager.save_protocol(_obl)
+    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_ENUM)
+    c_manager.save_server_enum(_obl)
+    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_ENTITY)
+    c_manager.save_server_entity(_obl)
+
+
 def get_commit_from_webhook(webhook: dict) -> dict:
     g_manager = GitManager(GitTarget.EXCEL)
     res = g_manager.load_commit_from_webhook(webhook)
@@ -136,7 +148,7 @@ async def excel_to_data_all_from_branch(branch: str):
         g_manager.destroy()
         return
     check_excel(g_manager)
-    excel_to_json_all(g_manager)
+    await excel_to_json_all(g_manager)
 
     await excel_to_server(g_manager)
 
@@ -360,27 +372,35 @@ async def tag_to_db(g_manager: GitManager):
 
 
 async def test(branch: str):
-    _path = '/Users/cglee/Dev/BackEnd/Python/fastapi-nano/app/libs/excel_to_db/export'
-    from pathlib import Path
-    _path = Path(_path)
-    d_manager = DataManager(branch, ConvertType.MARKDOWN, _path)
+    # Git 초기화 및 다운로드
+    # g_manager = GitManager(GitTarget.EXCEL)
+    #
+    # # 체크아웃 성공시에만 진행
+    # if not g_manager.checkout(branch):
+    #     g_manager.destroy()
+    #     return
 
-    c_manager = CSharpManager(branch, 'tag', 'commit_id', _path)
-    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_PROTOCOL)
-    c_manager.save_protocol(_obl)
+    g_manager = GitManager(GitTarget.EXCEL)
+    if not g_manager.checkout(branch):
+        g_manager.destroy()
+        return
+    # gc_manager = GitManager(GitTarget.CLIENT)
+    # if not gc_manager.checkout():
+    #     gc_manager.destroy()
+    #     return
+    g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
+    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
 
-    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_ENUM)
-    c_manager.save_server_enum(_obl)
-
-    _obl = d_manager.get_markdown(ConvertType.MARKDOWN_ENTITY)
-    c_manager.save_server_entity(_obl)
+    # check_excel(g_manager)
+    await excel_to_json_all(g_manager)
+    # excel_to_schema(g_manager)
 
     # from pprint import pprint
     # pprint(_protocol)
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'local'
+    branch = 'test'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # g_manager = GitManager(GitTarget.EXCEL)
     # if not g_manager.checkout(branch):
@@ -398,9 +418,11 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
 
-    # asyncio.run(migrate(branch))
+    # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-
+    # asyncio.run(migrate(branch))
+    # asyncio.run(update_table(branch, ConvertType.ALL))
     asyncio.run(test(branch))
+    # sync_prisma(branch)
 
     pass

@@ -1,16 +1,17 @@
-import logging
 import pymsteams as pymsteams
 import uuid
 import yaml
 import logging
 from pathlib import Path
 import colorlog
+from time import perf_counter
 
 
 class LogManager:
 
     def __init__(self, branch: str, save_path: Path):
         try:
+            self.start = perf_counter()
             self._info = []
             self._warning = []
             self._error = []
@@ -139,7 +140,7 @@ class LogManager:
 
     def send_developer(self, msg: str = None):
         # if not self.is_service_branch(self.BRANCH):
-        #     return
+        # return
         if msg:
             self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
             self.logger.info(f'{self.PREFIX} {str(msg)}')
@@ -165,3 +166,11 @@ class LogManager:
         for handler in self.logger.handlers:
             self.logger.removeHandler(handler)
             handler.close()
+
+    def timer(self):
+        self.start = perf_counter()
+
+    def elapsed(self):
+        end = perf_counter()
+        diff = end - self.start
+        self.info(f'처리 총 소요 시간 : {diff}')
