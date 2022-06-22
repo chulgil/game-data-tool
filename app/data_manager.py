@@ -851,6 +851,7 @@ class DataManager:
         table_info = {}
         if target is None:
             target = self.CONVERT_TYPE
+        pprint(self.get_excelpath_all())
         for _path in self.get_excelpath_all():
             try:
                 table_info.update(self.get_schema(_path, target))

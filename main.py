@@ -373,21 +373,38 @@ async def tag_to_db(g_manager: GitManager):
 
 
 async def test(branch: str):
-    g_manager = GitManager(GitTarget.EXCEL)
+    webhook = {
+        "ref": "refs/heads/test",
+        "before": "e45dc281b4be424170805af14061fd7f5d7cd390",
+        "after": "31595d218be9a9fe1dae3b6b244fa107f56d8aac",
+        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/e45dc281b4be424170805af14061fd7f5d7cd390...31595d218be9a9fe1dae3b6b244fa107f56d8aac",
+        "head_commit": {
+            "id": "31595d218be9a9fe1dae3b6b244fa107f56d8aac",
+            "message": "[서버/이철길] 불필요 서버파일 삭제\n",
+            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/31595d218be9a9fe1dae3b6b244fa107f56d8aac",
+            "author": {
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
+            },
+            "committer": {
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
+            },
+            "verification": None,
+            "timestamp": "2022-06-22T12:09:28+09:00",
+            "added": [],
+            "removed": [
+                "excel/data/info/user_data.xlsx"
+            ],
+            "modified": []
+        }
+    }
+
+    g_manager = GitManager(GitTarget.EXCEL, webhook)
     if not g_manager.checkout(branch):
         g_manager.destroy()
-
-    gc_manager = GitManager(GitTarget.CLIENT)
-    if not gc_manager.checkout(g_manager.BRANCH):
-        gc_manager.destroy()
-        return
-
-    excel_to_entity(g_manager, gc_manager)
-    excel_to_enum(g_manager, gc_manager)
-
-    if gc_manager.is_modified():
-        gc_manager.push()
-    gc_manager.destroy()
 
     # d_manager.save_json_task.remote(path)
 
@@ -416,8 +433,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(excel_to_data_all_from_branch('main'))
-    asyncio.run(update_table(branch, ConvertType.ALL))
-    # sync_prisma(branch)
+    # asyncio.run(excel_to_data_all_from_branch('test'))
+    # asyncio.run(update_table(branch, ConvertType.ALL))
+    asyncio.run(test(branch))
 
     pass
