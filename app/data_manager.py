@@ -558,7 +558,7 @@ class DataManager:
         return list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*"))
 
     def get_jsonpath_all(self) -> list:
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*.json"))
+        return self._get_jsonpath_info() + self._get_jsonpath_server()
 
     def _get_jsonpath_info(self) -> list:
         return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))

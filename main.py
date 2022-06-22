@@ -44,6 +44,8 @@ async def update_table(branch: str, convert_type: ConvertType):
         g_manager.destroy()
         return
 
+    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+
     # 변환된 Json파일을 디비로 저장
     b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
     d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
@@ -375,8 +377,18 @@ async def test(branch: str):
     if not g_manager.checkout(branch):
         g_manager.destroy()
 
-    d_manager = DataManager(branch, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
-    d_manager.excel_to_json(d_manager.get_excelpath_all())
+    gc_manager = GitManager(GitTarget.CLIENT)
+    if not gc_manager.checkout(g_manager.BRANCH):
+        gc_manager.destroy()
+        return
+
+    excel_to_entity(g_manager, gc_manager)
+    excel_to_enum(g_manager, gc_manager)
+
+    if gc_manager.is_modified():
+        gc_manager.push()
+    gc_manager.destroy()
+
     # d_manager.save_json_task.remote(path)
 
     # ray.get(d_manager.excel_to_json.remote(d_manager.get_excelpath_all.remote()))
@@ -401,10 +413,11 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch(branch))
+
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch('main'))
-    asyncio.run(test(branch))
+    asyncio.run(update_table(branch, ConvertType.ALL))
     # sync_prisma(branch)
 
     pass
