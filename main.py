@@ -1,6 +1,5 @@
 import asyncio
 import logging
-
 import colorlog
 
 if __name__ == '__main__' or __name__ == "decimal":
@@ -55,7 +54,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         await b_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
 
 
-async def excel_to_json_all(g_manager: GitManager):
+def excel_to_json_all(g_manager: GitManager):
     """전체 Excel을 추출후 Json변환
         """
 
@@ -64,7 +63,7 @@ async def excel_to_json_all(g_manager: GitManager):
     # 전체 Excel로드후 Json변환
     d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
     d_manager.delete_json_all()
-    await d_manager.excel_to_json(d_manager.get_excelpath_all())
+    d_manager.excel_to_json(d_manager.get_excelpath_all())
 
 
 def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
@@ -148,7 +147,7 @@ async def excel_to_data_all_from_branch(branch: str):
         g_manager.destroy()
         return
     check_excel(g_manager)
-    await excel_to_json_all(g_manager)
+    excel_to_json_all(g_manager)
 
     await excel_to_server(g_manager)
 
@@ -260,7 +259,7 @@ async def excel_to_data_all_from_tag(tag: str):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
 
     check_excel(g_manager)
-    await excel_to_json_all(g_manager)
+    excel_to_json_all(g_manager)
     excel_to_schema(g_manager)
     excel_to_entity(g_manager, gc_manager)
     excel_to_enum(g_manager, gc_manager)
@@ -375,29 +374,18 @@ async def test(branch: str):
     g_manager = GitManager(GitTarget.EXCEL)
     if not g_manager.checkout(branch):
         g_manager.destroy()
-        return
-    # gc_manager = GitManager(GitTarget.CLIENT)
-    # if not gc_manager.checkout(g_manager.BRANCH):
-    #     gc_manager.destroy()
-    #     return
-    #
-    excel_to_entity(g_manager, g_manager)
-    # excel_to_enum(g_manager, gc_manager)
 
-    # check_excel(g_manager)
-    # await excel_to_json_all(g_manager)
-    # excel_to_schema(g_manager)
+    d_manager = DataManager(branch, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
+    d_manager.excel_to_json(d_manager.get_excelpath_all())
+    # d_manager.save_json_task.remote(path)
 
-    # from pprint import pprint
-    # pprint(_protocol)
+    # ray.get(d_manager.excel_to_json.remote(d_manager.get_excelpath_all.remote()))
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'main'
+    branch = 'test'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
-    # g_manager = GitManager(GitTarget.EXCEL)
-    # if not g_manager.checkout(branch):
-    #     g_manager.destroy()
+
     # check_excel(g_manager)
     # else:
     #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
@@ -415,8 +403,8 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    asyncio.run(excel_to_data_all_from_branch('main'))
-    # asyncio.run(test(branch))
+    # asyncio.run(excel_to_data_all_from_branch('main'))
+    asyncio.run(test(branch))
     # sync_prisma(branch)
 
     pass

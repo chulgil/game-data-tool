@@ -200,7 +200,7 @@ class DataManager:
         filtered = mask_df[mask_df.isin(targets)].keys()
         return df[filtered]
 
-    async def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
+    def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
         # 행의 개수가 0이면 무시
         if df.shape[1] == 0:
             return
@@ -524,28 +524,26 @@ class DataManager:
 
         self.splog.send_designer()
 
-    async def excel_to_json(self, excel_list: list):
-        tasks = []
-        # Excel파일 가져오기
+    def excel_to_json(self, excel_list: list):
+
+        paths = []
         for excel in excel_list:
             _path = Path(self.PATH_FOR_WORKING).joinpath(excel)
-            tasks.append(asyncio.create_task(self._save_json_task(_path)))
-        await asyncio.gather(*tasks)
+            self.save_json_task(_path)
+            paths.append({"func": "save_json_task", "v": _path})
 
-    async def _save_json_task(self, path: Path):
+    def save_json_task(self, path: Path):
         # 첫번째 시트를 JSON 타겟으로 설정
         df = self._read_excel_for_data(path)
         # 파일 이름으로 JSON 파일 저장 : DATA
         if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
-            await self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER,
-                                  path.stem)
+            self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER, path.stem)
         # 파일 이름으로 JSON 파일 저장 : INFO
         if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
-            await self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, path.stem)
+            self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, path.stem)
         # 파일 이름으로 JSON 파일 저장 : CLIENT
         if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
-            await self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT,
-                                  path.stem)
+            self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT, path.stem)
 
         if self.CHECK_FOR_ID:
             _column_id = df.columns[0]
