@@ -412,7 +412,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'main'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
     # check_excel(g_manager)
@@ -433,8 +433,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(excel_to_data_all_from_branch('test'))
+    asyncio.run(excel_to_data_all_from_branch('qa2'))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    asyncio.run(test(branch))
+    # asyncio.run(test(branch))
 
     pass
