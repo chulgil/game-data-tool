@@ -9,7 +9,7 @@ from time import perf_counter
 
 class LogManager:
 
-    def __init__(self, branch: str, save_path: Path):
+    def __init__(self, branch: str):
         try:
             self.start = perf_counter()
             self._info = []
@@ -25,7 +25,6 @@ class LogManager:
             # Config 파일 설정
             with open(self.PATH_FOR_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
-            self.PATH_FOR_SAVE = save_path.joinpath(config['DEFAULT']['EXPORT_DIR'], 'out.log')
             self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
             self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'])
             self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'])

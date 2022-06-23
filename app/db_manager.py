@@ -1,3 +1,4 @@
+import os
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -7,13 +8,14 @@ class DBManager:
 
     def __init__(self, branch: str, working_dir):
         from . import LogManager
-        self.splog = LogManager(branch, working_dir)
+        self.splog = LogManager(branch)
         self.BRANCH = branch
         self._info = f'[{branch} 브랜치]'
         self.splog.PREFIX = self._info
         self.PATH_FOR_WORKING = working_dir
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+        os.chdir(self.PATH_FOR_WORKING)
         try:
             from prisma import Prisma
             self.db = Prisma()

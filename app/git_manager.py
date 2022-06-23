@@ -28,36 +28,43 @@ class GitTarget(Enum):
 
 class GitManager:
 
-    def __init__(self, target: GitTarget, webhook=None):
+    def __init__(self, target: GitTarget, branch: str = 'main', webhook: dict = None):
+
+        if branch == '':
+            branch = 'main'
+        self.BRANCH = branch
+        self._repo = None
         self.info = ''
-        self.BRANCH = None
         self.COMMIT_ID = ''
         self.BASE_COMMIT_ID = ''
         self.GIT_PUSH_MSG = ''
         self.NEW_TAG = ''
         self.BASE_TAG = ''
+        self.IS_ADMIN = False
         self.GIT_TARGET = target
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
-        os.chdir(self.PATH_FOR_ROOT)
+
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self._set_config(config)
         self.HEAD_COMMIT = None
 
-        from . import LogManager
-        self.splog = LogManager(self.BRANCH, self.PATH_FOR_WORKING)
-
-        self._init_git()
         if isinstance(webhook, dict):
             self.load_tag_from_webhook(webhook)
             self.load_commit_from_webhook(webhook)
 
-    def _set_config(self, config):
+        self.PATH_FOR_TARGET = self.PATH_FOR_ROOT.joinpath('import')
+        self.PATH_FOR_WORKING = None
+        self.PATH_FOR_WORKING_TAG = None
+        self.PATH_FOR_BRANCH_CONFIG = None
+        self._set_save_target()
 
-        self.PATH_FOR_WORKING = self._random_path(config)
-        self.PATH_FOR_WORKING_BASE = self._random_path(config)
-        self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
+        from . import LogManager
+        self.splog = LogManager(self.BRANCH)
+        self._init_git()
+
+    def _set_config(self, config):
         if self.GIT_TARGET == GitTarget.EXCEL:
             self.GIT_URL = config['GITSERVER']['EXCEL_SSH']
         elif self.GIT_TARGET == GitTarget.CLIENT:
@@ -71,30 +78,32 @@ class GitManager:
 
     def _init_git(self):
         try:
+            if not Path(self.PATH_FOR_WORKING).is_dir():
+                self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
+            else:
+                self._repo = Repo(self.PATH_FOR_WORKING)
+            if self.NEW_TAG != '':
+                self.load_branch_from_tag(self.NEW_TAG)
 
-            # GIT 기본 프로젝트 폴더 삭제
-            if Path(self.PATH_FOR_WORKING).is_dir():
-                shutil.rmtree(self.PATH_FOR_WORKING)
-            self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
             # GIT 초기 설정
             writer = self._repo.config_writer()
             writer.set_value("user", "name", self.GIT_USER)
             writer.set_value("user", "email", self.GIT_EMAIL)
             writer.release()
+
             del writer
             self._origin = self._repo.remotes.origin
             self.info = self._brn()
             self.splog.PREFIX = self.info
-            self.splog.info('GIT Clone 초기화 성공')
-
+            self.splog.info('GIT 초기화 성공')
         except Exception as e:
-            self.splog.info(f'GIT Clone Error \r\n{str(e)}')
+            self.splog.info(f'GIT Error \r\n{str(e)}')
 
     def pull(self) -> bool:
         try:
             if self._is_empty_branch():
                 return False
-            self._origin.pull()
+            # self._origin.pull()
             self.splog.info('GIT PULL 성공')
             return True
         except Exception as e:
@@ -118,14 +127,13 @@ class GitManager:
             return f'[GIT_{self.GIT_TARGET.name}][{self._repo.active_branch.name} 브랜치 {self.BASE_TAG}]'
         return ''
 
-    def load_branch_from_tag(self, tag: str):
-        self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{tag}]")
-        res = self._repo.git.branch('-a', '--contains', f'tags/{tag}')
+    def load_branch_from_tag(self, new_tag: str):
+        self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{new_tag}]")
+        res = self._repo.git.branch('-a', '--contains', f'tags/{new_tag}')
         branch = res.split('/').pop()
-        commit_id = self._repo.git.rev_parse(tag, short=True)
+        commit_id = self._repo.git.rev_parse(new_tag, short=True)
         self.BRANCH = branch
         self.COMMIT_ID = commit_id
-        self.NEW_TAG = tag
         return branch
 
     def load_branch_from_commit(self, commit_id: str):
@@ -144,39 +152,63 @@ class GitManager:
             self.splog.info(f"브랜치를 새로 생성합니다. [{cmd}]")
             self.push()
 
+    def _reset(self):
+        # if self.COMMIT_ID != '':
+        #     self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
+        # else:
+        #     self._repo.head.reset(index=True, working_tree=True)
+        self._repo.git.clean('-fdx')
+
+        # self._repo.git.reset('--hard', 'origin/main')
+
     def checkout(self, branch: str = '', commit_id: str = '') -> bool:
         try:
+            self._reset()
             if self.COMMIT_ID != '':
                 commit_id = self.COMMIT_ID
             if commit_id != '':
-                self._repo.head.reset(commit=commit_id, index=True, working_tree=True)
                 self.load_branch_from_commit(commit_id)
-                self._checkout(self.BRANCH)
                 self.COMMIT_ID = self.get_current_commit()
             else:
                 self.BRANCH = branch
                 self.splog.BRANCH = branch
-                self._repo.head.reset(index=True, working_tree=True)
-                self._checkout(branch)
                 self.COMMIT_ID = self.get_last_commit()
 
-            # 비교할 파일이 존재하면 리포지토리를 복제한다.
+            if not Path(self.PATH_FOR_WORKING).is_dir():
+                self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
+            else:
+                self._repo = Repo(self.PATH_FOR_WORKING)
+
+            self._checkout(self.BRANCH)
+            self._reset()
+            self.pull()
             self.BASE_TAG = self.get_base_tag_from_branch()
-            if self.BASE_TAG != '':
-                try:
-                    _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_BASE, branch=self.BRANCH)
-                    _old_repo.git.checkout(self.BASE_TAG)
-                    self.BASE_COMMIT_ID = _old_repo.commit().hexsha
-                except Exception as e:
-                    self.splog.info(f'GIT 브랜치에 BASE TAG가 존재하지 않습니다. [{self.BASE_TAG}]')
+            self._set_save_target()
 
             self.info = self._brn()
             self.splog.PREFIX = self.info
+            self._checkout_base()
+
             self.splog.info(f'GIT CEHCKOUT 성공 [{self.COMMIT_ID}]')
             return True
         except Exception as e:
             self.splog.error(f'GIT CHECKOUT Error \r\n{str(e)}')
         return False
+
+    def _checkout_base(self):
+        # 비교할 파일이 존재하면 리포지토리를 복제한다.
+        if self.BASE_TAG != '':
+            try:
+                if not Path(self.PATH_FOR_WORKING_TAG).is_dir():
+                    _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_TAG, branch=self.BRANCH)
+                else:
+                    _old_repo = Repo(self.PATH_FOR_WORKING_TAG)
+                self.BASE_COMMIT_ID = _old_repo.commit().hexsha
+                _old_repo.git.checkout(self.BASE_TAG)
+                _old_repo.git.clean('-fdx')
+                self.splog.info(f'BASE GIT CEHCKOUT 성공 [{self.BASE_COMMIT_ID}]')
+            except Exception as e:
+                self.splog.info(f'GIT 브랜치에 BASE TAG가 존재하지 않습니다. [{self.BASE_TAG}]: {str(e)}')
 
     def _commit(self):
         try:
@@ -195,7 +227,7 @@ class GitManager:
             commit = webhook['head_commit']
             self.HEAD_COMMIT = commit
             self.GIT_PUSH_MSG = f'{self.GIT_PUSH_MSG} [{commit["committer"]["name"]}] : {commit["message"]}'
-            self.load_branch_from_tag(tag)
+            self.NEW_TAG = tag
             return tag
         except Exception as e:
             self.splog.error(f"Webhook format Error : {str(e)}")
@@ -411,7 +443,7 @@ class GitManager:
             return res
 
         from . import DataManager, ConvertType
-        data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_BASE)
+        data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_TAG)
         data_new = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING)
 
         diffs = []
@@ -470,15 +502,31 @@ class GitManager:
         self._repo.create_tag(tag, message='Automatic tag "{0}"'.format(tag))
         self._origin.push(self._repo.tags)
 
+    def set_admin(self):
+        self.IS_ADMIN = True
+
+    def _set_save_target(self, is_admin: bool = False):
+        _target = None
+        if is_admin:
+            _target = self.PATH_FOR_TARGET.joinpath('admin', self.GIT_TARGET.name.lower())
+        else:
+            _target = self.PATH_FOR_TARGET.joinpath('user', self.GIT_TARGET.name.lower())
+
+        if self.NEW_TAG != '':
+            self.PATH_FOR_WORKING = _target.joinpath(self.NEW_TAG)
+        else:
+            self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
+        self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
+        self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
+
     def destroy(self):
         try:
             self.splog.destory()
-            shutil.rmtree(self.PATH_FOR_WORKING)
-            shutil.rmtree(self.PATH_FOR_WORKING_BASE)
+            # shutil.rmtree(self.PATH_FOR_WORKING)
+            # shutil.rmtree(self.PATH_FOR_WORKING_BASE)
         except Exception:
             pass
 
     def _random_path(self, config) -> Path:
-        # return self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'])
         return self.PATH_FOR_ROOT.joinpath(config['DEFAULT']['EXPORT_DIR'],
                                            str(date.today()) + '_' + uuid.uuid4().hex)

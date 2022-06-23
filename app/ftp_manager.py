@@ -18,7 +18,7 @@ class FtpManager:
             config = yaml.safe_load(f)
         self._set_config(config)
         from . import LogManager
-        self.splog = LogManager(self.BRANCH, log_path)
+        self.splog = LogManager(self.BRANCH)
         self.splog.PREFIX = self._info
         from . import AESCipher
         self.aes = AESCipher(self.AES_KEY)

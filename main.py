@@ -24,7 +24,7 @@ else:
 
 
 def sync_prisma(branch: str):
-    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager = GitManager(GitTarget.EXCEL, branch)
 
     if not g_manager.checkout(branch):
         g_manager.destroy()
@@ -37,7 +37,7 @@ def sync_prisma(branch: str):
 
 async def update_table(branch: str, convert_type: ConvertType):
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager = GitManager(GitTarget.EXCEL, branch)
 
     # 체크아웃 성공시에만 진행
     if not g_manager.checkout(branch):
@@ -130,7 +130,7 @@ def markdown_to_script(g_manager: GitManager, gc_manager: GitManager):
 
 
 def get_commit_from_webhook(webhook: dict) -> dict:
-    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager = GitManager(GitTarget.EXCEL, None, webhook)
     res = g_manager.load_commit_from_webhook(webhook)
     g_manager.destroy()
     return res
@@ -142,7 +142,7 @@ async def excel_to_data_all_from_branch(branch: str):
     @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager = GitManager(GitTarget.EXCEL, branch)
 
     # # 체크아웃 성공시에만 진행
     if not g_manager.checkout(branch):
@@ -188,7 +188,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         }
 
     """
-    g_manager = GitManager(GitTarget.EXCEL, webhook)
+    g_manager = GitManager(GitTarget.EXCEL, '', webhook)
     # # 체크아웃 성공시에만 진행
     if not webhook["head_commit"] or not g_manager.checkout():
         g_manager.destroy()
@@ -234,7 +234,7 @@ async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
     g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
 
-    gc_manager = GitManager(GitTarget.CLIENT)
+    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
     if not gc_manager.checkout(g_manager.BRANCH):
         gc_manager.destroy()
         return
@@ -253,7 +253,7 @@ async def excel_to_data_all_from_tag(tag: str):
     if not g_manager.checkout():
         g_manager.destroy()
         return
-    gc_manager = GitManager(GitTarget.CLIENT)
+    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
     if not gc_manager.checkout(g_manager.BRANCH):
         gc_manager.destroy()
         return
@@ -288,7 +288,7 @@ def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
     f_manager.send(d_manager.get_json())
     g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
     if g_manager.NEW_TAG != '':
-        g_manager_client = GitManager(GitTarget.CLIENT)
+        g_manager_client = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
         if not g_manager_client.checkout(g_manager.BRANCH):
             g_manager_client.destroy()
             return
@@ -297,7 +297,7 @@ def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
 
 
 async def excel_to_server(g_manager: GitManager):
-    gc_manager = GitManager(GitTarget.CLIENT)
+    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
     if not gc_manager.checkout(g_manager.BRANCH):
         gc_manager.destroy()
         return
@@ -335,14 +335,16 @@ def check_excel(g_manager: GitManager):
     d_manager.check_excel_for_relation(d_manager.get_excelpath_all())
 
 
-async def migrate(branch: str):
+async def migrate(branch: str, is_admin: bool = False):
     """
     Prisma 스키마 로드 후 해당 브랜치 디비에 반영
     @param branch: Git브랜치 -> Config에 DB접속정보가 브랜치별로 존재
     @return:
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL)
+    g_manager = GitManager(GitTarget.EXCEL, branch)
+    if is_admin:
+        g_manager.set_admin()
 
     # 체크아웃 성공시에만 진행
     if not g_manager.checkout(branch):
@@ -350,6 +352,7 @@ async def migrate(branch: str):
         return
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+    prisma.sync()
     prisma.migrate(MigrateType.FORCE, branch)
     await data_to_db(g_manager)
     await tag_to_db(g_manager)
@@ -402,9 +405,11 @@ async def test(branch: str):
         }
     }
 
-    g_manager = GitManager(GitTarget.EXCEL, webhook)
-    if not g_manager.checkout(branch):
+    g_manager = GitManager(GitTarget.EXCEL, 'main', webhook)
+    if not g_manager.checkout():
         g_manager.destroy()
+    # check_excel(g_manager)
+    # excel_to_json_all(g_manager)
 
     # d_manager.save_json_task.remote(path)
 
@@ -412,7 +417,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'main'
+    branch = 'test'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
     # check_excel(g_manager)
@@ -433,8 +438,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    asyncio.run(excel_to_data_all_from_branch('qa2'))
+    # asyncio.run(excel_to_data_all_from_branch('qa2'))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(test(branch))
+    asyncio.run(migrate(branch))
 
     pass

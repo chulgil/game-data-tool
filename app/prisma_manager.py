@@ -18,10 +18,10 @@ class PrismaManager:
 
     def __init__(self, branch: str, save_dir: Path):
         from . import LogManager
-        self.splog = LogManager(branch, save_dir)
+        self.splog = LogManager(branch)
         self.BRANCH = branch
         self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma')
+        self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma', branch)
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
         self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
 
@@ -29,11 +29,18 @@ class PrismaManager:
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
         self.CONFIG_DB = config['DATABASE']
+        self.PATH_FOR_BASE_DIR = self.ROOT_DIR.joinpath('prisma', branch)
         self.PATH_FOR_SAVE_DIR = save_dir.joinpath(config['DEFAULT']['EXPORT_DIR'], 'prisma')
+        self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_BASE_DIR.joinpath('schema.prisma')
         self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
-        self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_PRISMA.joinpath('schema.prisma')
+        self.SCHEMA_OPTION = f'--schema={self.PATH_FOR_BASE_SCHEMA}'
+        print(self.SCHEMA_OPTION)
+
         self._info = f"[{self.BRANCH} 브랜치] PRISMA"
 
+        # Prisma 스키마 폴더 생성
+        if not self.PATH_FOR_BASE_DIR.exists():
+            os.mkdir(self.PATH_FOR_BASE_DIR)
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.mkdir(self.PATH_FOR_SAVE_DIR)
@@ -48,8 +55,8 @@ class PrismaManager:
             from prisma_cleanup import cleanup
             cleanup()
 
-            res = run(['prisma db pull'], shell=True)
-            res = run(['prisma generate'], shell=True)
+            res = run([f'prisma db pull {self.SCHEMA_OPTION}'], shell=True)
+            res = run([f'prisma generate {self.SCHEMA_OPTION}'], shell=True)
             if not res.stderr:
                 self.splog.info(f"{self._info} 동기화 완료")
                 return True
@@ -59,8 +66,6 @@ class PrismaManager:
 
     def init_prisma(self) -> bool:
         try:
-            os.chdir(self.PATH_FOR_PRISMA.parent)
-
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
                 schema = f.read()
@@ -95,7 +100,8 @@ class PrismaManager:
             return db_name
 
     def prisma_generate(self):
-        res = run(['prisma generate'], shell=True)
+        print(self.PATH_FOR_SAVE_SCHEMA)
+        res = run([f'prisma generate {self.SCHEMA_OPTION}'], shell=True)
         if not res.stderr:
             self.splog.info(f"{self._info} 초기화 완료")
 
@@ -103,13 +109,16 @@ class PrismaManager:
         try:
             os.chdir(self.PATH_FOR_PRISMA.parent)
             if option == MigrateType.DEV:
-                run([f'prisma migrate dev --name {migrate_id}'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+                run([f'prisma migrate dev --name {migrate_id} {self.SCHEMA_OPTION}'], shell=True, check=True,
+                    stdout=PIPE, stderr=STDOUT)
 
             elif option == MigrateType.CREATE_ONLY:
-                run([f'prisma migrate dev --create-only'], shell=True, check=True, stdout=PIPE, stderr=STDOUT)
+                run([f'prisma migrate dev --create-only {self.SCHEMA_OPTION}'], shell=True, check=True, stdout=PIPE,
+                    stderr=STDOUT)
 
             elif option == MigrateType.FORCE:
-                run([f'prisma db push --accept-data-loss --force-reset'], shell=True, check=True, stdout=PIPE,
+                run([f'prisma db push --accept-data-loss --force-reset {self.SCHEMA_OPTION}'], shell=True, check=True,
+                    stdout=PIPE,
                     stderr=STDOUT)
 
             self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')
@@ -236,17 +245,16 @@ class PrismaManager:
         res = re.sub(r'@ref\(\D+\)', '', res)
         return res
 
-    @staticmethod
-    def _get_default_schema():
+    def _get_default_schema(self):
         return '''
-generator db {
+generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
-  // output = "." # Local only for test
-}
+  output = "{0}"
+}}
 
-datasource db {
+datasource db {{
   provider = "sqlserver"
   url      = env("DATABASE_URL")
-}
-       '''
+}}
+       '''.format(self.BRANCH)

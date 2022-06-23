@@ -47,7 +47,7 @@ class DataManager:
         warnings.filterwarnings('ignore', category=UserWarning, module='openpyxl')
 
         from . import LogManager
-        self.splog = LogManager(branch, working_dir)
+        self.splog = LogManager(branch)
 
         # Config 파일 설정
         self.ROOT_DIR = Path(__file__).parent.parent
@@ -417,7 +417,7 @@ class DataManager:
                 res.append([path[0], col, target_col])
                 return res
         except Exception as e:
-            self.splog.add_warning(f'{self._info} EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
+            self.splog.add_warning(f'EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
             self.splog.send_designer()
 
     def _get_server_type_index(self, df: DataFrame):
@@ -501,7 +501,6 @@ class DataManager:
                 continue
             if target_col not in tdata:
                 continue
-
             values = tdata[target_col].values
             if value not in values:
                 _warnings.append(f'원본 행의 참조 값[{value}]')
@@ -510,6 +509,7 @@ class DataManager:
             _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
             _warnings.insert(0, self._info + ' ' + _msg_head)
             self.splog.add_warning(_warnings)
+        self.splog.info(f'EXCEL 체크 성공 : [{origin_path.stem}]')
 
     def check_excel_for_relation(self, excel_list: list):
 
