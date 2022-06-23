@@ -351,10 +351,10 @@ async def migrate(branch: str, is_admin: bool = False):
         g_manager.destroy()
         return
 
-    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    prisma.sync()
-    prisma.migrate(MigrateType.FORCE, branch)
-    await data_to_db(g_manager)
+    # prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+    # prisma.sync()
+    # prisma.migrate(MigrateType.FORCE, branch)
+    # await data_to_db(g_manager)
     await tag_to_db(g_manager)
     g_manager.destroy()
 
@@ -440,6 +440,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch('qa2'))
     # asyncio.run(update_table(branch, ConvertType.ALL))
+    # asyncio.run(migrate(branch))
     asyncio.run(migrate(branch))
 
     pass

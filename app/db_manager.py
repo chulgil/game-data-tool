@@ -1,4 +1,6 @@
-import os
+import importlib.util as ilu
+from importlib.machinery import SourceFileLoader
+
 from datetime import datetime
 import yaml
 from pathlib import Path
@@ -15,16 +17,23 @@ class DBManager:
         self.PATH_FOR_WORKING = working_dir
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
-        os.chdir(self.PATH_FOR_WORKING)
+        self.PATH_FOR_SOURCE = self.PATH_FOR_ROOT.joinpath('prisma', branch, '__init__.py')
+
         try:
-            from prisma import Prisma
-            self.db = Prisma()
+            module = 'client'
+
+            self.spec = SourceFileLoader(module, str(self.PATH_FOR_SOURCE)).load_module()
+            print(f'SPEC : {self.spec}')
+            # your_lib = ilu.module_from_spec(spec)
+            # spec.loader.exec_module(your_lib)
+
+            self.db = self.spec.Prisma()
             # Config 파일 설정
             with open(self.PATH_FOR_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
             self.DBLIST = config['DATABASE']
         except Exception as e:
-            self.splog.error(f'PRISMA DB 초기화 ERROR : \n{e}')
+            self.splog.error(f'PRISMA DB 접속 ERROR : \n{e}')
 
     async def restore_all_table(self, json_map: dict):
         await self.db.connect()
@@ -41,7 +50,6 @@ class DBManager:
         # Json파일 가져오기
         try:
             _market_type = 3000
-            from prisma.models import version_check_info
             version_check_info = await self.db.version_check_info.find_first(where={'market_type': _market_type})
 
             if version_check_info:  # Update

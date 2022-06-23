@@ -49,7 +49,7 @@ class PrismaManager:
 
     def sync(self) -> bool:
         try:
-            os.chdir(self.PATH_FOR_PRISMA.parent)
+            os.chdir(self.PATH_FOR_BASE_DIR)
             self._init_prisma_config()
 
             from prisma_cleanup import cleanup
