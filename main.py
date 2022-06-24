@@ -1,6 +1,8 @@
 import asyncio
 import logging
+from pprint import pprint
 import colorlog
+import yaml
 
 if __name__ == '__main__' or __name__ == "decimal":
     from app import *
@@ -45,6 +47,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         return
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+    prisma.init_prisma()
 
     # 변환된 Json파일을 디비로 저장
     b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
@@ -240,6 +243,11 @@ async def excel_to_data_taged(g_manager: GitManager):
         return
 
     data_to_client_data(g_manager, gc_manager)
+    if gc_manager.is_modified():
+        gc_manager.push()
+    if g_manager.NEW_TAG != '':
+        gc_manager.push_tag_to_client(g_manager.NEW_TAG)
+    gc_manager.destroy()
 
     prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
@@ -282,18 +290,13 @@ async def excel_to_data_all_from_tag(tag: str):
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-    d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
-
     f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
     f_manager.send(d_manager.get_json())
     g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
     if g_manager.NEW_TAG != '':
-        g_manager_client = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
-        if not g_manager_client.checkout(g_manager.BRANCH):
-            g_manager_client.destroy()
-            return
-        g_manager_client.push_tag_to_client(g_manager.NEW_TAG)
-        g_manager_client.destroy()
+        d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+    else:
+        d_manager.remove_file(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -327,6 +330,8 @@ async def excel_to_server(g_manager: GitManager):
 
     if gc_manager.is_modified():
         gc_manager.push()
+    if g_manager.NEW_TAG != '':
+        gc_manager.push_tag_to_client(g_manager.NEW_TAG)
     gc_manager.destroy()
 
 
@@ -351,10 +356,9 @@ async def migrate(branch: str, is_admin: bool = False):
         g_manager.destroy()
         return
 
-    # prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    # prisma.sync()
-    # prisma.migrate(MigrateType.FORCE, branch)
-    # await data_to_db(g_manager)
+    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+    prisma.migrate(MigrateType.FORCE, branch)
+    await data_to_db(g_manager)
     await tag_to_db(g_manager)
     g_manager.destroy()
 
@@ -404,16 +408,46 @@ async def test(branch: str):
             "modified": []
         }
     }
+    g_manager = GitManager(GitTarget.EXCEL)
+    task = TaskManager(TaskType.EXCEL, branch=branch, commit='sdfasdfsdf')
+    if task.start():
+        await asyncio.sleep(10)
+        task.done()
 
-    g_manager = GitManager(GitTarget.EXCEL, 'main', webhook)
-    if not g_manager.checkout():
-        g_manager.destroy()
+
+async def check(branch: str):
+    task = TaskManager(TaskType.SCHEDULER)
+    if not task.load_task():
+        return
+    pprint(task.status())
+    pass
+
+
+async def scheduler(branch: str):
+    task = TaskManager(TaskType.SCHEDULER)
+    if not task.load_task():
+        task.splog.info("대기열에 작업이 없습니다.")
+        return
+    if task.start():
+        await asyncio.sleep(5)
+        task.done()
+    print("schduler")
+
+
+def scheduler_task():
+    pass
+
+    # g_manager = GitManager(GitTarget.EXCEL, branch)
+    # if not g_manager.checkout(branch):
+    #     g_manager.destroy()
+    #
+
     # check_excel(g_manager)
     # excel_to_json_all(g_manager)
 
     # d_manager.save_json_task.remote(path)
 
-    # ray.get(d_manager.excel_to_json.remote(d_manager.get_excelpath_all.remote()))
+    # ray.gett(d_manager.excel_to_json.remote(d_manager.get_excelpath_all.remote()))
 
 
 if __name__ == '__main__' or __name__ == "decimal":
@@ -438,9 +472,9 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(excel_to_data_all_from_branch('qa2'))
+    # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(migrate(branch))
-    asyncio.run(migrate(branch))
+    # asyncio.run(excel_to_data_all_from_branch(branch))
+    asyncio.run(check(branch))
 
     pass

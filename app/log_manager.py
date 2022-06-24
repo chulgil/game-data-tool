@@ -28,7 +28,7 @@ class LogManager:
             self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
             self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'])
             self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'])
-            self.row_for_max_buffer = 50
+            self.row_for_max_buffer = 100
             if self.is_service_branch(branch):
                 self.teams_target = self.teams_designer
             else:
@@ -166,10 +166,11 @@ class LogManager:
             self.logger.removeHandler(handler)
             handler.close()
 
-    def timer(self):
+    def timer(self, msg=''):
+        self.info(msg)
         self.start = perf_counter()
 
-    def elapsed(self):
+    def elapsed(self, msg=''):
         end = perf_counter()
         diff = end - self.start
-        self.info(f'처리 총 소요 시간 : {diff}')
+        self.info(f'{msg} 처리 총 소요 시간 : {diff}')

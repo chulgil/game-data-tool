@@ -79,31 +79,48 @@ class GitManager:
     def _init_git(self):
         try:
             if not Path(self.PATH_FOR_WORKING).is_dir():
-                self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
+                self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING)
+                # GIT 초기 설정
+                writer = self._repo.config_writer()
+                writer.set_value("user", "name", self.GIT_USER)
+                writer.set_value("user", "email", self.GIT_EMAIL)
+                writer.release()
+                del writer
             else:
                 self._repo = Repo(self.PATH_FOR_WORKING)
             if self.NEW_TAG != '':
                 self.load_branch_from_tag(self.NEW_TAG)
 
-            # GIT 초기 설정
-            writer = self._repo.config_writer()
-            writer.set_value("user", "name", self.GIT_USER)
-            writer.set_value("user", "email", self.GIT_EMAIL)
-            writer.release()
-
-            del writer
             self._origin = self._repo.remotes.origin
             self.info = self._brn()
             self.splog.PREFIX = self.info
+
             self.splog.info('GIT 초기화 성공')
+
+            # m = self._repo.head.reference
+            # res = self._repo.git.branch('-a', '--contains', 'e316b2')
+            # print(f'HEAD REF : {m.commit.hexsha}')
+            # print(f'HEAD REF : {self.get_last_commit()}')
+
         except Exception as e:
-            self.splog.info(f'GIT Error \r\n{str(e)}')
+            self.splog.info(f'GIT 초기화 Error \r\n{str(e)}')
+
+    def get_branches(self) -> list:
+        # data = Git().execute('git ls-remote -h git_url')
+        if not self._repo:
+            return []
+        return [h.name.split('/')[-1] for h in self._repo.remotes.origin.refs]
+
+    def get_tags(self) -> list:
+        if not self._repo:
+            return []
+        return [h.name.split('/')[-1] for h in self._repo.tags]
 
     def pull(self) -> bool:
         try:
             if self._is_empty_branch():
                 return False
-            # self._origin.pull()
+            self._origin.pull(self.BRANCH)
             self.splog.info('GIT PULL 성공')
             return True
         except Exception as e:
@@ -140,7 +157,6 @@ class GitManager:
         self.splog.info(f"커밋아이디로 브랜치를 설정합니다. [{commit_id}]")
         res = self._repo.git.branch('-a', '--contains', commit_id)
         branch = res.split('/').pop()
-        # print(f'Branch : {branch}')
         self.BRANCH = branch
         return branch
 
@@ -153,13 +169,12 @@ class GitManager:
             self.push()
 
     def _reset(self):
-        # if self.COMMIT_ID != '':
-        #     self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
-        # else:
-        #     self._repo.head.reset(index=True, working_tree=True)
         self._repo.git.clean('-fdx')
-
-        # self._repo.git.reset('--hard', 'origin/main')
+        self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
+        # if self.COMMIT_ID != '':
+        # self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
+        # else:
+        # self._repo.head.reset(index=True, working_tree=True)
 
     def checkout(self, branch: str = '', commit_id: str = '') -> bool:
         try:
@@ -178,10 +193,10 @@ class GitManager:
                 self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
             else:
                 self._repo = Repo(self.PATH_FOR_WORKING)
-
             self._checkout(self.BRANCH)
             self._reset()
             self.pull()
+
             self.BASE_TAG = self.get_base_tag_from_branch()
             self._set_save_target()
 
@@ -359,7 +374,7 @@ class GitManager:
                 return config['LAST_TAG']
         except FileNotFoundError as e:
             pass
-        except IOError as e:
+        except Exception as e:
             self.splog.warning(str(e))
         return ''
 
@@ -485,13 +500,15 @@ class GitManager:
                     if v1[x][y] != v2[x][y]:
                         old = 'null' if v1[x][y] == '' else v1[x][y]
                         new = 'null' if v2[x][y] == '' else v2[x][y]
-                        res.append(f"[{info[y]}] {old} -> {new}")
+                        res.append(f"[{info[y]}:{v2[0]}] {old} -> {new}")
         except Exception as e:
             self.splog.error(f"스키마 비교 Error : {path} \r {str(e)}")
 
         return res
 
     def push_tag_to_client(self, tag: str):
+        if tag == '':
+            return
         if self.GIT_TARGET is not GitTarget.CLIENT:
             return
         if tag in self._repo.tags:
@@ -516,6 +533,7 @@ class GitManager:
             self.PATH_FOR_WORKING = _target.joinpath(self.NEW_TAG)
         else:
             self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
+
         self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
         self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
 

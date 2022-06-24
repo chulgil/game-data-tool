@@ -23,19 +23,18 @@ class PrismaManager:
         self.ROOT_DIR = Path(__file__).parent.parent
         self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma', branch)
         self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
-        self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
+        # self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
 
         # Config 파일 설정
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
-        self.CONFIG_DB = config['DATABASE']
+        self.GAME_DB = config['DATABASE']['GAME_DB']
+        self.INFO_DB = config['DATABASE']['INFO_DB']
         self.PATH_FOR_BASE_DIR = self.ROOT_DIR.joinpath('prisma', branch)
         self.PATH_FOR_SAVE_DIR = save_dir.joinpath(config['DEFAULT']['EXPORT_DIR'], 'prisma')
         self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_BASE_DIR.joinpath('schema.prisma')
         self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
         self.SCHEMA_OPTION = f'--schema={self.PATH_FOR_BASE_SCHEMA}'
-        print(self.SCHEMA_OPTION)
-
         self._info = f"[{self.BRANCH} 브랜치] PRISMA"
 
         # Prisma 스키마 폴더 생성
@@ -45,12 +44,12 @@ class PrismaManager:
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.mkdir(self.PATH_FOR_SAVE_DIR)
 
-        self.init_prisma()
-
     def sync(self) -> bool:
         try:
+            self.init_prisma()
+
             os.chdir(self.PATH_FOR_BASE_DIR)
-            self._init_prisma_config()
+            # self._init_prisma_config()
 
             from prisma_cleanup import cleanup
             cleanup()
@@ -70,10 +69,11 @@ class PrismaManager:
             with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
                 schema = f.read()
 
+            schema = self._get_default_schema() + schema
             with open(self.PATH_FOR_BASE_SCHEMA, 'w') as f:
                 f.write(schema)
 
-            self._init_prisma_config()
+            # self._init_prisma_config()
             self.prisma_generate()
             return True
         except Exception as e:
@@ -93,20 +93,21 @@ class PrismaManager:
         db_name = {
             "main": "DEV2",
         }.get(self.BRANCH, str(self.BRANCH).upper())
-        if db_name in self.CONFIG_DB:
-            return self.CONFIG_DB[db_name]
+        if db_name in self.GAME_DB:
+            return self.GAME_DB[db_name]
         else:
             self.splog.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
             return db_name
 
     def prisma_generate(self):
-        print(self.PATH_FOR_SAVE_SCHEMA)
         res = run([f'prisma generate {self.SCHEMA_OPTION}'], shell=True)
         if not res.stderr:
             self.splog.info(f"{self._info} 초기화 완료")
 
     def migrate(self, option: MigrateType, migrate_id: str):
         try:
+            self.init_prisma()
+
             os.chdir(self.PATH_FOR_PRISMA.parent)
             if option == MigrateType.DEV:
                 run([f'prisma migrate dev --name {migrate_id} {self.SCHEMA_OPTION}'], shell=True, check=True,
@@ -121,7 +122,7 @@ class PrismaManager:
                     stdout=PIPE,
                     stderr=STDOUT)
 
-            self.splog.info(f'Prisma 마이그레이션 완료: {str(option)}')
+            self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
 
         except CalledProcessError as e:
             self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
@@ -130,7 +131,7 @@ class PrismaManager:
 
     def save(self, table_info: dict):
         table_name = ''
-        schema = self._get_default_schema()
+        schema = ''
         for key in table_info.keys():
             table_name = key
             rows = table_info[key]
@@ -250,11 +251,11 @@ class PrismaManager:
 generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
-  output = "{0}"
+  output = "."
 }}
 
 datasource db {{
   provider = "sqlserver"
-  url      = env("DATABASE_URL")
+  url      = "{0}"
 }}
-       '''.format(self.BRANCH)
+       '''.format(self._get_db_by_branch())

@@ -16,34 +16,25 @@ class DBManager:
         self.splog.PREFIX = self._info
         self.PATH_FOR_WORKING = working_dir
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
-        self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         self.PATH_FOR_SOURCE = self.PATH_FOR_ROOT.joinpath('prisma', branch, '__init__.py')
-
         try:
-            module = 'client'
-
-            self.spec = SourceFileLoader(module, str(self.PATH_FOR_SOURCE)).load_module()
-            print(f'SPEC : {self.spec}')
-            # your_lib = ilu.module_from_spec(spec)
-            # spec.loader.exec_module(your_lib)
-
-            self.db = self.spec.Prisma()
-            # Config 파일 설정
-            with open(self.PATH_FOR_CONFIG, 'r') as f:
-                config = yaml.safe_load(f)
-            self.DBLIST = config['DATABASE']
+            source = SourceFileLoader('client', str(self.PATH_FOR_SOURCE)).load_module()
+            self.db = source.Prisma()
         except Exception as e:
             self.splog.error(f'PRISMA DB 접속 ERROR : \n{e}')
 
     async def restore_all_table(self, json_map: dict):
         await self.db.connect()
         # Json파일 가져오기
+        i = 0
         for json_key, json_data in json_map.items():
             try:
+                i = i + 1
                 await self.restore_table(json_key, json_data)
             except Exception as e:
-                self.splog.add_error(f'서버 테이블 데이터 {json_key} Error :\n {str(e)}')
+                self.splog.add_error(f'테이블 데이터 {json_key} Error :\n {str(e)}')
         await self.destory()
+        self.splog.add_info(f'테이블 데이터 총 {i} 건 RESTORE 완료')
 
     async def update_version_info(self, commit_id: str, res_url: str):
         await self.db.connect()

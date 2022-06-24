@@ -1008,3 +1008,7 @@ class DataManager:
     def save_json_all(self, save_path: Path, target: ConvertType = None):
         with open(save_path, "w", encoding='utf-8') as f:
             json.dump(self.get_jsonmap(target), f, ensure_ascii=False, indent=4, separators=(',', ': '))
+
+    @staticmethod
+    def remove_file(path: Path):
+        shutil.rmtree(path)
