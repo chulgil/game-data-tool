@@ -379,7 +379,11 @@ bh_unicode_properties.cache
 # https://packagecontrol.io/packages/sublime-github
 GitHub.sublime-settings
 
+	# Intellij
 .idea
+*.idea
+./idea
+.R*
 
 # General
 .DS_Store

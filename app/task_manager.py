@@ -1,6 +1,9 @@
+from datetime import datetime
 from enum import auto, Enum
 from pathlib import Path
 from pprint import pprint
+from time import time, sleep
+
 import yaml
 from . import GitManager
 
@@ -26,11 +29,12 @@ class TaskType(Enum):
 
 class TaskManager:
 
-    def __init__(self, task_type: TaskType, branch: str = '', tag: str = '', commit: str = ''):
+    def __init__(self, task_type: TaskType, g_manager: GitManager):
         self.PATH_FOR_SCHEDULER = Path(__file__).parent.parent.joinpath('export', 'scheduler.yaml')
-        self.BRANCH = branch
-        self.NEW_TAG = tag
-        self.COMMIT_ID = commit
+        self.BRANCH = g_manager.BRANCH
+        self.NEW_TAG = g_manager.NEW_TAG
+
+        self.COMMIT_ID = g_manager.COMMIT_ID
         self.SCHEDULER_TASK = False
         self.TASK_TYPE = task_type
         if task_type == TaskType.SCHEDULER:
@@ -42,26 +46,38 @@ class TaskManager:
         self.TASK = self._create_task()
 
         _info = f'[Task:{self.TASK_TYPE.name}]'
-        if self.NEW_TAG != '':
-            _info = f'{_info}[{self.NEW_TAG}]'
-        else:
-            _info = f'{_info}[{self.BRANCH}]'
-        _info = f'{_info}{self.TASK}'
+        _info = f'{_info}[{self._br()}:{self.COMMIT_ID}]'
         self.splog.PREFIX = _info
 
     def init(self, g_manager: GitManager):
-        working = {'branch': {}, 'tag': {}}
-        tasks = []
+        config = self._load_config()
+        if not config:
+            working = {}
+            tasks = []
+            for br in g_manager.get_branches():
+                working[br] = None
+            for tg in g_manager.get_tags():
+                working[tg] = None
+            config = {'working': working, 'tasks': tasks}
+        else:
+            working = config['working']
+            for br in g_manager.get_branches():
+                if br not in working:
+                    working[br] = None
+            for br in g_manager.get_tags():
+                if br not in working:
+                    working[br] = None
 
-        for br in g_manager.get_branches():
-            working['branch'][br] = False
-        for tg in g_manager.get_tags():
-            working['tag'][tg] = False
-        data = {'working': working, 'tasks': tasks}
-        self.save_config(data)
+        self._save_config(config)
+
+    def _br(self):
+        if self.TASK_TYPE == TaskType.EXCEL_TAG:
+            return self.NEW_TAG
+        else:
+            return self.BRANCH
 
     def load_task(self) -> bool:
-        config = self.load_config()
+        config = self._load_config()
         if len(config['tasks']) == 0:
             return False
         task = config['tasks'][-1]
@@ -84,78 +100,85 @@ class TaskManager:
             return _key
 
     def _has_task(self):
-        config = self.load_config()
+        config = self._load_config()
         if self.TASK in config['tasks']:
             return True
         return False
 
-    def is_working(self):
-        config = self.load_config()
+    def is_locked(self):
+        config = self._load_config()
+        self._set_overtime(config)
         work = config['working']
-        if self.NEW_TAG != '':
-            if self.NEW_TAG in work['tag']:
-                return work['tag'][self.NEW_TAG]
-        if self.BRANCH in work['branch']:
-            return work['branch'][self.BRANCH]
+        return work[self._br()]
 
-    def load_config(self):
+    def _load_config(self):
         with open(self.PATH_FOR_SCHEDULER, 'r') as f:
             config = yaml.safe_load(f)
         return config
 
-    def save_config(self, config: dict):
+    def _save_config(self, config: dict):
         with open(self.PATH_FOR_SCHEDULER, 'w') as f:
             yaml.dump(config, f)
 
-    def _set_working(self, working: bool = True):
-        config = self.load_config()
+    def _set_overtime(self, config: dict):
+        config = self._load_config()
         work = config['working']
-        if self.TASK_TYPE == TaskType.EXCEL_TAG:
-            work['tag'][self.NEW_TAG] = working
+        try:
+            started = datetime.fromisoformat(str(work[self._br()]))
+        except Exception as e:
+            started = datetime.now()
+        overtime = datetime.now() - started
+        # 2분 이상 지난경우 초기화
+        if overtime.seconds > 120:
+            work[self._br()] = None
+        self._save_config(config)
+
+    def _lock(self, locked: bool = True):
+        config = self._load_config()
+        work = config['working']
+        if locked:
+            work[self._br()] = datetime.now()
         else:
-            work['branch'][self.BRANCH] = working
-        self.save_config(config)
+            work[self._br()] = None
+
+        self._save_config(config)
 
     def start(self) -> bool:
         self.splog.timer(f'작업을 시작합니다.')
-        if self.is_working():
+        if self.is_locked():
             self.add_task()
             return False
-        self._set_working(True)
+        self._lock(True)
         return True
 
     def done(self):
         if self.SCHEDULER_TASK:
             self.pop_task()
-        self._set_working(False)
+        self._lock(False)
         self.splog.elapsed(f'작업을 종료합니다.')
 
     def pop_task(self) -> dict:
         self.splog.info(f'작업을 대기열에서 삭제합니다.')
-        config = self.load_config()
+        config = self._load_config()
         tasks = config['tasks']
         if len(tasks) == 0:
             return None
         task = tasks.pop(-1)
-        self.save_config(config)
+        self._save_config(config)
         return task
 
     def add_task(self) -> bool:
-        self.splog.info(f'작업을 대기열에 추가합니다.')
-        config = self.load_config()
+        self.splog.info(f'이미 실행중인 작업이 존재하여 대기열에 추가합니다.')
+        config = self._load_config()
         tasks = config['tasks']
 
         if self._has_task():
             self.splog.info(f'대기열에 이미 존재합니다.')
             return False
         tasks.insert(0, self.TASK)
-        self.save_config(config)
+        self._save_config(config)
         return True
 
-    def do_task(self):
-        data = self.pop_task()
-        pprint(data)
-
     def status(self):
-        config = self.load_config()
+        config = self._load_config()
         self.splog.info(config)

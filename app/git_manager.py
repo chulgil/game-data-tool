@@ -1,6 +1,7 @@
 import os
 import uuid
 from enum import Enum, auto
+from pprint import pprint
 from typing import Optional
 
 import yaml
@@ -28,7 +29,7 @@ class GitTarget(Enum):
 
 class GitManager:
 
-    def __init__(self, target: GitTarget, branch: str = 'main', webhook: dict = None):
+    def __init__(self, target: GitTarget, branch: str = 'main', tag: str = '', webhook: dict = None):
 
         if branch == '':
             branch = 'main'
@@ -36,14 +37,16 @@ class GitManager:
         self._repo = None
         self.info = ''
         self.COMMIT_ID = ''
+        self.COMMIT = ''
         self.BASE_COMMIT_ID = ''
         self.GIT_PUSH_MSG = ''
-        self.NEW_TAG = ''
+        self.NEW_TAG = tag
         self.BASE_TAG = ''
         self.IS_ADMIN = False
         self.GIT_TARGET = target
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+        self.LAST_MODIFIED = False
 
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             config = yaml.safe_load(f)
@@ -58,7 +61,7 @@ class GitManager:
         self.PATH_FOR_WORKING = None
         self.PATH_FOR_WORKING_TAG = None
         self.PATH_FOR_BRANCH_CONFIG = None
-        self._set_save_target()
+        self._set_working_target()
 
         from . import LogManager
         self.splog = LogManager(self.BRANCH)
@@ -72,7 +75,7 @@ class GitManager:
         self.GIT_USER = config['GITSERVER']['USER']
         self.GIT_EMAIL = config['GITSERVER']['EMAIL']
         self.GIT_PUSH_MSG = config['GITSERVER']['PUSH_MSG']
-        self.COMPILE_EXCEL = re.compile(rf"{config['DEFAULT']['EXCEL_DIR']}/[data | info]*/\S+[xls | xlsx]$")
+        self.COMPILE_EXCEL = re.compile(rf"{config['DEFAULT']['EXCEL_DIR']}/data*/\S+[xls | xlsx]$")
         self.COMPILE_ENUM = re.compile(rf"{config['DEFAULT']['EXCEL_DIR']}/enum/\S+[xls | xlsx]$")
         self.COMPILE_JSON = re.compile(r"\D+json$")
 
@@ -88,13 +91,13 @@ class GitManager:
                 del writer
             else:
                 self._repo = Repo(self.PATH_FOR_WORKING)
-            if self.NEW_TAG != '':
-                self.load_branch_from_tag(self.NEW_TAG)
 
             self._origin = self._repo.remotes.origin
+            for remote in self._repo.remotes:
+                remote.fetch()
+            self._load_branch_from_tag()
             self.info = self._brn()
             self.splog.PREFIX = self.info
-
             self.splog.info('GIT 초기화 성공')
 
             # m = self._repo.head.reference
@@ -144,7 +147,10 @@ class GitManager:
             return f'[GIT_{self.GIT_TARGET.name}][{self._repo.active_branch.name} 브랜치 {self.BASE_TAG}]'
         return ''
 
-    def load_branch_from_tag(self, new_tag: str):
+    def _load_branch_from_tag(self):
+        new_tag = self.NEW_TAG
+        if new_tag == '':
+            return
         self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{new_tag}]")
         res = self._repo.git.branch('-a', '--contains', f'tags/{new_tag}')
         branch = res.split('/').pop()
@@ -160,49 +166,42 @@ class GitManager:
         self.BRANCH = branch
         return branch
 
-    def _checkout(self, cmd: str):
-        if cmd in self._repo.remote().refs:
-            self._repo.git.checkout(cmd)
-        else:
-            self._repo.git.checkout('-b', cmd)
-            self.splog.info(f"브랜치를 새로 생성합니다. [{cmd}]")
-            self.push()
-
-    def _reset(self):
+    def _checkout(self):
+        self._repo = Repo(self.PATH_FOR_WORKING)
+        self._origin = self._repo.remotes.origin
         self._repo.git.clean('-fdx')
         self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
-        # if self.COMMIT_ID != '':
-        # self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
-        # else:
-        # self._repo.head.reset(index=True, working_tree=True)
-
-    def checkout(self, branch: str = '', commit_id: str = '') -> bool:
-        try:
-            self._reset()
+        if self.BRANCH in self._repo.remote().refs:
             if self.COMMIT_ID != '':
-                commit_id = self.COMMIT_ID
-            if commit_id != '':
-                self.load_branch_from_commit(commit_id)
-                self.COMMIT_ID = self.get_current_commit()
+                self._repo.git.checkout('-B', self.BRANCH, self.COMMIT_ID)
+                self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
+                self.load_branch_from_commit(self.COMMIT_ID)
             else:
-                self.BRANCH = branch
-                self.splog.BRANCH = branch
+                self._repo.git.checkout(self.BRANCH)
                 self.COMMIT_ID = self.get_last_commit()
 
-            if not Path(self.PATH_FOR_WORKING).is_dir():
-                self._repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING, branch=self.BRANCH)
-            else:
-                self._repo = Repo(self.PATH_FOR_WORKING)
-            self._checkout(self.BRANCH)
-            self._reset()
             self.pull()
 
-            self.BASE_TAG = self.get_base_tag_from_branch()
-            self._set_save_target()
+        else:
+            self._repo.git.checkout('-b', self.BRANCH)
+            self.splog.info(f"브랜치를 새로 생성합니다. [{self.BRANCH}]")
+            self.push()
 
+    def checkout(self, commit_id: str = '') -> bool:
+        try:
+            if commit_id != '':
+                self.COMMIT_ID = commit_id
+
+            self._set_working_target()
+            self._checkout()
+            self._checkout_base()
+            self._save_base_tag_to_branch()
             self.info = self._brn()
             self.splog.PREFIX = self.info
-            self._checkout_base()
+            if self.BASE_TAG != '':
+                self.COMMIT = self.BASE_TAG
+            else:
+                self.COMMIT = self.COMMIT_ID
 
             self.splog.info(f'GIT CEHCKOUT 성공 [{self.COMMIT_ID}]')
             return True
@@ -218,6 +217,7 @@ class GitManager:
                     _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_TAG, branch=self.BRANCH)
                 else:
                     _old_repo = Repo(self.PATH_FOR_WORKING_TAG)
+
                 self.BASE_COMMIT_ID = _old_repo.commit().hexsha
                 _old_repo.git.checkout(self.BASE_TAG)
                 _old_repo.git.clean('-fdx')
@@ -242,7 +242,6 @@ class GitManager:
             commit = webhook['head_commit']
             self.HEAD_COMMIT = commit
             self.GIT_PUSH_MSG = f'{self.GIT_PUSH_MSG} [{commit["committer"]["name"]}] : {commit["message"]}'
-            self.NEW_TAG = tag
             return tag
         except Exception as e:
             self.splog.error(f"Webhook format Error : {str(e)}")
@@ -304,12 +303,15 @@ class GitManager:
         changed = [item.a_path for item in self._repo.index.diff(None)]
         if len(changed) > 0:
             self.splog.add_info(f'변경된 파일 : {str(changed)}')
+            self.LAST_MODIFIED = True
             return True
         if len(self._repo.untracked_files) > 0:
             self.splog.add_info(f'변경된 파일 : {str(self._repo.untracked_files)}')
+            self.LAST_MODIFIED = True
             return True
 
         self.splog.info('변경된 데이터가 없습니다.')
+        self.LAST_MODIFIED = False
         return False
 
     def _is_empty_branch(self) -> bool:
@@ -318,14 +320,37 @@ class GitManager:
             return True
         return False
 
-    def get_modified_excel(self, head_cnt=2) -> list:
+    def get_deleted_json(self, head_cnt=5) -> list:
         """과거 이력중 엑셀파일 경로만 추출
         """
         data = []
         for i in range(1, head_cnt + 1):
-            _diff = self._repo.index.diff(f'HEAD~{i}')
+            _diff = self._repo.index.diff(f'HEAD~{i}').iter_change_type('A')
             data = data + self._get_diff_excel(_diff, self.COMPILE_EXCEL)
-            data = data + self._get_diff_excel(_diff, self.COMPILE_ENUM)
+        if len(data) == 0:
+            self.splog.info('변경된 EXCEL이 없습니다.')
+            return []
+
+        # 중복제거
+        data = list(set(data))
+
+        for i in range(len(data)):
+            data[i] = str(data[i]).replace('.xlsx', '.json')
+            data[i] = str(data[i]).replace('excel', 'export')
+            data[i] = str(data[i]).replace('/data', '/json')
+            print(data[i])
+        return data
+
+    def get_modified_excel(self, head_cnt=5) -> list:
+        """과거 이력중 엑셀파일 경로만 추출
+        """
+        data = []
+        _diff = self._repo.index.diff(f'HEAD~{head_cnt}').iter_change_type('M')
+        data = data + self._get_diff_excel(_diff, self.COMPILE_EXCEL)
+        data = data + self._get_diff_excel(_diff, self.COMPILE_ENUM)
+        _diff = self._repo.index.diff(f'HEAD~{head_cnt}').iter_change_type('D')
+        data = data + self._get_diff_excel(_diff, self.COMPILE_EXCEL)
+        data = data + self._get_diff_excel(_diff, self.COMPILE_ENUM)
         if len(data) == 0:
             self.splog.info('변경된 EXCEL이 없습니다.')
             return []
@@ -338,7 +363,7 @@ class GitManager:
     def _get_diff_excel(diff_index, excel: re):
         res = []
         for diff_item in diff_index:
-            value = diff_item.a_rawpath.decode('utf-8')
+            value = diff_item.b_path
             if excel.match(value):
                 res.append(value)
         return res
@@ -362,7 +387,7 @@ class GitManager:
         latest_tag = str(tags[-1])
         return latest_tag
 
-    def get_base_tag_from_branch(self) -> str:
+    def _load_base_tag_from_branch(self) -> str:
         """
         Branch에 있는 config.yaml파일로 부터 마지막 태그를 읽어들인다.
         :return:
@@ -371,6 +396,7 @@ class GitManager:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
             if 'LAST_TAG' in config:
+                self.BASE_TAG = config['LAST_TAG']
                 return config['LAST_TAG']
         except FileNotFoundError as e:
             pass
@@ -378,14 +404,20 @@ class GitManager:
             self.splog.warning(str(e))
         return ''
 
-    def save_base_tag_to_branch(self, tag):
+    def _save_base_tag_to_branch(self):
+        tag = self.NEW_TAG
+        if tag == '':
+            return
+        self.BASE_TAG = tag
+        config = {}
         try:
-            data = {'LAST_TAG': tag}
-            with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
-                yaml.dump(data, f)
-            self.BASE_TAG = tag
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
+                config = yaml.safe_load(f)
         except IOError as e:
             self.splog.warning(str(e))
+        config['LAST_TAG'] = tag
+        with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
+            yaml.dump(config, f)
 
     def get_client_resource_from_branch(self) -> dict:
         try:
@@ -406,7 +438,6 @@ class GitManager:
 
         config["CLIENT_RES_VER"] = self.COMMIT_ID
         config["CLIENT_RES_URL"] = resource_url
-
         try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 config = yaml.dump(config, f)
@@ -428,7 +459,7 @@ class GitManager:
         return False
 
     def is_modified_excel_column(self) -> bool:
-        res = False
+        is_changed = False
 
         # Excel 리파지토리 이면서 태그가 없는 경우는 새로운 파일추가로 수정된 필드 있음으로 간주
         if self.BASE_COMMIT_ID == '':
@@ -441,21 +472,21 @@ class GitManager:
         if len(_del_files) > 0:
             self.splog.add_info('삭제 파일 리스트 ')
             self.splog.add_info(_del_files)
-            res = True
+            is_changed = True
         # 마지막 태그 기준으로 추가된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('D')
         _add_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_add_files) > 0:
             self.splog.add_info('추가 파일 리스트 ')
             self.splog.add_info(_add_files)
-            res = True
+            is_changed = True
 
         # 마지막 태그 기준으로 수정된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('M')
         _mod_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         # 수정된 엑셀파일이 없으면 리턴
         if len(_mod_files) == 0:
-            return res
+            return is_changed
 
         from . import DataManager, ConvertType
         data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_TAG)
@@ -466,15 +497,16 @@ class GitManager:
             _old = data_old.get_schema(path)
             _new = data_new.get_schema(path)
             diff = self.diff_schema(path, _old, _new)
-            if len(diff) > 0:
+            if len(diff['info']) > 0:
                 diffs.append(f'변경 컬럼 내역 : [{path}]')
-                diffs = diffs + diff
+                diffs = diffs + diff['info']
+            if not is_changed:
+                is_changed = diff['is_changed']
         if len(diffs) > 0:
             self.splog.add_info(diffs)
-            return True
-        return res
+        return is_changed
 
-    def diff_schema(self, path: str, old_schema: dict, new_schema: dict) -> list:
+    def diff_schema(self, path: str, old_schema: dict, new_schema: dict) -> dict:
         """
         스키마 구성 ->
         table : [
@@ -483,7 +515,7 @@ class GitManager:
             ...
         ]
         """
-        res = []
+        res = {'is_changed': False, 'info': []}
         info = {0: "데이터 필드", 1: "데이터 타입", 2: "스키마 타입", 3: "데이터 주석"}
         try:
             v1 = list(old_schema.values())[0]
@@ -491,16 +523,24 @@ class GitManager:
             if len(v1) == 0 or len(v2) == 0:
                 return res
             if len(v1) != len(v2):
-                return [f"컬럼 수 {len(v1)} : {len(v2)}"]
+                res['info'].append(f"컬럼 수 {len(v1)} : {len(v2)}")
+                res['is_changed'] = True
+                return res
+
             if len(v1[0]) != len(v2[0]):
-                return [f"데이터 정의행 {len(v1[0])} : {len(v2[0])}"]
+                res['info'].append(f'데이터 정의행 {len(v1[0])} : {len(v2[0])}')
+                res['is_changed'] = True
+                return res
 
             for x in range(len(v1)):
                 for y in range(len(v1[0])):
                     if v1[x][y] != v2[x][y]:
                         old = 'null' if v1[x][y] == '' else v1[x][y]
                         new = 'null' if v2[x][y] == '' else v2[x][y]
-                        res.append(f"[{info[y]}:{v2[0]}] {old} -> {new}")
+                        res['info'].append(f'[{info[y]}:{v2[x][0]}] {old} -> {new}')
+                        if y == 0:  # 데이터 필드 값이 변경된경우
+                            res['is_changed'] = True
+
         except Exception as e:
             self.splog.error(f"스키마 비교 Error : {path} \r {str(e)}")
 
@@ -522,20 +562,18 @@ class GitManager:
     def set_admin(self):
         self.IS_ADMIN = True
 
-    def _set_save_target(self, is_admin: bool = False):
+    def _set_working_target(self, is_admin: bool = False):
+
         _target = None
         if is_admin:
             _target = self.PATH_FOR_TARGET.joinpath('admin', self.GIT_TARGET.name.lower())
         else:
             _target = self.PATH_FOR_TARGET.joinpath('user', self.GIT_TARGET.name.lower())
 
-        if self.NEW_TAG != '':
-            self.PATH_FOR_WORKING = _target.joinpath(self.NEW_TAG)
-        else:
-            self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
-
+        self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
         self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
         self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
+        self._load_base_tag_from_branch()
 
     def destroy(self):
         try:

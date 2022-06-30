@@ -12,10 +12,8 @@ from pathlib import Path
 from pandas import DataFrame
 import warnings
 from enum import Enum, auto
-import asyncio
 from pprint import pprint
 
-import numpy as np
 import pandas
 
 
@@ -393,7 +391,6 @@ class DataManager:
         try:
             # 첫번째 시트를 타겟으로 설정
             df = self._read_excel_for_data(file_path)
-
             res = []
             option_df = self._get_data_option(df)
             if option_df is None:
@@ -438,7 +435,7 @@ class DataManager:
     def _get_start_index(self, df: DataFrame):
         idx = self._get_server_type_index(df)
         idx_option = idx + self.IDX_DATA_OPTION_FROM_SERVER_TYPE
-        if self._is_data_option_row(df.iloc[idx_option].values):
+        if self._is_data_option_row(df.iloc[idx_option].to_numpy()):
             idx = idx_option
         else:
             idx = idx + self.IDX_DATA_TYPE_FROM_SERVER_TYPE
@@ -477,9 +474,8 @@ class DataManager:
                 row[col] = desc_new
         return row
 
-    def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str):
+    def _check_relation_data(self, origin_path: Path, target_path: Path, origin_col: str, target_col: str = ''):
         # print(f' {origin_path} , {target_path}, {origin_col} , {target_col}')
-        _start_row = self.row_for_data_start
         try:
             origin_df = self._read_excel_for_data(origin_path)
         except Exception as e:
@@ -496,12 +492,14 @@ class DataManager:
         odata = origin_df.iloc[oidx:]
         tdata = target_df.iloc[tidx:]
         _warnings = []
-        for row_id, value in odata[origin_col].items():
+        for value in odata[origin_col].to_numpy():
             if value == 0 or value == '' or value is None:
+                continue
+            if target_col == '':
                 continue
             if target_col not in tdata:
                 continue
-            values = tdata[target_col].values
+            values = tdata[target_col].to_numpy()
             if value not in values:
                 _warnings.append(f'원본 행의 참조 값[{value}]')
 
@@ -840,6 +838,11 @@ class DataManager:
             self.splog.add_error(f'Json 데이터 {file_name} Error :\r\n {str(e)}')
         return res
 
+    def delete_path(self, paths: list):
+        for path in paths:
+            if Path(path.parent).is_dir():
+                shutil.rmtree(self.PATH_FOR_JSON)
+
     def delete_json_all(self):
         if self.CONVERT_TYPE is not ConvertType.ALL:
             return
@@ -874,8 +877,11 @@ class DataManager:
 
         if target == ConvertType.CLIENT:
             df = self._get_filtered_column(df, ['ALL', 'CLIENT'])
-        else:
+        if target == ConvertType.SERVER:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
+        if target == ConvertType.ALL:
+            df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO', 'CLIENT'])
+        
         table = []
 
         for col in df.columns:
@@ -905,13 +911,14 @@ class DataManager:
         return df
 
     def _read_excel(self, path: Path) -> DataFrame:
+        try:
+            # 첫번째 시트를 JSON 타겟으로 설정
+            df = pd.read_excel(path, sheet_name=0, header=None)
+            df.fillna('', inplace=True)
+            return self._set_base_index(df)
 
-        # 첫번째 시트를 JSON 타겟으로 설정
-        df = pd.read_excel(path, sheet_name=0, header=None)
-        # null 값 변환
-        df.replace(to_replace=np.NaN, value='', inplace=True)
-
-        return self._set_base_index(df)
+        except Exception as e:
+            print(f'READ EXCEL ERROR : {str(e)}')
 
     def get_enum_data(self) -> dict:
         """
@@ -1011,4 +1018,7 @@ class DataManager:
 
     @staticmethod
     def remove_file(path: Path):
-        shutil.rmtree(path)
+        try:
+            path.unlink()
+        except IOError as e:
+            pass

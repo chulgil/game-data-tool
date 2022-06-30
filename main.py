@@ -1,34 +1,36 @@
 import asyncio
 import logging
 from pprint import pprint
-import colorlog
 import yaml
+
+# import cProfile
 
 if __name__ == '__main__' or __name__ == "decimal":
     from app import *
 
     _format = '[%(levelname)-7s] %(asctime)s: %(message)s '
-    _format_console = colorlog.ColoredFormatter(_format, "%m/%d/%Y %H:%M:%S ")
+    # _format_console = colorlog.ColoredFormatter(_format, "%m/%d/%Y %H:%M:%S ")
     logger = logging.getLogger()
     handler = logging.FileHandler('out.log', 'w', 'utf-8')
-    handler.setFormatter(_format_console)
+    # handler.setFormatter(_format_console)
     logger.setLevel(logging.INFO)
     logger.addHandler(handler)
 
     stream_handler = logging.StreamHandler()
     stream_handler.setLevel(logging.INFO)
-    stream_handler.setFormatter(_format_console)
+    # stream_handler.setFormatter(_format_console)
     logger.addHandler(stream_handler)
 
 
 else:
-    from app.libs.excel_to_db.app import *
+    from app import *
+    # from app.libs.excel_to_db.app import *
 
 
 def sync_prisma(branch: str):
     g_manager = GitManager(GitTarget.EXCEL, branch)
 
-    if not g_manager.checkout(branch):
+    if not g_manager.checkout():
         g_manager.destroy()
         return
 
@@ -42,7 +44,7 @@ async def update_table(branch: str, convert_type: ConvertType):
     g_manager = GitManager(GitTarget.EXCEL, branch)
 
     # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
+    if not g_manager.checkout():
         g_manager.destroy()
         return
 
@@ -68,7 +70,9 @@ def excel_to_json_all(g_manager: GitManager):
     # 전체 Excel로드후 Json변환
     d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
     d_manager.delete_json_all()
-    d_manager.excel_to_json(d_manager.get_excelpath_all())
+    excel_paths = d_manager.get_excelpath_all()
+    d_manager.excel_to_json(excel_paths)
+    d_manager.check_excel_for_relation(excel_paths)
 
 
 def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
@@ -82,17 +86,18 @@ def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
     g_manager.splog.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {convert_type.name}]")
 
     d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
-
+    modified_excel = g_manager.get_modified_excel()
     # Excel로드후 Json변환
-    d_manager.excel_to_json(g_manager.get_modified_excel())
+    d_manager.delete_path(g_manager.get_deleted_json())
+    d_manager.excel_to_json(modified_excel)
+    d_manager.check_excel_for_relation(modified_excel)
 
 
 def excel_to_entity(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
-                              gc_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
     c_manager.save_enum(d_manager.get_enum_data())
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
@@ -101,8 +106,7 @@ def excel_to_entity(g_manager: GitManager, gc_manager: GitManager):
 def excel_to_enum(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 Enum 스크립트 변환을 진행합니다.")
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-    c_manager = CSharpManager(g_manager.BRANCH, g_manager.BASE_TAG, g_manager.COMMIT_ID,
-                              gc_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
     c_manager.save_enum(d_manager.get_enum_data())
 
 
@@ -123,7 +127,7 @@ def excel_to_schema(g_manager: GitManager):
 def markdown_to_script(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Markdown 로드 후 C# Script변환을 진행합니다.")
     d_manager = DataManager(branch, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
-    c_manager = CSharpManager(branch, g_manager.BASE_TAG, g_manager.COMMIT_ID, gc_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(branch, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
     _obl = d_manager.get_markdown(ConvertType.MARKDOWN_PROTOCOL)
     c_manager.save_protocol(_obl)
     _obl = d_manager.get_markdown(ConvertType.MARKDOWN_ENUM)
@@ -148,10 +152,9 @@ async def excel_to_data_all_from_branch(branch: str):
     g_manager = GitManager(GitTarget.EXCEL, branch)
 
     # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
+    if not g_manager.checkout():
         g_manager.destroy()
         return
-    check_excel(g_manager)
     excel_to_json_all(g_manager)
 
     await excel_to_server(g_manager)
@@ -228,20 +231,18 @@ async def excel_to_data_modified(g_manager: GitManager):
     if len(modified_list) == 0:
         g_manager.destroy()
         return
-    check_excel(g_manager)
     excel_to_json(ConvertType.ALL, g_manager)
     await excel_to_server(g_manager)
 
 
-async def excel_to_data_taged(g_manager: GitManager):
-    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
-    g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
+#
 
+async def excel_to_data_taged(g_manager: GitManager):
+    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
     gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
-    if not gc_manager.checkout(g_manager.BRANCH):
+    if not gc_manager.checkout():
         gc_manager.destroy()
         return
-
     data_to_client_data(g_manager, gc_manager)
     if gc_manager.is_modified():
         gc_manager.push()
@@ -256,19 +257,17 @@ async def excel_to_data_taged(g_manager: GitManager):
 
 
 async def excel_to_data_all_from_tag(tag: str):
-    g_manager = GitManager(GitTarget.EXCEL)
-    g_manager.load_branch_from_tag(tag)
+    g_manager = GitManager(GitTarget.EXCEL, tag=tag)
     if not g_manager.checkout():
         g_manager.destroy()
         return
     gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
-    if not gc_manager.checkout(g_manager.BRANCH):
+    if not gc_manager.checkout():
         gc_manager.destroy()
         return
     g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
 
-    check_excel(g_manager)
     excel_to_json_all(g_manager)
     excel_to_schema(g_manager)
     excel_to_entity(g_manager, gc_manager)
@@ -276,8 +275,7 @@ async def excel_to_data_all_from_tag(tag: str):
     data_to_client_data(g_manager, gc_manager)
     if gc_manager.is_modified():
         gc_manager.push()
-    gc_manager.destroy()
-    g_manager.save_base_tag_to_branch(g_manager.NEW_TAG)
+        gc_manager.destroy()
     if g_manager.is_modified():
         g_manager.push()
 
@@ -290,18 +288,19 @@ async def excel_to_data_all_from_tag(tag: str):
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-    f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
-    f_manager.send(d_manager.get_json())
-    g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
     if g_manager.NEW_TAG != '':
-        d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
-    else:
+        f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
+        f_manager.send(d_manager.get_json())
+        g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
         d_manager.remove_file(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+    else:
+        if g_manager.LAST_MODIFIED:
+            d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
 
 async def excel_to_server(g_manager: GitManager):
     gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
-    if not gc_manager.checkout(g_manager.BRANCH):
+    if not gc_manager.checkout():
         gc_manager.destroy()
         return
 
@@ -323,21 +322,17 @@ async def excel_to_server(g_manager: GitManager):
         g_manager.splog.send_developer()
         g_manager.splog.send_designer(msg)
     else:
-        g_manager.splog.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
-        data_to_client_data(g_manager, gc_manager)
-        await data_to_db(g_manager)
-        await tag_to_db(g_manager)
+        if g_manager.LAST_MODIFIED:
+            g_manager.splog.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
+            data_to_client_data(g_manager, gc_manager)
+            await data_to_db(g_manager)
+            await tag_to_db(g_manager)
 
     if gc_manager.is_modified():
         gc_manager.push()
     if g_manager.NEW_TAG != '':
         gc_manager.push_tag_to_client(g_manager.NEW_TAG)
     gc_manager.destroy()
-
-
-def check_excel(g_manager: GitManager):
-    d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
-    d_manager.check_excel_for_relation(d_manager.get_excelpath_all())
 
 
 async def migrate(branch: str, is_admin: bool = False):
@@ -352,7 +347,7 @@ async def migrate(branch: str, is_admin: bool = False):
         g_manager.set_admin()
 
     # 체크아웃 성공시에만 진행
-    if not g_manager.checkout(branch):
+    if not g_manager.checkout():
         g_manager.destroy()
         return
 
@@ -408,11 +403,19 @@ async def test(branch: str):
             "modified": []
         }
     }
-    g_manager = GitManager(GitTarget.EXCEL)
-    task = TaskManager(TaskType.EXCEL, branch=branch, commit='sdfasdfsdf')
-    if task.start():
-        await asyncio.sleep(10)
-        task.done()
+    g_manager = GitManager(GitTarget.EXCEL, branch)
+    # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
+    # 68b29979e9...c2169e96fd
+    if not g_manager.checkout():
+        g_manager.destroy()
+        return
+    # pprint(g_manager.get_deleted_json())
+    # pprint(g_manager.get_modified_excel())
+    await excel_to_data_all_from_branch(branch)
+    # task = TaskManager(TaskType.EXCEL, g_manager)
+    # if task.start():
+    #     excel_to_json_all(g_manager)
+    #     task.done()
 
 
 async def check(branch: str):
@@ -431,18 +434,12 @@ async def scheduler(branch: str):
     if task.start():
         await asyncio.sleep(5)
         task.done()
-    print("schduler")
-
-
-def scheduler_task():
-    pass
 
     # g_manager = GitManager(GitTarget.EXCEL, branch)
     # if not g_manager.checkout(branch):
     #     g_manager.destroy()
     #
 
-    # check_excel(g_manager)
     # excel_to_json_all(g_manager)
 
     # d_manager.save_json_task.remote(path)
@@ -451,10 +448,10 @@ def scheduler_task():
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'test_cg'
+
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
-    # check_excel(g_manager)
     # else:
     #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
     #     g_manager = GitManager(GitTarget.CLIENT)
@@ -465,7 +462,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all('test'))
     # asyncio.run(excel_to_data_modified('test'))
     # asyncio.run(migrate('test'))
-    # asyncio.run(excel_to_data_all_from_tag('v0.4.1_local'))
+    # asyncio.run(excel_to_data_all_from_tag('v0.5.2_test_cg'))
 
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch(branch))
@@ -475,6 +472,9 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    asyncio.run(check(branch))
-
+    # ray.init(num_cpus=4, ignore_reinit_error=True)
+    # cProfile.run('test(branch)', 'result.prof')
+    # test(branch)
+    asyncio.run(test(branch))
+    # ray.shutdown()
     pass
