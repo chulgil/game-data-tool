@@ -71,6 +71,7 @@ class DataManager:
         self.IDX_DATA_DESC_FROM_SERVER_TYPE = -1
         self.IDX_DATA_DESCNEW_FROM_SERVER_TYPE = -2
 
+        self.ITEM_KB_FOR_MARKDOWN_TABLE = r'\|(.*)\|(.*)\|(.*)\|'
         self._set_config(config)
 
         self.ENUM_DATA = {}
@@ -655,7 +656,7 @@ class DataManager:
 
                 enum = enum[0].strip()
                 desc = re.findall(r'>(.*)\n', text)
-                _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
+                _list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, text)
 
                 if enum in res:
                     self.splog.add_warning(f' Enum[{enum}] 이 중복됩니다. ')
@@ -668,6 +669,10 @@ class DataManager:
                     _val = item[1].strip()
                     _desc = item[2].strip()
 
+                    if _key == '':
+                        self.splog.add_warning(f' Enum 데이터 키 [{_key}] 가 없습니다. ')
+                    if _val == '':
+                        self.splog.add_warning(f' Enum 데이터 값 [{_val}] 가 없습니다. ')
                     if _key in _check_key:
                         self.splog.add_warning(f' Enum 데이터 {enum}[{_key}] 가 중복됩니다. ')
                     if _val in _check_val:
@@ -725,14 +730,14 @@ class DataManager:
                     continue
                 _class = _class[0].strip()
                 _desc = re.findall(r'>(.*)\n', text)
-                _list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', text)
+                _list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, text)
 
                 if _class in res:
-                    self.splog.add_warning(f' 같은 Class[{_class}] 가 존재합니다. ')
+                    self.splog.add_warning(f' 같은 Entity[{_class}] 가 존재합니다. ')
 
                 res[_class] = {}
                 res[_class]['desc'] = _desc
-                res[_class]['items'] = _list[2:]
+                res[_class]['items'] = self._conv_entity_item(_class, _list[2:])
 
         except Exception as e:
             self.splog.add_warning(f'markdown_to_entity Error : {e}')
@@ -787,9 +792,9 @@ class DataManager:
                     _class = _class.strip()
                     _desc = re.findall(r'>(.*)\n', _header)
                     _req_id = re.findall(r':\s?(.+)\n', _req)[0]
-                    _req_list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', _req)
+                    _req_list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, _req)
                     _res_id = re.findall(r':\s?(.+)\n', _res)[0]
-                    _res_list = re.findall(r'\|(.+)\|(.+)\|(.+)\|', _res)
+                    _res_list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, _res)
 
                     if _class in res:
                         self.splog.add_warning(f' 같은 클래스[{_class}]가 존재합니다. ')
@@ -802,12 +807,35 @@ class DataManager:
 
                     res[_class] = {}
                     res[_class]['desc'] = _desc
-                    res[_class]['req_info'] = {_req_id: _req_list[2:]}
-                    res[_class]['res_info'] = {_res_id: _res_list[2:]}
+                    res[_class]['req_info'] = {_req_id: self._conv_entity_item(_class, _req_list[2:])}
+                    res[_class]['res_info'] = {_res_id: self._conv_entity_item(_class, _res_list[2:])}
 
         except Exception as e:
             print(e)
 
+        return res
+
+    def _conv_entity_item(self, entity_name: str, items: list) -> list:
+        res = []
+
+        if len(items[0]) < 2:
+            self.splog.add_warning(f' Markdown 정의[{entity_name}]에 형식 오류 : 컬럼수 -> {len(items[0])}')
+            return res
+
+        for item in items:
+            _etype = item[0].strip()
+            _ename = item[1].strip()
+            _edesc = item[2].strip()
+            if _etype == '' and _ename == '' and _edesc == '':
+                continue
+
+            if _etype == '':
+                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 타입 누락 {_etype}')
+                continue
+            if _ename == '':
+                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수명 누락 {_ename}')
+                continue
+            res.append((_etype, _ename, _edesc))
         return res
 
     def get_jsonmap(self, target: ConvertType = None) -> dict:
@@ -881,7 +909,7 @@ class DataManager:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
         if target == ConvertType.ALL:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO', 'CLIENT'])
-        
+
         table = []
 
         for col in df.columns:

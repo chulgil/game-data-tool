@@ -409,9 +409,16 @@ async def test(branch: str):
     if not g_manager.checkout():
         g_manager.destroy()
         return
+
+    gc_manager = GitManager(GitTarget.CLIENT, branch)
+    # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
+    # 68b29979e9...c2169e96fd
+    if not gc_manager.checkout():
+        gc_manager.destroy()
+        return
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
-    await excel_to_data_all_from_branch(branch)
+    markdown_to_script(g_manager, gc_manager)
     # task = TaskManager(TaskType.EXCEL, g_manager)
     # if task.start():
     #     excel_to_json_all(g_manager)
@@ -448,7 +455,7 @@ async def scheduler(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test_cg'
+    branch = 'main'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
@@ -475,6 +482,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # ray.init(num_cpus=4, ignore_reinit_error=True)
     # cProfile.run('test(branch)', 'result.prof')
     # test(branch)
-    asyncio.run(test(branch))
+    asyncio.run(migrate(branch))
     # ray.shutdown()
     pass

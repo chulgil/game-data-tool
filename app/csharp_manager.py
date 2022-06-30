@@ -109,8 +109,7 @@ using Server;'''
                                                                    _cls['res_info'])
         _script_proxy = '''
     public partial class ServerProxy_Stateless : ServerProxy
-    {{
-        {0}
+    {{{0}
     }}'''.format(_script_proxy)
 
         _script_protocol = self._get_default_script_server(_using, _name_space, _script_protocol)
@@ -230,11 +229,11 @@ using Server.Data;'''
             enum_rows.append(_str)
 
         return '''
-        
     public enum {0}
     {{
         {1}
-    }}'''.format(enum_name, codeline.join(enum_rows))
+    }}
+    '''.format(enum_name, codeline.join(enum_rows))
 
     @staticmethod
     def _convert_datatype(col: str, option: str) -> str:
@@ -303,6 +302,8 @@ namespace {3}
     def _get_script_protocol(self, cls_name: str, cls_desc: list, req: dict, res: dict):
         # /// 프로토콜 설명입니다.
         # /// 프로토콜 정보 : 요청[101] 응답[102]
+        # _req : (' long  ', ' server_time             ', ' 서버시간  ')
+        # _res : (' goods_info[] ', ' goods_infos      ', '         ')
         _req_id = next(iter(req))
         _res_id = next(iter(res))
         _cls_desc = []
@@ -333,12 +334,18 @@ namespace {3}
         _res_desc = '\n'.join(_dlist)
 
         _in_tab = self.TAB + self.TAB
-        _dlist = [f'{_in_tab}public {x[0]} {x[1]};' for x in req_data]
-        _dlist.insert(0, '')
-        _req_code = '\n'.join(_dlist)
-        _dlist = [f'{_in_tab}{self.TAB} public {x[0]} {x[1]};' for x in res_data]
-        _dlist.insert(0, '')
-        _res_code = '\n'.join(_dlist)
+        if len(req_data) > 0:
+            _dlist = [f'{_in_tab}public {x[0]} {x[1]};' for x in req_data]
+            _dlist.insert(0, '')
+            _req_code = '\n'.join(_dlist)
+        else:
+            _req_code = ''
+        if len(res_data) > 0:
+            _dlist = [f'{_in_tab}{self.TAB} public {x[0]} {x[1]};' for x in res_data]
+            _dlist.insert(0, '')
+            _res_code = '\n'.join(_dlist)
+        else:
+            _res_code = ''
         return '''
     /// <summary>{0}
     /// </summary>
@@ -357,7 +364,8 @@ namespace {3}
         {{
             return Transaction.Do<{3}, Response<result>>(this); 
         }}
-    }}'''.format(_cls_desc, _req_desc, _res_desc, cls_name, _req_code, _res_code)
+    }}
+    '''.format(_cls_desc, _req_desc, _res_desc, cls_name, _req_code, _res_code)
 
     def _get_script_proxy(self, cls_name: str, cls_desc: list, req: dict, res: dict):
         _req_id = next(iter(req))
@@ -398,6 +406,7 @@ namespace {3}
         _dlist.insert(0, '')
         _res_code = '\n'.join(_dlist)
         return '''
+        
         /// <summary>{0}
         /// </summary>
         /// <param name="gameInfo">GameInfo</param>{1}
