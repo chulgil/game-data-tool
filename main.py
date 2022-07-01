@@ -49,7 +49,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         return
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    prisma.init_prisma()
+    prisma.init_schema()
 
     # 변환된 Json파일을 디비로 저장
     b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
@@ -352,7 +352,7 @@ async def migrate(branch: str, is_admin: bool = False):
         return
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    await prisma.migrate(MigrateType.FORCE, branch)
+    prisma.migrate(MigrateType.FORCE, branch)
     await data_to_db(g_manager, prisma)
     await tag_to_db(g_manager, prisma)
     g_manager.destroy()
@@ -408,26 +408,30 @@ async def test(branch: str):
         g_manager.destroy()
         return
 
-    gc_manager = GitManager(GitTarget.CLIENT, branch)
-    # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
-    # 68b29979e9...c2169e96fd
-    if not gc_manager.checkout():
-        gc_manager.destroy()
-        return
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
-    markdown_to_script(g_manager, gc_manager)
-    # task = TaskManager(TaskType.EXCEL, g_manager)
-    # if task.start():
-    #     excel_to_json_all(g_manager)
-    #     task.done()
+    # markdown_to_script(g_manager, gc_manager)
+    task = TaskManager(TaskType.EXCEL, g_manager)
+    if task.start():
+
+        gc_manager = GitManager(GitTarget.CLIENT, branch)
+        # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
+        # 68b29979e9...c2169e96fd
+        if not gc_manager.checkout():
+            gc_manager.destroy()
+            return
+
+        await migrate(branch)
+        # prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+        # await tag_to_db(g_manager, prisma)
+
+        task.done()
 
 
 async def check(branch: str):
     task = TaskManager(TaskType.SCHEDULER)
     if not task.load_task():
         return
-    pprint(task.status())
     pass
 
 
@@ -479,6 +483,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # ray.init(num_cpus=4, ignore_reinit_error=True)
     # cProfile.run('test(branch)', 'result.prof')
     # test(branch)
-    asyncio.run(migrate(branch))
+    asyncio.run(test(branch))
     # ray.shutdown()
     pass

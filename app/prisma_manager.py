@@ -1,8 +1,10 @@
+import asyncio
 import os
 from enum import Enum, auto
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
 from datetime import datetime
+import uuid
 import yaml
 from subprocess import run, CalledProcessError, check_output, STDOUT, PIPE
 import re
@@ -59,9 +61,11 @@ class PrismaManager:
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.makedirs(self.PATH_FOR_SAVE_DIR)
 
+        self._load_db_source()
+
     def sync(self) -> bool:
         try:
-            self.init_prisma()
+            self.init_schema()
 
             os.chdir(self.PATH_FOR_SAVE_DIR)
 
@@ -84,7 +88,7 @@ class PrismaManager:
             self.splog.error(f"동기화 에러: {str(e)}")
         return False
 
-    def init_prisma(self) -> bool:
+    def init_schema(self) -> bool:
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_BASE_SCHEMA, 'r') as f:
@@ -131,15 +135,14 @@ class PrismaManager:
             return str(self.PATH_FOR_INFO_SCHEMA)
 
     def prisma_generate(self, db_type: DBType = DBType.DATA_DB):
-        print('--------------PRISMA GENERATE')
         schema = self._get_schema_path(db_type)
         res = run([f'prisma generate --schema={schema}'], shell=True)
         if not res.stderr:
             self.splog.info(f"초기화 완료")
 
-    async def migrate(self, option: MigrateType, migrate_id: str):
+    def migrate(self, option: MigrateType, migrate_id: str):
         try:
-            if not self.init_prisma():
+            if not self.init_schema():
                 return
 
             data_schema = self._get_schema_path(DBType.DATA_DB)
@@ -157,7 +160,7 @@ class PrismaManager:
                     stdout=PIPE,
                     stderr=STDOUT)
 
-            await self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
+            self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
 
         except CalledProcessError as e:
             self.splog.error(f'마이그레이션 Error: \n{str(e.output)}')
@@ -299,18 +302,19 @@ datasource db {{
 
     def _load_db_source(self):
         try:
-            source = SourceFileLoader('client', str(self.PATH_FOR_DATA_SOURCE)).load_module()
-            self.data_db = source.Prisma()
+            data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
+            self.data_db = data_source.Prisma()
         except Exception as e:
-            self.splog.error(f'DATA DB 접속 ERROR : \n{e}')
+            self.splog.error(f'DATA DB 소스로드 ERROR : \n{e}')
         try:
-            source = SourceFileLoader('client', str(self.PATH_FOR_INFO_SOURCE)).load_module()
-            self.info_db = source.Prisma()
+            info_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_INFO_SOURCE)).load_module()
+            self.info_db = info_source.Prisma()
         except Exception as e:
-            self.splog.error(f'INFO DB 접속 ERROR : \n{e}')
+            self.splog.error(f'INFO DB 소스로드 ERROR : \n{e}')
 
     async def restore_all_table(self, json_map: dict):
         if not self.data_db:
+            self.splog.warning('DATA DB가 존재하지 않습니다.')
             return
         await self.data_db.connect()
         # Json파일 가져오기
@@ -321,44 +325,42 @@ datasource db {{
                 await self.restore_table(json_key, json_data)
             except Exception as e:
                 self.splog.add_error(f'테이블 데이터 {json_key} Error :\n {str(e)}')
-        await self.destory()
         self.splog.add_info(f'테이블 데이터 총 {i} 건 RESTORE 완료')
+        await self.data_db.disconnect()
 
     async def update_version_info(self, commit_id: str, res_url: str):
-        if not self.info_db:
-            return
-        await self.info_db.connect()
         # Json파일 가져오기
+        _market_type = 3000
+        table_name = 'version_check_info'
         try:
-            _market_type = 3000
-            version_check_info = await self.data_db.version_check_info.find_first(where={'market_type': _market_type})
-
+            if not self.info_db:
+                self.splog.warning('INFO DB가 존재하지 않습니다.')
+                return
+            res = await self.info_db.connect()
+            version_check_info = await self.find_table(self.info_db, table_name, where={'market_type': _market_type})
             if version_check_info:  # Update
-                res = await self.data_db.version_check_info.update(
-                    where={'version_check_info_key': version_check_info.version_check_info_key},
+                await self.update_table(
+                    self.info_db,
+                    table_name,
+                    where={'id': version_check_info.id},
                     data={'res_ver': commit_id, 'apply_dt': datetime.now()}
                 )
-                self.splog.add_info(f'테이블 UPDATE 성공 : version_check_info')
             else:  # Insert
-                res = await self.data_db.version_check_info.create(
-                    {
-                        'server_type': 1,
-                        'market_type': _market_type,
-                        'client_ver': '0.0.1',
-                        'is_update_require': 0,
-                        'res_ver': commit_id,
-                        'res_url': res_url,
-                        'apply_dt': datetime.now(),
-                        'reg_dt': datetime.now(),
-                        'status': 'A'
-                    }
-                )
-                self.splog.add_info(f'테이블 INSERT 성공 : version_check_info')
+                await self.insert_table(self.info_db, table_name, data={
+                    'server_type': 1,
+                    'market_type': _market_type,
+                    'client_ver': '0.0.1',
+                    'is_update_require': 0,
+                    'res_ver': commit_id,
+                    'res_url': res_url,
+                    'apply_dt': datetime.now(),
+                    'reg_dt': datetime.now(),
+                    'status': 1
+                })
 
         except Exception as e:
-            self.splog.add_error(f'테이블 UPDATE Error : version_check_info \n {str(e)}')
-
-        await self.destory()
+            self.splog.add_error(f'P update_version_info Error : {table_name} \n {str(e)}')
+        await self.info_db.disconnect()
 
     async def restore_table(self, table_name: str, json_data: list):
         try:
@@ -371,15 +373,30 @@ datasource db {{
         except Exception as e:
             self.splog.add_error(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
 
-    async def insert_table(self, table_name: str, json_data: list):
+    async def insert_table(self, db_source, table_name: str, data: dict):
         try:
-            table = getattr(self.data_db, table_name)
-            await table.create(
-                json_data
-            )
+            table = getattr(db_source, table_name)
+            await table.create(data)
             self.splog.add_info(f'테이블 데이터 INSERT 성공 : {table_name}')
         except Exception as e:
             self.splog.add_error(f'테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
+
+    async def update_table(self, db_source, table_name: str, where: dict, data: dict):
+        try:
+            table = getattr(db_source, table_name)
+            await table.update(where=where, data=data)
+            self.splog.add_info(f'테이블 데이터 UPDATE 성공 : {table_name}')
+        except Exception as e:
+            self.splog.add_error(f'테이블 데이터 UPDATE 실패 : {table_name} \n {str(e)}')
+
+    async def find_table(self, db_source, table_name: str, where: dict):
+        try:
+            table = getattr(db_source, table_name)
+            res = await table.find_first(where=where)
+            self.splog.add_info(f'테이블 데이터 SELECT 성공 : {table_name}')
+            return res
+        except Exception as e:
+            self.splog.add_error(f'테이블 데이터 SELECT 실패 : {table_name} \n {str(e)}')
 
     async def destory(self):
         if self.data_db:

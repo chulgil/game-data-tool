@@ -1,0 +1,37 @@
+---
+DEFAULT:
+  EXPORT_DIR: "export"
+  EXCEL_DIR: "excel"
+  ERROR_TEXT: "[!EXCEL_ERROR!]"
+  CHECK_SCHEMA_ID: "id" # 이 값을 채우면 EXCEL필드의 첫번째 필드값을 체크합니다. -> log(첫번째 컬럼[ test_id ]을 'id' 로 변경해주세요.)
+FTPSERVER:
+  URL: "snowpipe-sp.ftp.upload.akamai.com"
+  USER: "snowpipe-sp"
+  PASS: "snowpipesp1!"
+  EXPORT_DIR: "planing_data"
+  RESOURCE_URL: "http://download.sp.snowpipe.net"
+  KEY: "cjdekaehdvkfkrhsdkvkxm@))$!!)@gh"
+GITSERVER:
+  EMAIL: spbot@snowpipe.co.kr
+  USER: spbot
+  # EXCEL DATA URL
+  EXCEL_SSH: ssh://git@local.sp.snowpipe.net:222/SPTeam/data-for-designer.git
+  # 커밋 URL 확인용
+  EXCEL_URL: http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer
+  # C# DATA URL
+  CLIENT_SSH: ssh://git@local.sp.snowpipe.net:222/SPTeam/data-for-client.git
+  PUSH_MSG: '[Excel자동변환]'
+DATABASE:
+  LOCAL: sqlserver://local.sp.snowpipe.net:14333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  DEV: sqlserver://local.sp.snowpipe.net:24333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  DEV2: sqlserver://local.sp.snowpipe.net:34333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  QA: sqlserver://local.sp.snowpipe.net:00000;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  QA2: sqlserver://local.sp.snowpipe.net:54332;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  QA3: sqlserver://local.sp.snowpipe.net:54333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  CBT: sqlserver://local.sp.snowpipe.net:44333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  OBT: sqlserver://local.sp.snowpipe.net:00000;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+  TEST: sqlserver://local.sp.snowpipe.net:44333;database=data_db;user=sa;password=password1!;encrypt=DANGER_PLAINTEXT
+TEAMS:
+  DESIGNER_URL: https://snowpipe11.webhook.office.com/webhookb2/750700d7-1d52-4e1f-ab33-0a2e657468ba@5f733486-a8c1-4346-84ab-6cf16d1f00a9/IncomingWebhook/eb5fe323bcc64292a4fd8cd30a639c33/85627d33-e4f1-4c84-bd48-57e00b253b2e
+  TEST_URL: https://snowpipe11.webhook.office.com/webhookb2/750700d7-1d52-4e1f-ab33-0a2e657468ba@5f733486-a8c1-4346-84ab-6cf16d1f00a9/IncomingWebhook/2b568741a9614bf58d4ee09a517bfad4/85627d33-e4f1-4c84-bd48-57e00b253b2e
+  DEVELOPER_URL: https://snowpipe11.webhook.office.com/webhookb2/750700d7-1d52-4e1f-ab33-0a2e657468ba@5f733486-a8c1-4346-84ab-6cf16d1f00a9/IncomingWebhook/c7a39c46a90c49d08ef70d8081dd14a1/85627d33-e4f1-4c84-bd48-57e00b253b2e
