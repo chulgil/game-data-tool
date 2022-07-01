@@ -129,6 +129,8 @@ class LogManager:
             self._error = []
 
     def send_designer(self, msg: str = None):
+        if not self.is_service_branch(self.BRANCH):
+            return
         if msg:
             self.logger.info(f'{self.PREFIX} {str(msg)}')
             # self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()

@@ -119,7 +119,7 @@ def excel_to_schema(g_manager: GitManager):
 
     # 프리즈마 초기화
     p_manager = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
-    d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
+    d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     table_info = d_manager.get_schema_all()
     p_manager.save(table_info)
 
@@ -352,26 +352,24 @@ async def migrate(branch: str, is_admin: bool = False):
         return
 
     prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    prisma.migrate(MigrateType.FORCE, branch)
-    await data_to_db(g_manager)
-    await tag_to_db(g_manager)
+    await prisma.migrate(MigrateType.FORCE, branch)
+    await data_to_db(g_manager, prisma)
+    await tag_to_db(g_manager, prisma)
     g_manager.destroy()
 
 
-async def data_to_db(g_manager: GitManager):
-    d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
-    b_manager = DBManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
-    await b_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
-    await b_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
-    await b_manager.destory()
+async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
+    d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
+    await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
+    await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
+    await p_manager.destory()
 
 
-async def tag_to_db(g_manager: GitManager):
-    b_manager = DBManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+async def tag_to_db(g_manager: GitManager, p_manager: PrismaManager):
     res_info = g_manager.get_client_resource_from_branch()
     if len(res_info.keys()) > 0:
-        await b_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
-    await b_manager.destory()
+        await p_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
+    await p_manager.destory()
 
 
 async def test(branch: str):
@@ -455,7 +453,7 @@ async def scheduler(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'main'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
@@ -466,7 +464,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     #     c_manager = CSharpManager(branch, 'commit_test', g_manager.PATH_FOR_WORKING)
     #     d_manager.get_enum_data()
     # For test
-    # asyncio.run(excel_to_data_all('test'))
     # asyncio.run(excel_to_data_modified('test'))
     # asyncio.run(migrate('test'))
     # asyncio.run(excel_to_data_all_from_tag('v0.5.2_test_cg'))

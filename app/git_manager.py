@@ -27,6 +27,11 @@ class GitTarget(Enum):
             return GitTarget.NONE
 
 
+class UserType(Enum):
+    ADMIN = auto()
+    USER = auto()
+
+
 class GitManager:
 
     def __init__(self, target: GitTarget, branch: str = 'main', tag: str = '', webhook: dict = None):
@@ -42,7 +47,7 @@ class GitManager:
         self.GIT_PUSH_MSG = ''
         self.NEW_TAG = tag
         self.BASE_TAG = ''
-        self.IS_ADMIN = False
+        self.USER_TYPE = UserType.USER
         self.GIT_TARGET = target
         self.PATH_FOR_ROOT = Path(__file__).parent.parent
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
@@ -338,7 +343,6 @@ class GitManager:
             data[i] = str(data[i]).replace('.xlsx', '.json')
             data[i] = str(data[i]).replace('excel', 'export')
             data[i] = str(data[i]).replace('/data', '/json')
-            print(data[i])
         return data
 
     def get_modified_excel(self, head_cnt=5) -> list:
@@ -560,15 +564,15 @@ class GitManager:
         self._origin.push(self._repo.tags)
 
     def set_admin(self):
-        self.IS_ADMIN = True
+        self.USER_TYPE = UserType.ADMIN
 
-    def _set_working_target(self, is_admin: bool = False):
+    def _set_working_target(self):
 
         _target = None
-        if is_admin:
-            _target = self.PATH_FOR_TARGET.joinpath('admin', self.GIT_TARGET.name.lower())
-        else:
-            _target = self.PATH_FOR_TARGET.joinpath('user', self.GIT_TARGET.name.lower())
+        if self.USER_TYPE == UserType.ADMIN:
+            _target = self.PATH_FOR_TARGET.joinpath(self.USER_TYPE.name.lower(), self.GIT_TARGET.name.lower())
+        elif self.USER_TYPE == UserType.USER:
+            _target = self.PATH_FOR_TARGET.joinpath(self.USER_TYPE.name.lower(), self.GIT_TARGET.name.lower())
 
         self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
         self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)

@@ -1,7 +1,8 @@
 import os
 from enum import Enum, auto
 from pathlib import Path
-
+from importlib.machinery import SourceFileLoader
+from datetime import datetime
 import yaml
 from subprocess import run, CalledProcessError, check_output, STDOUT, PIPE
 import re
@@ -14,120 +15,154 @@ class MigrateType(Enum):
     FORCE = auto()
 
 
+class DBType(Enum):
+    DATA_DB = auto()
+    INFO_DB = auto()
+
+
+class UserType(Enum):
+    ADMIN = auto()
+    USER = auto()
+
+
 class PrismaManager:
 
-    def __init__(self, branch: str, save_dir: Path):
+    def __init__(self, branch: str, load_dir: Path, user_type: UserType = UserType.USER):
+        self.config = None
         from . import LogManager
+        self.data_db = None
+        self.info_db = None
         self.splog = LogManager(branch)
+        self.splog.PREFIX = f"[{branch} 브랜치] PRISMA[{user_type.name}]"
         self.BRANCH = branch
-        self.ROOT_DIR = Path(__file__).parent.parent
-        self.PATH_FOR_PRISMA = self.ROOT_DIR.joinpath('prisma', branch)
-        self.PATH_FOR_CONFIG = self.ROOT_DIR.joinpath('config.yaml')
-        # self.PATH_FOR_ENV = self.PATH_FOR_PRISMA.joinpath('.env')
+        self.USER_TYPE = user_type
+        self.PATH_FOR_ROOT = Path(__file__).parent.parent
 
         # Config 파일 설정
+        self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = yaml.safe_load(f)
-        self.GAME_DB = config['DATABASE']['GAME_DB']
-        self.INFO_DB = config['DATABASE']['INFO_DB']
-        self.PATH_FOR_BASE_DIR = self.ROOT_DIR.joinpath('prisma', branch)
-        self.PATH_FOR_SAVE_DIR = save_dir.joinpath(config['DEFAULT']['EXPORT_DIR'], 'prisma')
-        self.PATH_FOR_BASE_SCHEMA = self.PATH_FOR_BASE_DIR.joinpath('schema.prisma')
-        self.PATH_FOR_SAVE_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('schema.prisma')
-        self.SCHEMA_OPTION = f'--schema={self.PATH_FOR_BASE_SCHEMA}'
-        self._info = f"[{self.BRANCH} 브랜치] PRISMA"
+            self.config = yaml.safe_load(f)
+        if 'DATA_DB' not in self.config['DATABASE']:
+            self.splog.warning(f'CONFIG DATABASE[DATA_DB] 가 존재하지 않습니다.')
+            return
+        if 'INFO_DB' not in self.config['DATABASE']:
+            self.splog.warning(f'CONFIG DATABASE[INFO_DB] 가 존재하지 않습니다.')
+            return
+        self.PATH_FOR_SAVE_DIR = self.PATH_FOR_ROOT.joinpath('prisma', user_type.name.lower(), branch)
+        self.PATH_FOR_BASE_SCHEMA = load_dir.joinpath(self.config['DEFAULT']['EXPORT_DIR'], 'prisma', 'schema.prisma')
+        self.PATH_FOR_DATA_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('data_schema.prisma')
+        self.PATH_FOR_INFO_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('info_schema.prisma')
+        self.PATH_FOR_DATA_SOURCE = self.PATH_FOR_SAVE_DIR.joinpath(DBType.DATA_DB.name.lower(), '__init__.py')
+        self.PATH_FOR_INFO_SOURCE = self.PATH_FOR_SAVE_DIR.joinpath(DBType.INFO_DB.name.lower(), '__init__.py')
 
         # Prisma 스키마 폴더 생성
-        if not self.PATH_FOR_BASE_DIR.exists():
-            os.mkdir(self.PATH_FOR_BASE_DIR)
-        # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
-            os.mkdir(self.PATH_FOR_SAVE_DIR)
+            os.makedirs(self.PATH_FOR_SAVE_DIR)
 
     def sync(self) -> bool:
         try:
             self.init_prisma()
 
-            os.chdir(self.PATH_FOR_BASE_DIR)
-            # self._init_prisma_config()
+            os.chdir(self.PATH_FOR_SAVE_DIR)
 
             from prisma_cleanup import cleanup
             cleanup()
+            data_schema = self._get_schema_path(DBType.DATA_DB)
+            res = run([f'prisma db pull --schema={data_schema}'], shell=True)
+            res = run([f'prisma generate --schema={data_schema}'], shell=True)
 
-            res = run([f'prisma db pull {self.SCHEMA_OPTION}'], shell=True)
-            res = run([f'prisma generate {self.SCHEMA_OPTION}'], shell=True)
+            info_schema = self._get_schema_path(DBType.INFO_DB)
+            res = run([f'prisma db pull --schema={info_schema}'], shell=True)
+            res = run([f'prisma generate --schema={info_schema}'], shell=True)
+
+            self._load_db_source()
+
             if not res.stderr:
-                self.splog.info(f"{self._info} 동기화 완료")
+                self.splog.info(f"동기화 완료")
                 return True
         except Exception as e:
-            self.splog.error(f"{self._info} 동기화 에러: {str(e)}")
+            self.splog.error(f"동기화 에러: {str(e)}")
         return False
 
     def init_prisma(self) -> bool:
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
-            with open(self.PATH_FOR_SAVE_SCHEMA, 'r') as f:
-                schema = f.read()
+            with open(self.PATH_FOR_BASE_SCHEMA, 'r') as f:
+                base_schema = f.read()
+            data_schema = self._get_default_schema(DBType.DATA_DB) + base_schema
+            with open(self.PATH_FOR_DATA_SCHEMA, 'w') as f:
+                f.write(data_schema)
+            self.prisma_generate(DBType.DATA_DB)
 
-            schema = self._get_default_schema() + schema
-            with open(self.PATH_FOR_BASE_SCHEMA, 'w') as f:
-                f.write(schema)
-
-            # self._init_prisma_config()
-            self.prisma_generate()
+            info_schema = self._get_default_schema(DBType.INFO_DB)
+            with open(self.PATH_FOR_INFO_SCHEMA, 'w') as f:
+                f.write(info_schema)
+            res = run([f'prisma db pull --schema={self.PATH_FOR_INFO_SCHEMA}'], shell=True)
+            self.prisma_generate(DBType.INFO_DB)
+            self._load_db_source()
             return True
         except Exception as e:
-            self.splog.error(f"{self._info} 초기화 에러: \n {str(e)}")
+            self.splog.error(f"초기화 에러: \n {str(e)}")
         return False
 
-    # .env 파일에  디비 경로를 설정
-    # ex) DATABASE_URL="sqlserver://db.com:1433;database=data_db;user=sa;password=pass;encrypt=DANGER_PLAINTEXT"
-    def _init_prisma_config(self):
-        db_path = self._get_db_by_branch()
-        db_conn = f'DATABASE_URL="{db_path}"'
-        with open(self.PATH_FOR_ENV, 'w', encoding='utf-8') as f:
-            f.write(db_conn)
-
     # 브랜치 명으로 Config설정에 있는 디비 경로를 가져온다.
-    def _get_db_by_branch(self) -> str:
+    def _get_db_by_branch(self, db_type: DBType) -> str:
         db_name = {
             "main": "DEV2",
         }.get(self.BRANCH, str(self.BRANCH).upper())
-        if db_name in self.GAME_DB:
-            return self.GAME_DB[db_name]
-        else:
-            self.splog.warning(f"DB CONFIG에 [{db_name}] 가 존재 하지 않습니다.")
-            return db_name
+        config_db = self.config['DATABASE']
+        if db_type == DBType.DATA_DB:
+            if db_name in config_db[db_type.name]:
+                return config_db[db_type.name][db_name]
+            else:
+                self.splog.warning(f"DB CONFIG에 DATA_DB[{db_name}] 가 존재 하지 않습니다.")
+                return db_name
+        if db_type == DBType.INFO_DB:
+            if db_name in config_db[db_type.name]:
+                return config_db[db_type.name][db_name]
+            else:
+                self.splog.warning(f"DB CONFIG에 INFO_DB[{db_name}] 가 존재 하지 않습니다.")
+                return db_name
 
-    def prisma_generate(self):
-        res = run([f'prisma generate {self.SCHEMA_OPTION}'], shell=True)
+    def _get_schema_path(self, db_type: DBType) -> str:
+        if db_type == DBType.DATA_DB:
+            return str(self.PATH_FOR_DATA_SCHEMA)
+        if db_type == DBType.INFO_DB:
+            return str(self.PATH_FOR_INFO_SCHEMA)
+
+    def prisma_generate(self, db_type: DBType = DBType.DATA_DB):
+        print('--------------PRISMA GENERATE')
+        schema = self._get_schema_path(db_type)
+        res = run([f'prisma generate --schema={schema}'], shell=True)
         if not res.stderr:
-            self.splog.info(f"{self._info} 초기화 완료")
+            self.splog.info(f"초기화 완료")
 
-    def migrate(self, option: MigrateType, migrate_id: str):
+    async def migrate(self, option: MigrateType, migrate_id: str):
         try:
-            self.init_prisma()
+            if not self.init_prisma():
+                return
 
-            os.chdir(self.PATH_FOR_PRISMA.parent)
+            data_schema = self._get_schema_path(DBType.DATA_DB)
+            os.chdir(self.PATH_FOR_SAVE_DIR)
             if option == MigrateType.DEV:
-                run([f'prisma migrate dev --name {migrate_id} {self.SCHEMA_OPTION}'], shell=True, check=True,
+                run([f'prisma migrate dev --name {migrate_id} --schema={data_schema}'], shell=True, check=True,
                     stdout=PIPE, stderr=STDOUT)
 
             elif option == MigrateType.CREATE_ONLY:
-                run([f'prisma migrate dev --create-only {self.SCHEMA_OPTION}'], shell=True, check=True, stdout=PIPE,
+                run([f'prisma migrate dev --create-only --schema={data_schema}'], shell=True, check=True, stdout=PIPE,
                     stderr=STDOUT)
 
             elif option == MigrateType.FORCE:
-                run([f'prisma db push --accept-data-loss --force-reset {self.SCHEMA_OPTION}'], shell=True, check=True,
+                run([f'prisma db push --accept-data-loss --force-reset --schema={data_schema}'], shell=True, check=True,
                     stdout=PIPE,
                     stderr=STDOUT)
 
-            self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
+            await self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
 
         except CalledProcessError as e:
-            self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e.output)}')
+            self.splog.error(f'마이그레이션 Error: \n{str(e.output)}')
         except Exception as e:
-            self.splog.error(f'{self._info} 마이그레이션 Error: \n{str(e)}')
+            self.splog.error(f'마이그레이션 Error: \n{str(e)}')
 
     def save(self, table_info: dict):
         table_name = ''
@@ -137,14 +172,14 @@ class PrismaManager:
             rows = table_info[key]
             new_schema = self._convet_schema(table_name, rows)
             if new_schema != '':
-                self.splog.info(f'{self._info} 스키마 저장 완료: {table_name}')
+                self.splog.info(f'스키마 저장 완료: {table_name}')
                 schema = schema + new_schema
         try:
             # 지정한 경로로 Prisma 스키마 파일 저장
-            with open(self.PATH_FOR_SAVE_SCHEMA, "w", encoding='utf-8') as f:
+            with open(self.PATH_FOR_DATA_SCHEMA, "w", encoding='utf-8') as f:
                 f.write(schema)
         except Exception as e:
-            self.splog.error(f'{self._info} 스키마 저장 Error: {table_name}\n{str(e)}')
+            self.splog.error(f'스키마 저장 Error: {table_name}\n{str(e)}')
 
     def _convet_schema(self, table_name: str, rows: list) -> str:
         """
@@ -175,7 +210,7 @@ class PrismaManager:
                 schema = schema + (' // ' + desc + '\n' if desc != '' else '\n')
             schema = schema + '}\n'
         except Exception as e:
-            self.splog.error(f'{self._info} 스키마 변환 Error: {table_name}\n{str(e)}')
+            self.splog.error(f'스키마 변환 Error: {table_name}\n{str(e)}')
         return schema
 
     @staticmethod
@@ -246,16 +281,109 @@ class PrismaManager:
         res = re.sub(r'@ref\(\D+\)', '', res)
         return res
 
-    def _get_default_schema(self):
+    def _get_default_schema(self, db_type: DBType):
+
+        output = self._get_db_by_branch(db_type)
         return '''
 generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
-  output = "."
+  output = "{0}"
 }}
 
 datasource db {{
   provider = "sqlserver"
-  url      = "{0}"
+  url      = "{1}"
 }}
-       '''.format(self._get_db_by_branch())
+       '''.format(db_type.name.lower(), output)
+
+    def _load_db_source(self):
+        try:
+            source = SourceFileLoader('client', str(self.PATH_FOR_DATA_SOURCE)).load_module()
+            self.data_db = source.Prisma()
+        except Exception as e:
+            self.splog.error(f'DATA DB 접속 ERROR : \n{e}')
+        try:
+            source = SourceFileLoader('client', str(self.PATH_FOR_INFO_SOURCE)).load_module()
+            self.info_db = source.Prisma()
+        except Exception as e:
+            self.splog.error(f'INFO DB 접속 ERROR : \n{e}')
+
+    async def restore_all_table(self, json_map: dict):
+        if not self.data_db:
+            return
+        await self.data_db.connect()
+        # Json파일 가져오기
+        i = 0
+        for json_key, json_data in json_map.items():
+            try:
+                i = i + 1
+                await self.restore_table(json_key, json_data)
+            except Exception as e:
+                self.splog.add_error(f'테이블 데이터 {json_key} Error :\n {str(e)}')
+        await self.destory()
+        self.splog.add_info(f'테이블 데이터 총 {i} 건 RESTORE 완료')
+
+    async def update_version_info(self, commit_id: str, res_url: str):
+        if not self.info_db:
+            return
+        await self.info_db.connect()
+        # Json파일 가져오기
+        try:
+            _market_type = 3000
+            version_check_info = await self.data_db.version_check_info.find_first(where={'market_type': _market_type})
+
+            if version_check_info:  # Update
+                res = await self.data_db.version_check_info.update(
+                    where={'version_check_info_key': version_check_info.version_check_info_key},
+                    data={'res_ver': commit_id, 'apply_dt': datetime.now()}
+                )
+                self.splog.add_info(f'테이블 UPDATE 성공 : version_check_info')
+            else:  # Insert
+                res = await self.data_db.version_check_info.create(
+                    {
+                        'server_type': 1,
+                        'market_type': _market_type,
+                        'client_ver': '0.0.1',
+                        'is_update_require': 0,
+                        'res_ver': commit_id,
+                        'res_url': res_url,
+                        'apply_dt': datetime.now(),
+                        'reg_dt': datetime.now(),
+                        'status': 'A'
+                    }
+                )
+                self.splog.add_info(f'테이블 INSERT 성공 : version_check_info')
+
+        except Exception as e:
+            self.splog.add_error(f'테이블 UPDATE Error : version_check_info \n {str(e)}')
+
+        await self.destory()
+
+    async def restore_table(self, table_name: str, json_data: list):
+        try:
+            table = getattr(self.data_db, table_name)
+            await table.delete_many()
+            await table.create_many(
+                json_data
+            )
+            self.splog.add_info(f'테이블 데이터 RESTORE 성공 : {table_name}')
+        except Exception as e:
+            self.splog.add_error(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
+
+    async def insert_table(self, table_name: str, json_data: list):
+        try:
+            table = getattr(self.data_db, table_name)
+            await table.create(
+                json_data
+            )
+            self.splog.add_info(f'테이블 데이터 INSERT 성공 : {table_name}')
+        except Exception as e:
+            self.splog.add_error(f'테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
+
+    async def destory(self):
+        if self.data_db:
+            await self.data_db.disconnect()
+        if self.info_db:
+            await self.info_db.disconnect()
+        self.splog.destory()

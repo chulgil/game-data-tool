@@ -532,26 +532,29 @@ class DataManager:
             paths.append({"func": "save_json_task", "v": _path})
 
     def save_json_task(self, path: Path):
-        # 첫번째 시트를 JSON 타겟으로 설정
-        df = self._read_excel_for_data(path)
-        # 파일 이름으로 JSON 파일 저장 : DATA
-        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
-            self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER, path.stem)
-        # 파일 이름으로 JSON 파일 저장 : INFO
-        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
-            self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, path.stem)
-        # 파일 이름으로 JSON 파일 저장 : CLIENT
-        if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
-            self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT, path.stem)
+        try:
+            # 첫번째 시트를 JSON 타겟으로 설정
+            df = self._read_excel_for_data(path)
+            # 파일 이름으로 JSON 파일 저장 : DATA
+            if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.SERVER:
+                self._save_json(self._get_filtered_data(df, ['ALL', 'SERVER']), self.PATH_FOR_JSON_SERVER, path.stem)
+            # 파일 이름으로 JSON 파일 저장 : INFO
+            if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.INFO:
+                self._save_json(self._get_filtered_data(df, ['INFO']), self.PATH_FOR_JSON_INFO, path.stem)
+            # 파일 이름으로 JSON 파일 저장 : CLIENT
+            if self.CONVERT_TYPE == ConvertType.ALL or self.CONVERT_TYPE == ConvertType.CLIENT:
+                self._save_json(self._get_filtered_data(df, ['ALL', 'CLIENT']), self.PATH_FOR_JSON_CLIENT, path.stem)
 
-        if self.CHECK_FOR_ID:
-            _column_id = df.columns[0]
-            if _column_id != self.CHECK_FOR_ID:
-                self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
+            if self.CHECK_FOR_ID:
+                _column_id = df.columns[0]
+                if _column_id != self.CHECK_FOR_ID:
+                    self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
 
-        if self.splog.has_warning():
-            self.splog.add_warning(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
-            self.splog.send_designer()
+            if self.splog.has_warning():
+                self.splog.add_warning(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
+                self.splog.send_designer()
+        except Exception as e:
+            self.splog.add_warning(f'{self._info} save_json_task Error: [{path.stem}]\n{str(e)}')
 
     def get_excelpath_all(self) -> list:
         return list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*"))
@@ -921,6 +924,8 @@ class DataManager:
     def _read_excel_for_data(self, path: Path) -> DataFrame:
 
         df = self._read_excel(path)
+        if df is None:
+            raise Exception(f'처리할 수 있는 Excel양식이 아닙니다. [{path.stem}]\n')
 
         if True in df.columns.duplicated():
             dup_df = df.loc[:, df.columns.duplicated()]
@@ -938,7 +943,7 @@ class DataManager:
 
         return df
 
-    def _read_excel(self, path: Path) -> DataFrame:
+    def _read_excel(self, path: Path) -> Optional[DataFrame]:
         try:
             # 첫번째 시트를 JSON 타겟으로 설정
             df = pd.read_excel(path, sheet_name=0, header=None)
@@ -946,7 +951,8 @@ class DataManager:
             return self._set_base_index(df)
 
         except Exception as e:
-            print(f'READ EXCEL ERROR : {str(e)}')
+            self.splog.add_error(f'READ EXCEL ERROR[{path}] : {str(e)} ')
+            return None
 
     def get_enum_data(self) -> dict:
         """
