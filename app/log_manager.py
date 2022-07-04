@@ -133,31 +133,31 @@ class LogManager:
             return
         if msg:
             self.logger.info(f'{self.PREFIX} {str(msg)}')
-            # self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+            self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
         else:
             if self.has_info():
                 self._info = list(set(self._info))
-                # self.teams_target.text('\n\n'.join(self._info)).send()
+                self.teams_target.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
                 self._warning = list(set(self._warning))
-                # self.teams_target.text('\n\n'.join(self._warning)).send()
+                self.teams_target.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
     def send_developer(self, msg: str = None):
         # if not self.is_service_branch(self.BRANCH):
         # return
         if msg:
-            # self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
+            self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
             self.logger.info(f'{self.PREFIX} {str(msg)}')
         else:
             if self.has_info():
                 self._info = list(set(self._info))
-                # self.teams_developer.text('\n\n'.join(self._info)).send()
+                self.teams_developer.text('\n\n'.join(self._info)).send()
                 self.info()
             if self.has_warning():
                 self._warning = list(set(self._warning))
-                # self.teams_developer.text('\n\n'.join(self._warning)).send()
+                self.teams_developer.text('\n\n'.join(self._warning)).send()
                 self.warning()
 
     @staticmethod
