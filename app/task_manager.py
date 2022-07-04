@@ -3,6 +3,7 @@ from enum import auto, Enum
 from pathlib import Path
 from pprint import pprint
 from time import time, sleep
+from typing import Optional
 
 import yaml
 from . import GitManager
@@ -29,12 +30,10 @@ class TaskType(Enum):
 
 class TaskManager:
 
-    def __init__(self, task_type: TaskType, g_manager: GitManager):
+    def __init__(self, task_type: TaskType, branch: str = 'main', tag: str = ''):
         self.PATH_FOR_SCHEDULER = Path(__file__).parent.parent.joinpath('export', 'scheduler.yaml')
-        self.BRANCH = g_manager.BRANCH
-        self.NEW_TAG = g_manager.NEW_TAG
-
-        self.COMMIT_ID = g_manager.COMMIT_ID
+        self.BRANCH = branch
+        self.NEW_TAG = tag
         self.SCHEDULER_TASK = False
         self.TASK_TYPE = task_type
         if task_type == TaskType.SCHEDULER:
@@ -46,10 +45,14 @@ class TaskManager:
         self.TASK = self._create_task()
 
         _info = f'[Task:{self.TASK_TYPE.name}]'
-        _info = f'{_info}[{self._br()}:{self.COMMIT_ID}]'
+        _info = f'{_info}[{self._br()}]'
         self.splog.PREFIX = _info
 
     def init(self, g_manager: GitManager):
+
+        self.BRANCH = g_manager.BRANCH
+        self.NEW_TAG = g_manager.NEW_TAG
+
         config = self._load_config()
         if not config:
             working = {}
@@ -84,8 +87,6 @@ class TaskManager:
         info = str(task).split('::')
         self.TASK_TYPE = TaskType.value_of(info[0])
         self.BRANCH = info[1]
-        if self.TASK_TYPE == TaskType.EXCEL:
-            self.COMMIT_ID = info[2]
         if self.TASK_TYPE == TaskType.EXCEL_TAG:
             self.NEW_TAG = info[2]
         return True
@@ -93,7 +94,8 @@ class TaskManager:
     def _create_task(self):
         _key = f'{self.TASK_TYPE.name}::{self.BRANCH}'
         if self.TASK_TYPE == TaskType.EXCEL:
-            return f'{_key}::{self.COMMIT_ID}'
+            # return f'{_key}::{self.COMMIT_ID}
+            return f'{_key}'
         elif self.TASK_TYPE == TaskType.EXCEL_TAG:
             return f'{_key}::{self.NEW_TAG}'
         else:
@@ -101,15 +103,15 @@ class TaskManager:
 
     def _has_task(self):
         config = self._load_config()
-        if self.TASK in config['tasks']:
+        if config['tasks'] is not None and self.TASK in config['tasks']:
             return True
         return False
 
     def is_locked(self):
         config = self._load_config()
         self._set_overtime(config)
-        work = config['working']
-        return work[self._br()]
+        config = self._load_config()
+        return config['working'][self._br()]
 
     def _load_config(self):
         with open(self.PATH_FOR_SCHEDULER, 'r') as f:
@@ -125,11 +127,13 @@ class TaskManager:
         work = config['working']
         try:
             started = datetime.fromisoformat(str(work[self._br()]))
+            overtime = datetime.now() - started
+            overtime = overtime.seconds
         except Exception as e:
-            started = datetime.now()
-        overtime = datetime.now() - started
+            overtime = 9999
+
         # 2분 이상 지난경우 초기화
-        if overtime.seconds > 120:
+        if overtime > 120:
             work[self._br()] = None
         self._save_config(config)
 
@@ -152,30 +156,33 @@ class TaskManager:
         return True
 
     def done(self):
-        if self.SCHEDULER_TASK:
-            self.pop_task()
         self._lock(False)
         self.splog.elapsed(f'작업을 종료합니다.')
 
-    def pop_task(self) -> dict:
+    def pop_task(self) -> Optional[dict]:
         self.splog.info(f'작업을 대기열에서 삭제합니다.')
         config = self._load_config()
-        tasks = config['tasks']
-        if len(tasks) == 0:
+        if config['tasks'] is None or len(config['tasks']) == 0:
             return None
-        task = tasks.pop(-1)
+        task = config['tasks'].pop(-1)
+        tl = task.split('::')
+        if len(tl) < 3:
+            tl.append('')
+        task_type = TaskType.value_of(tl[0])
+        task_value = {tl[1]: tl[2]}
         self._save_config(config)
-        return task
+        return {task_type: task_value}
 
     def add_task(self) -> bool:
         self.splog.info(f'이미 실행중인 작업이 존재하여 대기열에 추가합니다.')
         config = self._load_config()
-        tasks = config['tasks']
 
         if self._has_task():
             self.splog.info(f'대기열에 이미 존재합니다.')
             return False
-        tasks.insert(0, self.TASK)
+        if config['tasks'] is None:
+            config['tasks'] = []
+        config['tasks'].insert(0, self.TASK)
         self._save_config(config)
         return True
 

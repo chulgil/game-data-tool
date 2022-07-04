@@ -23,8 +23,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
 
 else:
-    from app import *
-    # from app.libs.excel_to_db.app import *
+    # from app import *
+    from app.libs.excel_to_db.app import *
 
 
 def sync_prisma(branch: str):
@@ -75,7 +75,7 @@ def excel_to_json_all(g_manager: GitManager):
     d_manager.check_excel_for_relation(excel_paths)
 
 
-def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
+def excel_to_json_modified(convert_type: ConvertType, g_manager: GitManager):
     """
     변경된 Excel만 추출후 Json변환
     @param convert_type: 기획데이터:server Info데이터:info 클라이언트데이터:client
@@ -86,7 +86,7 @@ def excel_to_json(convert_type: ConvertType, g_manager: GitManager):
     g_manager.splog.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {convert_type.name}]")
 
     d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
-    modified_excel = g_manager.get_modified_excel()
+    modified_excel = g_manager.get_modified_excel(5)
     # Excel로드후 Json변환
     d_manager.delete_path(g_manager.get_deleted_json())
     d_manager.excel_to_json(modified_excel)
@@ -151,17 +151,24 @@ async def excel_to_data_all_from_branch(branch: str):
     # Git 초기화 및 다운로드
     g_manager = GitManager(GitTarget.EXCEL, branch)
 
-    # # 체크아웃 성공시에만 진행
-    if not g_manager.checkout():
+    task = TaskManager(TaskType.EXCEL, branch)
+    task.init(g_manager)
+
+    if task.start():
+
+        # # 체크아웃 성공시에만 진행
+        if not g_manager.checkout():
+            g_manager.destroy()
+            return
+        excel_to_json_all(g_manager)
+
+        await excel_to_server(g_manager)
+
+        if g_manager.is_modified():
+            g_manager.push()
         g_manager.destroy()
-        return
-    excel_to_json_all(g_manager)
 
-    await excel_to_server(g_manager)
-
-    if g_manager.is_modified():
-        g_manager.push()
-    g_manager.destroy()
+        task.done()
 
 
 async def excel_to_data_from_webhook(webhook: dict = None):
@@ -227,11 +234,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
 
 
 async def excel_to_data_modified(g_manager: GitManager):
-    modified_list = g_manager.get_modified_excel()
-    if len(modified_list) == 0:
-        g_manager.destroy()
-        return
-    excel_to_json(ConvertType.ALL, g_manager)
+    excel_to_json_modified(ConvertType.ALL, g_manager)
     await excel_to_server(g_manager)
 
 
@@ -351,11 +354,14 @@ async def migrate(branch: str, is_admin: bool = False):
         g_manager.destroy()
         return
 
-    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    prisma.migrate(MigrateType.FORCE, branch)
-    await data_to_db(g_manager, prisma)
-    await tag_to_db(g_manager, prisma)
-    g_manager.destroy()
+    db_task = TaskManager(TaskType.MIGRATE_DB, branch=branch)
+    if db_task.start():
+        prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+        prisma.migrate(MigrateType.FORCE, branch)
+        await data_to_db(g_manager, prisma)
+        await tag_to_db(g_manager, prisma)
+        g_manager.destroy()
+        db_task.done()
 
 
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
@@ -370,6 +376,50 @@ async def tag_to_db(g_manager: GitManager, p_manager: PrismaManager):
     if len(res_info.keys()) > 0:
         await p_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
     await p_manager.destory()
+
+
+async def check(branch: str):
+    task = TaskManager(TaskType.SCHEDULER)
+    if not task.load_task():
+        return
+    pass
+
+
+async def scheduler():
+    await asyncio.sleep(1)
+    job_task = TaskManager(TaskType.SCHEDULER)
+    if not job_task.load_task():
+        job_task.splog.info("대기열에 작업이 없습니다.")
+        return
+    task = job_task.pop_task()
+    if task is None:
+        return
+    task_type = next(iter(task))
+    _task_val = next(iter(task.values()))
+    task_branch = next(iter(_task_val))
+    task_tag = list(_task_val.values())[0]
+
+    if task_type == TaskType.EXCEL:
+        excel_task = TaskManager(TaskType.EXCEL, branch=task_branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=task_branch)
+        if not g_manager.checkout():
+            g_manager.destroy()
+            return
+        await excel_to_data_modified(g_manager)
+        return
+
+    if task_type == TaskType.EXCEL_TAG:
+        tag_task = TaskManager(TaskType.EXCEL_TAG, branch=task_branch, tag=task_tag)
+        g_manager = GitManager(GitTarget.EXCEL, branch=task_branch, tag=task_tag)
+        if not g_manager.checkout():
+            g_manager.destroy()
+            return
+        await excel_to_data_taged(g_manager)
+        return
+
+    if task_type == TaskType.MIGRATE_DB:
+        db_task = TaskManager(TaskType.MIGRATE_DB, branch=task_branch)
+        await migrate(task_branch)
 
 
 async def test(branch: str):
@@ -401,9 +451,8 @@ async def test(branch: str):
             "modified": []
         }
     }
+
     g_manager = GitManager(GitTarget.EXCEL, branch)
-    # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
-    # 68b29979e9...c2169e96fd
     if not g_manager.checkout():
         g_manager.destroy()
         return
@@ -411,53 +460,21 @@ async def test(branch: str):
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
     # markdown_to_script(g_manager, gc_manager)
-    task = TaskManager(TaskType.EXCEL, g_manager)
-    if task.start():
-
-        gc_manager = GitManager(GitTarget.CLIENT, branch)
-        # http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/68b29979e9
-        # 68b29979e9...c2169e96fd
-        if not gc_manager.checkout():
-            gc_manager.destroy()
-            return
-
-        await migrate(branch)
-        # prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-        # await tag_to_db(g_manager, prisma)
-
-        task.done()
-
-
-async def check(branch: str):
-    task = TaskManager(TaskType.SCHEDULER)
-    if not task.load_task():
-        return
-    pass
-
-
-async def scheduler(branch: str):
-    task = TaskManager(TaskType.SCHEDULER)
-    if not task.load_task():
-        task.splog.info("대기열에 작업이 없습니다.")
-        return
-    if task.start():
-        await asyncio.sleep(5)
-        task.done()
-
-    # g_manager = GitManager(GitTarget.EXCEL, branch)
-    # if not g_manager.checkout(branch):
-    #     g_manager.destroy()
-    #
-
-    # excel_to_json_all(g_manager)
-
-    # d_manager.save_json_task.remote(path)
-
-    # ray.gett(d_manager.excel_to_json.remote(d_manager.get_excelpath_all.remote()))
+    # task = TaskManager(TaskType.EXCEL, g_manager)
+    # task.init(g_manager)
+    # gc_manager = GitManager(GitTarget.CLIENT, branch)
+    # if not gc_manager.checkout():
+    #     gc_manager.destroy()
+    #     return
+    # await excel_to_data_modified(g_manager)
+    # markdown_to_script(g_manager, gc_manager)
+    # gc_manager.push()
+    # await migrate(branch)
+    # print(task.pop_task())
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test_cg'
+    branch = 'test'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
@@ -483,6 +500,6 @@ if __name__ == '__main__' or __name__ == "decimal":
     # ray.init(num_cpus=4, ignore_reinit_error=True)
     # cProfile.run('test(branch)', 'result.prof')
     # test(branch)
-    asyncio.run(test(branch))
+    asyncio.run(scheduler())
     # ray.shutdown()
     pass

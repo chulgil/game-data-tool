@@ -871,8 +871,7 @@ class DataManager:
 
     def delete_path(self, paths: list):
         for path in paths:
-            if Path(path.parent).is_dir():
-                shutil.rmtree(self.PATH_FOR_JSON)
+            shutil.rmtree(path, ignore_errors=True)
 
     def delete_json_all(self):
         if self.CONVERT_TYPE is not ConvertType.ALL:

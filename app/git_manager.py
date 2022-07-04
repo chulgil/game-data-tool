@@ -345,7 +345,7 @@ class GitManager:
             data[i] = str(data[i]).replace('/data', '/json')
         return data
 
-    def get_modified_excel(self, head_cnt=5) -> list:
+    def get_modified_excel(self, head_cnt=2) -> list:
         """과거 이력중 엑셀파일 경로만 추출
         """
         data = []
@@ -476,14 +476,14 @@ class GitManager:
         if len(_del_files) > 0:
             self.splog.add_info('삭제 파일 리스트 ')
             self.splog.add_info(_del_files)
-            is_changed = True
+            # is_changed = True # 삭제시 알람만 실행
         # 마지막 태그 기준으로 추가된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('D')
         _add_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_add_files) > 0:
             self.splog.add_info('추가 파일 리스트 ')
             self.splog.add_info(_add_files)
-            is_changed = True
+            # is_changed = True # 추가시 알람만 실행
 
         # 마지막 태그 기준으로 수정된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('M')
@@ -507,7 +507,7 @@ class GitManager:
             if not is_changed:
                 is_changed = diff['is_changed']
         if len(diffs) > 0:
-            self.splog.add_info(diffs)
+            self.splog.add_warning(diffs)
         return is_changed
 
     def diff_schema(self, path: str, old_schema: dict, new_schema: dict) -> dict:
@@ -541,9 +541,10 @@ class GitManager:
                     if v1[x][y] != v2[x][y]:
                         old = 'null' if v1[x][y] == '' else v1[x][y]
                         new = 'null' if v2[x][y] == '' else v2[x][y]
-                        res['info'].append(f'[{info[y]}:{v2[x][0]}] {old} -> {new}')
-                        if y == 0:  # 데이터 필드 값이 변경된경우
+                        if y == 0:  # 데이터 필드 값이 변경된 경우만
                             res['is_changed'] = True
+                        if y < 3:  # 주석 이외의 값이 변경된 경우만
+                            res['info'].append(f'[{info[y]}:{v2[x][0]}] {old} -> {new}')
 
         except Exception as e:
             self.splog.error(f"스키마 비교 Error : {path} \r {str(e)}")
