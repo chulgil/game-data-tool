@@ -474,7 +474,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'test_my'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
 
@@ -494,12 +494,12 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(excel_to_data_all_from_branch(branch))
+    asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # ray.init(num_cpus=4, ignore_reinit_error=True)
     # cProfile.run('test(branch)', 'result.prof')
     # test(branch)
-    asyncio.run(scheduler())
+    # asyncio.run(scheduler())
     # ray.shutdown()
     pass

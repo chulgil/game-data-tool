@@ -36,6 +36,7 @@ class TaskManager:
         self.NEW_TAG = tag
         self.SCHEDULER_TASK = False
         self.TASK_TYPE = task_type
+        self.OVERTIME = 120  # 작업시간이 3분 초과한경우
         if task_type == TaskType.SCHEDULER:
             self.SCHEDULER_TASK = True
             self.load_task()
@@ -114,8 +115,11 @@ class TaskManager:
         return config['working'][self._br()]
 
     def _load_config(self):
-        with open(self.PATH_FOR_SCHEDULER, 'r') as f:
-            config = yaml.safe_load(f)
+        try:
+            with open(self.PATH_FOR_SCHEDULER, 'r') as f:
+                config = yaml.safe_load(f)
+        except Exception as e:
+            return None
         return config
 
     def _save_config(self, config: dict):
@@ -132,8 +136,8 @@ class TaskManager:
         except Exception as e:
             overtime = 9999
 
-        # 2분 이상 지난경우 초기화
-        if overtime > 120:
+        # 설정 분 이상 지난경우 초기화
+        if overtime > self.OVERTIME:
             work[self._br()] = None
         self._save_config(config)
 
