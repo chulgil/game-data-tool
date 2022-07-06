@@ -563,7 +563,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate(branch))
     # asyncio.run(excel_to_data_all_from_tag('v0.5.1'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    asyncio.run(excel_to_data_modified_all(branch))
+    # asyncio.run(excel_to_data_modified_all(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(scheduler())
 

@@ -1,8 +1,6 @@
 from datetime import datetime
 from enum import auto, Enum
 from pathlib import Path
-from pprint import pprint
-from time import time, sleep
 from typing import Optional
 
 import yaml
@@ -109,8 +107,7 @@ class TaskManager:
         return False
 
     def is_locked(self):
-        config = self._load_config()
-        self._set_overtime(config)
+        self._save_overtime()
         config = self._load_config()
         return config['working'][self._br()]
 
@@ -118,7 +115,7 @@ class TaskManager:
         try:
             with open(self.PATH_FOR_SCHEDULER, 'r') as f:
                 config = yaml.safe_load(f)
-        except Exception as e:
+        except Exception:
             return None
         return config
 
@@ -126,14 +123,14 @@ class TaskManager:
         with open(self.PATH_FOR_SCHEDULER, 'w') as f:
             yaml.dump(config, f)
 
-    def _set_overtime(self, config: dict):
+    def _save_overtime(self):
         config = self._load_config()
         work = config['working']
         try:
             started = datetime.fromisoformat(str(work[self._br()]))
             overtime = datetime.now() - started
             overtime = overtime.seconds
-        except Exception as e:
+        except Exception:
             overtime = 9999
 
         # 설정 분 이상 지난경우 초기화
