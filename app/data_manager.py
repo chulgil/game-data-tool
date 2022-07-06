@@ -832,14 +832,22 @@ class DataManager:
             if _etype == '' and _ename == '' and _edesc == '':
                 continue
 
+            # if self.is_camel_case(_etype):
+            #     self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수타입을 스네이크 형식으로 변경해주세요. {_etype}')
+            #     continue
+
             if _etype == '':
-                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 타입 누락 {_etype}')
+                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수타입 누락 {_etype}')
                 continue
             if _ename == '':
                 self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수명 누락 {_ename}')
                 continue
             res.append((_etype, _ename, _edesc))
         return res
+
+    @staticmethod
+    def is_camel_case(s: str):
+        return s != s.lower() and s != s.upper() and "_" not in s
 
     def get_jsonmap(self, target: ConvertType = None) -> dict:
         """

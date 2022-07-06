@@ -46,7 +46,7 @@ async def update_table(branch: str, convert_type: ConvertType):
 
     if db_task.start():
         # Git 초기화 및 다운로드
-        g_manager = GitManager(GitTarget.EXCEL, branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
 
         # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
@@ -149,7 +149,7 @@ async def excel_to_data_all_from_branch(branch: str):
     @param branch: Git브랜치
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL, branch)
+    g_manager = GitManager(GitTarget.EXCEL, branch=branch)
 
     task = TaskManager(TaskType.EXCEL, branch)
     task.init(g_manager)
@@ -254,7 +254,7 @@ async def excel_to_data_taged(g_manager: GitManager):
     db_task = TaskManager(TaskType.EXCEL_TAG, branch=g_manager.BRANCH)
     if db_task.start():
 
-        gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
+        gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
         if not gc_manager.checkout():
             gc_manager.destroy()
             return
@@ -280,7 +280,7 @@ async def excel_to_data_all_from_tag(tag: str):
         g_manager.destroy()
         return
     await excel_to_data_taged(g_manager)
-    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
+    gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
         return
@@ -318,7 +318,7 @@ def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
 
 
 async def excel_to_server(g_manager: GitManager):
-    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
+    gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
         return
@@ -363,7 +363,7 @@ async def migrate(branch: str, is_admin: bool = False):
     @return:
     """
     # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL, branch)
+    g_manager = GitManager(GitTarget.EXCEL, branch=branch)
     if is_admin:
         g_manager.set_admin()
 
@@ -441,103 +441,58 @@ async def scheduler():
 
 
 async def test(branch: str):
-    webhook = {'ref': 'refs/heads/test_cg', 'before': 'c993fb440425f46a1b382e78bc7f969ea4ba602f',
-               'after': 'b11ad53f806660152ea855c33bd0ede6d59cc855',
-               'compare_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/c993fb440425f46a1b382e78bc7f969ea4ba602f...b11ad53f806660152ea855c33bd0ede6d59cc855',
-               'commits': [{'id': 'b11ad53f806660152ea855c33bd0ede6d59cc855', 'message': '[서버/이철길] 테스트 데이터 추가\n',
-                            'url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/b11ad53f806660152ea855c33bd0ede6d59cc855',
-                            'author': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
-                            'committer': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
-                            'verification': None, 'timestamp': '2022-07-05T11:54:55+09:00', 'added': [], 'removed': [],
-                            'modified': ['excel/data/zone_data.xlsx']}],
-               'head_commit': {'id': 'b11ad53f806660152ea855c33bd0ede6d59cc855', 'message': '[서버/이철길] 테스트 데이터 추가\n',
-                               'url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/b11ad53f806660152ea855c33bd0ede6d59cc855',
-                               'author': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
-                               'committer': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
-                               'verification': None, 'timestamp': '2022-07-05T11:54:55+09:00', 'added': [],
-                               'removed': [],
-                               'modified': ['excel/data/zone_data.xlsx']}, 'repository': {'id': 8, 'owner': {'id': 2,
-                                                                                                             'login': 'SPTeam',
-                                                                                                             'full_name': '',
-                                                                                                             'email': '',
-                                                                                                             'avatar_url': 'http://local.sp.snowpipe.net:3000/avatars/0b4e480645d9e5c45dfdf455829cd61d',
-                                                                                                             'language': '',
-                                                                                                             'is_admin': False,
-                                                                                                             'last_login': '0001-01-01T00:00:00Z',
-                                                                                                             'created': '2022-04-25T15:47:09+09:00',
-                                                                                                             'restricted': False,
-                                                                                                             'active': False,
-                                                                                                             'prohibit_login': False,
-                                                                                                             'location': '',
-                                                                                                             'website': '',
-                                                                                                             'description': '',
-                                                                                                             'visibility': 'limited',
-                                                                                                             'followers_count': 0,
-                                                                                                             'following_count': 0,
-                                                                                                             'starred_repos_count': 0,
-                                                                                                             'username': 'SPTeam'},
-                                                                                          'name': 'data-for-designer',
-                                                                                          'full_name': 'SPTeam/data-for-designer',
-                                                                                          'description': '',
-                                                                                          'empty': False,
-                                                                                          'private': False,
-                                                                                          'fork': False,
-                                                                                          'template': False,
-                                                                                          'parent': None,
-                                                                                          'mirror': False,
-                                                                                          'size': 86516,
-                                                                                          'html_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer',
-                                                                                          'ssh_url': 'ssh://git@local.sp.snowpipe.net:222/SPTeam/data-for-designer.git',
-                                                                                          'clone_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer.git',
-                                                                                          'original_url': '',
-                                                                                          'website': '',
-                                                                                          'stars_count': 0,
-                                                                                          'forks_count': 0,
-                                                                                          'watchers_count': 23,
-                                                                                          'open_issues_count': 0,
-                                                                                          'open_pr_counter': 0,
-                                                                                          'release_counter': 0,
-                                                                                          'default_branch': 'main',
-                                                                                          'archived': False,
-                                                                                          'created_at': '2022-04-25T21:09:48+09:00',
-                                                                                          'updated_at': '2022-07-04T20:49:43+09:00',
-                                                                                          'permissions': {'admin': True,
-                                                                                                          'push': True,
-                                                                                                          'pull': True},
-                                                                                          'has_issues': True,
-                                                                                          'internal_tracker': {
-                                                                                              'enable_time_tracker': True,
-                                                                                              'allow_only_contributors_to_track_time': True,
-                                                                                              'enable_issue_dependencies': True},
-                                                                                          'has_wiki': True,
-                                                                                          'has_pull_requests': True,
-                                                                                          'has_projects': True,
-                                                                                          'ignore_whitespace_conflicts': True,
-                                                                                          'allow_merge_commits': True,
-                                                                                          'allow_rebase': True,
-                                                                                          'allow_rebase_explicit': True,
-                                                                                          'allow_squash_merge': True,
-                                                                                          'default_merge_style': 'merge',
-                                                                                          'avatar_url': 'http://local.sp.snowpipe.net:3000/repo-avatars/8-d9bb3e12bc1348e1106d08357fe1e0dd',
-                                                                                          'internal': False,
-                                                                                          'mirror_interval': '',
-                                                                                          'mirror_updated': '0001-01-01T00:00:00Z',
-                                                                                          'repo_transfer': None},
-               'pusher': {'id': 1, 'login': 'CGLee', 'full_name': '[서버] 이철길', 'email': 'cglee@snowpipe.co.kr',
-                          'avatar_url': 'http://local.sp.snowpipe.net:3000/avatar/72952e4475064e0b3582bf23cd38834f',
-                          'language': '', 'is_admin': False, 'last_login': '0001-01-01T00:00:00Z',
-                          'created': '2022-04-25T15:20:04+09:00', 'restricted': False, 'active': False,
-                          'prohibit_login': False, 'location': '', 'website': '', 'description': '[서버] 이철길',
-                          'visibility': 'public', 'followers_count': 0, 'following_count': 0, 'starred_repos_count': 0,
-                          'username': 'CGLee'},
-               'sender': {'id': 1, 'login': 'CGLee', 'full_name': '[서버] 이철길', 'email': 'cglee@snowpipe.co.kr',
-                          'avatar_url': 'http://local.sp.snowpipe.net:3000/avatar/72952e4475064e0b3582bf23cd38834f',
-                          'language': '', 'is_admin': False, 'last_login': '0001-01-01T00:00:00Z',
-                          'created': '2022-04-25T15:20:04+09:00', 'restricted': False, 'active': False,
-                          'prohibit_login': False, 'location': '', 'website': '', 'description': '[서버] 이철길',
-                          'visibility': 'public', 'followers_count': 0, 'following_count': 0, 'starred_repos_count': 0,
-                          'username': 'CGLee'}}
-
+    webhook = {
+        "ref": "refs/heads/main",
+        "before": "888e4ccfe67945c569ba40475c1e30ac36cb3dbd",
+        "after": "4ece64f031ce766e11bba31b38cb075d9f541d01",
+        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/888e4ccfe67945c569ba40475c1e30ac36cb3dbd...4ece64f031ce766e11bba31b38cb075d9f541d01",
+        "commits": [
+            {
+                "id": "4ece64f031ce766e11bba31b38cb075d9f541d01",
+                "message": "[서버/이철길] MigrateShelter 마크다운 수정\n",
+                "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/4ece64f031ce766e11bba31b38cb075d9f541d01",
+                "author": {
+                    "name": "CGLee",
+                    "email": "cglee@snowpipe.co.kr",
+                    "username": "CGLee"
+                },
+                "committer": {
+                    "name": "CGLee",
+                    "email": "cglee@snowpipe.co.kr",
+                    "username": "CGLee"
+                },
+                "verification": None,
+                "timestamp": "2022-07-06T10:27:00+09:00",
+                "added": [],
+                "removed": [],
+                "modified": [
+                    "server/protocol/gameserver/delete/shelter.md"
+                ]
+            }
+        ],
+        "head_commit": {
+            "id": "4ece64f031ce766e11bba31b38cb075d9f541d01",
+            "message": "[서버/이철길] MigrateShelter 마크다운 수정\n",
+            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/4ece64f031ce766e11bba31b38cb075d9f541d01",
+            "author": {
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
+            },
+            "committer": {
+                "name": "CGLee",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
+            },
+            "verification": None,
+            "timestamp": "2022-07-06T10:27:00+09:00",
+            "added": [],
+            "removed": [],
+            "modified": [
+                "server/protocol/gameserver/delete/shelter.md"
+            ]
+        }
+    }
     await excel_to_data_from_webhook(webhook)
 
     # pprint(g_manager.get_deleted_json())
@@ -563,8 +518,8 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(migrate(branch))
     # asyncio.run(excel_to_data_all_from_tag('v0.5.1'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    # asyncio.run(excel_to_data_modified_all(branch))
+    asyncio.run(excel_to_data_modified_all(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(scheduler())
+    # asyncio.run(test(branch))
 
     pass
