@@ -105,7 +105,7 @@ def excel_to_entity(g_manager: GitManager, gc_manager: GitManager):
 
 def excel_to_enum(g_manager: GitManager, gc_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 Enum 스크립트 변환을 진행합니다.")
-    d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
+    d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
     c_manager.save_enum(d_manager.get_enum_data())
 
@@ -330,7 +330,6 @@ async def excel_to_server(g_manager: GitManager):
         msg = 'Enum 데이터에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         g_manager.splog.add_warning(msg)
         g_manager.splog.send_developer()
-        g_manager.splog.send_designer(msg)
 
     if g_manager.is_modified_excel_column():
         g_manager.splog.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
@@ -346,8 +345,9 @@ async def excel_to_server(g_manager: GitManager):
         if g_manager.LAST_MODIFIED:
             g_manager.splog.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
             data_to_client_data(g_manager, gc_manager)
-            await data_to_db(g_manager)
-            await tag_to_db(g_manager)
+            prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+            await data_to_db(g_manager, prisma)
+            await tag_to_db(g_manager, prisma)
 
     if gc_manager.is_modified():
         gc_manager.push()
@@ -493,6 +493,7 @@ async def test(branch: str):
             ]
         }
     }
+
     await excel_to_data_from_webhook(webhook)
 
     # pprint(g_manager.get_deleted_json())
@@ -512,14 +513,16 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'main'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
     # asyncio.run(excel_to_data_all_from_tag('v0.5.1'))
-    # asyncio.run(excel_to_data_all_from_branch(branch))
     asyncio.run(excel_to_data_modified_all(branch))
+    # asyncio.run(excel_to_data_all_from_branch(branch))
+    # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(test(branch))
+    # sync_prisma(branch)
 
     pass

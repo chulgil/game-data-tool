@@ -72,10 +72,8 @@ class PrismaManager:
 
             os.chdir(self.PATH_FOR_SAVE_DIR)
 
-            from prisma_cleanup import cleanup
-            cleanup()
             data_schema = self._get_schema_path(DBType.DATA_DB)
-            res = run([f'prisma db pull --schema={data_schema}'], shell=True)
+            # res = run([f'prisma db pull --schema={data_schema}'], shell=True)
             res = run([f'prisma generate --schema={data_schema}'], shell=True)
 
             info_schema = self._get_schema_path(DBType.INFO_DB)
