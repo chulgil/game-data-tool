@@ -66,10 +66,10 @@ class GitManager:
         self.PATH_FOR_WORKING = None
         self.PATH_FOR_WORKING_TAG = None
         self.PATH_FOR_BRANCH_CONFIG = None
-        self._set_working_target()
 
         from . import LogManager
         self.splog = LogManager(self.BRANCH)
+        self._set_working_target()
         self._init_git()
 
     def _set_config(self, config):
