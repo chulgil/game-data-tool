@@ -40,25 +40,25 @@ def sync_prisma(branch: str):
 
 
 async def update_table(branch: str, convert_type: ConvertType):
-    # Git 초기화 및 다운로드
-    g_manager = GitManager(GitTarget.EXCEL, branch)
+    db_task = TaskManager(TaskType.UPDATE_TB_DATA, branch=branch)
+    if convert_type == ConvertType.INFO:
+        db_task = TaskManager(TaskType.UPDATE_TB_INFO, branch=branch)
 
-    # 체크아웃 성공시에만 진행
-    if not g_manager.checkout():
-        g_manager.destroy()
-        return
+    if db_task.start():
+        # Git 초기화 및 다운로드
+        g_manager = GitManager(GitTarget.EXCEL, branch)
 
-    prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-    prisma.init_schema()
+        # 체크아웃 성공시에만 진행
+        if not g_manager.checkout():
+            g_manager.destroy()
+            return
 
-    # 변환된 Json파일을 디비로 저장
-    b_manager = DBManager(branch, g_manager.PATH_FOR_WORKING)
-    d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
-    json_map = d_manager.get_jsonmap()
-    await b_manager.restore_all_table(json_map)
-    res_info = g_manager.get_client_resource_from_branch()
-    if len(res_info.keys()) > 0:
-        await b_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
+        prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+        d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
+        await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
+        await prisma.destory()
+        await tag_to_db(g_manager, prisma)
+        db_task.done()
 
 
 def excel_to_json_all(g_manager: GitManager):
@@ -120,8 +120,8 @@ def excel_to_schema(g_manager: GitManager):
     # 프리즈마 초기화
     p_manager = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
-    table_info = d_manager.get_schema_all()
-    p_manager.save(table_info)
+    data_table = d_manager.get_schema_all(ConvertType.SERVER)
+    p_manager.save(data_table, DBType.DATA_DB)
 
 
 def markdown_to_script(g_manager: GitManager, gc_manager: GitManager):
@@ -201,7 +201,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         }
 
     """
-    g_manager = GitManager(GitTarget.EXCEL, '', webhook)
+    g_manager = GitManager(GitTarget.EXCEL, webhook=webhook)
     # # 체크아웃 성공시에만 진행
     if not webhook["head_commit"] or not g_manager.checkout():
         g_manager.destroy()
@@ -227,66 +227,82 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다. \n\n {message}")
         await excel_to_data_modified(g_manager)
 
-    # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
-    if g_manager.is_modified():
-        g_manager.push()
-    g_manager.destroy()
 
-
-async def excel_to_data_modified(g_manager: GitManager):
-    excel_to_json_modified(ConvertType.ALL, g_manager)
-    await excel_to_server(g_manager)
-
-
-#
-
-async def excel_to_data_taged(g_manager: GitManager):
-    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
-    gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
-    if not gc_manager.checkout():
-        gc_manager.destroy()
-        return
-    data_to_client_data(g_manager, gc_manager)
-    if gc_manager.is_modified():
-        gc_manager.push()
-    if g_manager.NEW_TAG != '':
-        gc_manager.push_tag_to_client(g_manager.NEW_TAG)
-    gc_manager.destroy()
-
-    prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
-    prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
-    await data_to_db(g_manager)
-    await tag_to_db(g_manager)
-
-
-async def excel_to_data_all_from_tag(tag: str):
-    g_manager = GitManager(GitTarget.EXCEL, tag=tag)
+async def excel_to_data_modified_all(branch: str):
+    g_manager = GitManager(GitTarget.EXCEL, branch=branch)
     if not g_manager.checkout():
         g_manager.destroy()
         return
+    await excel_to_data_modified(g_manager)
+
+
+async def excel_to_data_modified(g_manager: GitManager):
+    excel_task = TaskManager(TaskType.EXCEL, branch=g_manager.BRANCH)
+    if excel_task.start():
+        excel_to_json_modified(ConvertType.ALL, g_manager)
+        await excel_to_server(g_manager)
+        # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
+        if g_manager.is_modified():
+            g_manager.push()
+        g_manager.destroy()
+        excel_task.done()
+
+
+async def excel_to_data_taged(g_manager: GitManager):
+    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
+
+    db_task = TaskManager(TaskType.EXCEL_TAG, branch=g_manager.BRANCH)
+    if db_task.start():
+
+        gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
+        if not gc_manager.checkout():
+            gc_manager.destroy()
+            return
+        data_to_client_data(g_manager, gc_manager)
+        if gc_manager.is_modified():
+            gc_manager.push()
+        if g_manager.NEW_TAG != '':
+            gc_manager.push_tag_to_client(g_manager.NEW_TAG)
+        gc_manager.destroy()
+
+        prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+        prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
+        await data_to_db(g_manager, prisma)
+        await tag_to_db(g_manager, prisma)
+        if g_manager.is_modified():
+            g_manager.push()
+        db_task.done()
+
+
+async def excel_to_data_all_from_tag(tag: str):
+    g_manager = GitManager(GitTarget.EXCEL, branch='main', tag=tag)
+    if not g_manager.checkout():
+        g_manager.destroy()
+        return
+    await excel_to_data_taged(g_manager)
     gc_manager = GitManager(GitTarget.CLIENT, g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
         return
-    g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
-    g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
-
-    excel_to_json_all(g_manager)
-    excel_to_schema(g_manager)
-    excel_to_entity(g_manager, gc_manager)
-    excel_to_enum(g_manager, gc_manager)
-    data_to_client_data(g_manager, gc_manager)
-    if gc_manager.is_modified():
-        gc_manager.push()
-        gc_manager.destroy()
-    if g_manager.is_modified():
-        g_manager.push()
-
-    prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
-    prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
-    await data_to_db(g_manager)
-    await tag_to_db(g_manager)
-    g_manager.destroy()
+    # g_manager.GIT_PUSH_MSG = f'{g_manager.GIT_PUSH_MSG} API 호출로 인한 EXCEL전체 변환'
+    # g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 EXCEL 전체 변환을 시작합니다.")
+    #
+    # excel_to_json_all(g_manager)
+    # excel_to_schema(g_manager)
+    # excel_to_entity(g_manager, gc_manager)
+    # excel_to_enum(g_manager, gc_manager)
+    # data_to_client_data(g_manager, gc_manager)
+    # if gc_manager.is_modified():
+    #     gc_manager.push()
+    #     gc_manager.destroy()
+    # if g_manager.is_modified():
+    #     g_manager.push()
+    #
+    # prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+    # prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
+    # await data_to_db(g_manager, prisma)
+    # await tag_to_db(g_manager, prisma)
+    # g_manager.destroy()
 
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
@@ -306,6 +322,8 @@ async def excel_to_server(g_manager: GitManager):
     if not gc_manager.checkout():
         gc_manager.destroy()
         return
+
+    markdown_to_script(g_manager, gc_manager)
 
     if g_manager.is_modified_excel_enum():
         excel_to_enum(g_manager, gc_manager)
@@ -423,39 +441,104 @@ async def scheduler():
 
 
 async def test(branch: str):
-    webhook = {
-        "ref": "refs/heads/test",
-        "before": "e45dc281b4be424170805af14061fd7f5d7cd390",
-        "after": "31595d218be9a9fe1dae3b6b244fa107f56d8aac",
-        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/e45dc281b4be424170805af14061fd7f5d7cd390...31595d218be9a9fe1dae3b6b244fa107f56d8aac",
-        "head_commit": {
-            "id": "31595d218be9a9fe1dae3b6b244fa107f56d8aac",
-            "message": "[서버/이철길] 불필요 서버파일 삭제\n",
-            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/31595d218be9a9fe1dae3b6b244fa107f56d8aac",
-            "author": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
-            },
-            "committer": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
-            },
-            "verification": None,
-            "timestamp": "2022-06-22T12:09:28+09:00",
-            "added": [],
-            "removed": [
-                "excel/data/info/user_data.xlsx"
-            ],
-            "modified": []
-        }
-    }
+    webhook = {'ref': 'refs/heads/test_cg', 'before': 'c993fb440425f46a1b382e78bc7f969ea4ba602f',
+               'after': 'b11ad53f806660152ea855c33bd0ede6d59cc855',
+               'compare_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/c993fb440425f46a1b382e78bc7f969ea4ba602f...b11ad53f806660152ea855c33bd0ede6d59cc855',
+               'commits': [{'id': 'b11ad53f806660152ea855c33bd0ede6d59cc855', 'message': '[서버/이철길] 테스트 데이터 추가\n',
+                            'url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/b11ad53f806660152ea855c33bd0ede6d59cc855',
+                            'author': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
+                            'committer': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
+                            'verification': None, 'timestamp': '2022-07-05T11:54:55+09:00', 'added': [], 'removed': [],
+                            'modified': ['excel/data/zone_data.xlsx']}],
+               'head_commit': {'id': 'b11ad53f806660152ea855c33bd0ede6d59cc855', 'message': '[서버/이철길] 테스트 데이터 추가\n',
+                               'url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/b11ad53f806660152ea855c33bd0ede6d59cc855',
+                               'author': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
+                               'committer': {'name': 'CGLee', 'email': 'cglee@snowpipe.co.kr', 'username': 'CGLee'},
+                               'verification': None, 'timestamp': '2022-07-05T11:54:55+09:00', 'added': [],
+                               'removed': [],
+                               'modified': ['excel/data/zone_data.xlsx']}, 'repository': {'id': 8, 'owner': {'id': 2,
+                                                                                                             'login': 'SPTeam',
+                                                                                                             'full_name': '',
+                                                                                                             'email': '',
+                                                                                                             'avatar_url': 'http://local.sp.snowpipe.net:3000/avatars/0b4e480645d9e5c45dfdf455829cd61d',
+                                                                                                             'language': '',
+                                                                                                             'is_admin': False,
+                                                                                                             'last_login': '0001-01-01T00:00:00Z',
+                                                                                                             'created': '2022-04-25T15:47:09+09:00',
+                                                                                                             'restricted': False,
+                                                                                                             'active': False,
+                                                                                                             'prohibit_login': False,
+                                                                                                             'location': '',
+                                                                                                             'website': '',
+                                                                                                             'description': '',
+                                                                                                             'visibility': 'limited',
+                                                                                                             'followers_count': 0,
+                                                                                                             'following_count': 0,
+                                                                                                             'starred_repos_count': 0,
+                                                                                                             'username': 'SPTeam'},
+                                                                                          'name': 'data-for-designer',
+                                                                                          'full_name': 'SPTeam/data-for-designer',
+                                                                                          'description': '',
+                                                                                          'empty': False,
+                                                                                          'private': False,
+                                                                                          'fork': False,
+                                                                                          'template': False,
+                                                                                          'parent': None,
+                                                                                          'mirror': False,
+                                                                                          'size': 86516,
+                                                                                          'html_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer',
+                                                                                          'ssh_url': 'ssh://git@local.sp.snowpipe.net:222/SPTeam/data-for-designer.git',
+                                                                                          'clone_url': 'http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer.git',
+                                                                                          'original_url': '',
+                                                                                          'website': '',
+                                                                                          'stars_count': 0,
+                                                                                          'forks_count': 0,
+                                                                                          'watchers_count': 23,
+                                                                                          'open_issues_count': 0,
+                                                                                          'open_pr_counter': 0,
+                                                                                          'release_counter': 0,
+                                                                                          'default_branch': 'main',
+                                                                                          'archived': False,
+                                                                                          'created_at': '2022-04-25T21:09:48+09:00',
+                                                                                          'updated_at': '2022-07-04T20:49:43+09:00',
+                                                                                          'permissions': {'admin': True,
+                                                                                                          'push': True,
+                                                                                                          'pull': True},
+                                                                                          'has_issues': True,
+                                                                                          'internal_tracker': {
+                                                                                              'enable_time_tracker': True,
+                                                                                              'allow_only_contributors_to_track_time': True,
+                                                                                              'enable_issue_dependencies': True},
+                                                                                          'has_wiki': True,
+                                                                                          'has_pull_requests': True,
+                                                                                          'has_projects': True,
+                                                                                          'ignore_whitespace_conflicts': True,
+                                                                                          'allow_merge_commits': True,
+                                                                                          'allow_rebase': True,
+                                                                                          'allow_rebase_explicit': True,
+                                                                                          'allow_squash_merge': True,
+                                                                                          'default_merge_style': 'merge',
+                                                                                          'avatar_url': 'http://local.sp.snowpipe.net:3000/repo-avatars/8-d9bb3e12bc1348e1106d08357fe1e0dd',
+                                                                                          'internal': False,
+                                                                                          'mirror_interval': '',
+                                                                                          'mirror_updated': '0001-01-01T00:00:00Z',
+                                                                                          'repo_transfer': None},
+               'pusher': {'id': 1, 'login': 'CGLee', 'full_name': '[서버] 이철길', 'email': 'cglee@snowpipe.co.kr',
+                          'avatar_url': 'http://local.sp.snowpipe.net:3000/avatar/72952e4475064e0b3582bf23cd38834f',
+                          'language': '', 'is_admin': False, 'last_login': '0001-01-01T00:00:00Z',
+                          'created': '2022-04-25T15:20:04+09:00', 'restricted': False, 'active': False,
+                          'prohibit_login': False, 'location': '', 'website': '', 'description': '[서버] 이철길',
+                          'visibility': 'public', 'followers_count': 0, 'following_count': 0, 'starred_repos_count': 0,
+                          'username': 'CGLee'},
+               'sender': {'id': 1, 'login': 'CGLee', 'full_name': '[서버] 이철길', 'email': 'cglee@snowpipe.co.kr',
+                          'avatar_url': 'http://local.sp.snowpipe.net:3000/avatar/72952e4475064e0b3582bf23cd38834f',
+                          'language': '', 'is_admin': False, 'last_login': '0001-01-01T00:00:00Z',
+                          'created': '2022-04-25T15:20:04+09:00', 'restricted': False, 'active': False,
+                          'prohibit_login': False, 'location': '', 'website': '', 'description': '[서버] 이철길',
+                          'visibility': 'public', 'followers_count': 0, 'following_count': 0, 'starred_repos_count': 0,
+                          'username': 'CGLee'}}
 
-    g_manager = GitManager(GitTarget.EXCEL, branch)
-    if not g_manager.checkout():
-        g_manager.destroy()
-        return
+    await excel_to_data_from_webhook(webhook)
 
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
@@ -474,32 +557,14 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test_my'
+    branch = 'main'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
-
-    # else:
-    #     d_manager = DataManager(branch, ServerType.CLIENT, g_manager.PATH_FOR_WORKING)
-    #     g_manager = GitManager(GitTarget.CLIENT)
-    #     # 체크아웃 성공시에만 진행
-    #     c_manager = CSharpManager(branch, 'commit_test', g_manager.PATH_FOR_WORKING)
-    #     d_manager.get_enum_data()
-    # For test
-    # asyncio.run(excel_to_data_modified('test'))
-    # asyncio.run(migrate('test'))
-    # asyncio.run(excel_to_data_all_from_tag('v0.5.2_test_cg'))
-
-    # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(excel_to_data_all_from_branch(branch))
-
     # asyncio.run(migrate(branch))
-    # asyncio.run(update_table(branch, ConvertType.ALL))
-    asyncio.run(excel_to_data_all_from_branch(branch))
-    # asyncio.run(update_table(branch, ConvertType.ALL))
+    # asyncio.run(excel_to_data_all_from_tag('v0.5.1'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    # ray.init(num_cpus=4, ignore_reinit_error=True)
-    # cProfile.run('test(branch)', 'result.prof')
-    # test(branch)
+    asyncio.run(excel_to_data_modified_all(branch))
+    # asyncio.run(update_table(branch, ConvertType.ALL))
     # asyncio.run(scheduler())
-    # ray.shutdown()
+
     pass

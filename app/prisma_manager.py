@@ -51,7 +51,10 @@ class PrismaManager:
             self.splog.warning(f'CONFIG DATABASE[INFO_DB] 가 존재하지 않습니다.')
             return
         self.PATH_FOR_SAVE_DIR = self.PATH_FOR_ROOT.joinpath('prisma', user_type.name.lower(), branch)
-        self.PATH_FOR_BASE_SCHEMA = load_dir.joinpath(self.config['DEFAULT']['EXPORT_DIR'], 'prisma', 'schema.prisma')
+        self.PATH_FOR_B_DATA_SCHEMA = load_dir.joinpath(self.config['DEFAULT']['EXPORT_DIR'], 'prisma',
+                                                        'data_schema.prisma')
+        self.PATH_FOR_B_INFO_SCHEMA = load_dir.joinpath(self.config['DEFAULT']['EXPORT_DIR'], 'prisma',
+                                                        'info_schema.prisma')
         self.PATH_FOR_DATA_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('data_schema.prisma')
         self.PATH_FOR_INFO_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('info_schema.prisma')
         self.PATH_FOR_DATA_SOURCE = self.PATH_FOR_SAVE_DIR.joinpath(DBType.DATA_DB.name.lower(), '__init__.py')
@@ -91,11 +94,16 @@ class PrismaManager:
     def init_schema(self) -> bool:
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
-            with open(self.PATH_FOR_BASE_SCHEMA, 'r') as f:
+            with open(self.PATH_FOR_B_DATA_SCHEMA, 'r') as f:
                 base_schema = f.read()
             data_schema = self._get_default_schema(DBType.DATA_DB) + base_schema
             with open(self.PATH_FOR_DATA_SCHEMA, 'w') as f:
                 f.write(data_schema)
+            # with open(self.PATH_FOR_B_INFO_SCHEMA, 'r') as f:
+            #     base_schema = f.read()
+            # data_schema = self._get_default_schema(DBType.DATA_DB) + base_schema
+            # with open(self.PATH_FOR_INFO_SCHEMA, 'w') as f:
+            #     f.write(data_schema)
             self.prisma_generate(DBType.DATA_DB)
 
             info_schema = self._get_default_schema(DBType.INFO_DB)
@@ -167,7 +175,7 @@ class PrismaManager:
         except Exception as e:
             self.splog.error(f'마이그레이션 Error: \n{str(e)}')
 
-    def save(self, table_info: dict):
+    def save(self, table_info: dict, db_type: DBType = DBType.DATA_DB):
         table_name = ''
         schema = ''
         for key in table_info.keys():
@@ -178,9 +186,14 @@ class PrismaManager:
                 self.splog.info(f'스키마 저장 완료: {table_name}')
                 schema = schema + new_schema
         try:
-            # 지정한 경로로 Prisma 스키마 파일 저장
-            with open(self.PATH_FOR_DATA_SCHEMA, "w", encoding='utf-8') as f:
-                f.write(schema)
+            if db_type == DBType.DATA_DB:
+                # 지정한 경로로 Prisma 스키마 파일 저장
+                with open(self.PATH_FOR_B_DATA_SCHEMA, "w", encoding='utf-8') as f:
+                    f.write(schema)
+            if db_type == DBType.INFO_DB:
+                # 지정한 경로로 Prisma 스키마 파일 저장
+                with open(self.PATH_FOR_B_INFO_SCHEMA, "w", encoding='utf-8') as f:
+                    f.write(schema)
         except Exception as e:
             self.splog.error(f'스키마 저장 Error: {table_name}\n{str(e)}')
 

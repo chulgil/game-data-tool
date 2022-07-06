@@ -153,6 +153,8 @@ class GitManager:
         return ''
 
     def _load_branch_from_tag(self):
+        self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
+        self._repo.git.checkout('-B', self.BRANCH)
         new_tag = self.NEW_TAG
         if new_tag == '':
             return
@@ -562,7 +564,7 @@ class GitManager:
             self._origin.push(f':refs/tags/{tag}')
         self.splog.info(f'TAG[{tag}]를 생성 합니다.')
         self._repo.create_tag(tag, message='Automatic tag "{0}"'.format(tag))
-        self._origin.push(self._repo.tags)
+        self._origin.push(tag)
 
     def set_admin(self):
         self.USER_TYPE = UserType.ADMIN

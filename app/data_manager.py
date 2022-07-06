@@ -907,8 +907,10 @@ class DataManager:
 
         if target == ConvertType.CLIENT:
             df = self._get_filtered_column(df, ['ALL', 'CLIENT'])
+        if target == ConvertType.INFO:
+            df = self._get_filtered_column(df, ['INFO'])
         if target == ConvertType.SERVER:
-            df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO'])
+            df = self._get_filtered_column(df, ['ALL', 'SERVER'])
         if target == ConvertType.ALL:
             df = self._get_filtered_column(df, ['ALL', 'SERVER', 'INFO', 'CLIENT'])
 
