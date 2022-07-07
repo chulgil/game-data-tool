@@ -82,10 +82,9 @@ def excel_to_json_modified(convert_type: ConvertType, g_manager: GitManager):
     @param g_manager: GitManager
     @return:
     """
-    branch = g_manager.BRANCH
     g_manager.splog.info(f"변경된 Excel로드후 Json변환을 진행합니다. [데이터 타입 : {convert_type.name}]")
 
-    d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
+    d_manager = DataManager(g_manager.BRANCH, convert_type, g_manager.PATH_FOR_WORKING)
     modified_excel = g_manager.get_modified_excel(5)
     # Excel로드후 Json변환
     d_manager.delete_path(g_manager.get_deleted_json())
@@ -251,7 +250,7 @@ async def excel_to_data_modified(g_manager: GitManager):
 async def excel_to_data_taged(g_manager: GitManager):
     g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
 
-    db_task = TaskManager(TaskType.EXCEL_TAG, branch=g_manager.BRANCH)
+    db_task = TaskManager(TaskType.EXCEL_TAG, branch=g_manager.BRANCH, tag=g_manager.NEW_TAG)
     if db_task.start():
 
         gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
@@ -277,6 +276,7 @@ async def excel_to_data_taged(g_manager: GitManager):
 async def excel_to_data_all_from_tag(tag: str):
     g_manager = GitManager(GitTarget.EXCEL, branch='main', tag=tag)
     if not g_manager.checkout():
+        print(g_manager.BRANCH)
         g_manager.destroy()
         return
     await excel_to_data_taged(g_manager)
@@ -505,7 +505,6 @@ async def test(branch: str):
     # if not gc_manager.checkout():
     #     gc_manager.destroy()
     #     return
-    # await excel_to_data_modified(g_manager)
     # markdown_to_script(g_manager, gc_manager)
     # gc_manager.push()
     # await migrate(branch)
@@ -517,8 +516,9 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
-    # asyncio.run(excel_to_data_all_from_tag('v0.5.1'))
-    asyncio.run(excel_to_data_modified_all(branch))
+
+    # asyncio.run(excel_to_data_all_from_tag('v0.5.1_test_cg'))
+    # asyncio.run(excel_to_data_modified_all(branch))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))

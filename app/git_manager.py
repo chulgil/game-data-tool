@@ -201,8 +201,11 @@ class GitManager:
 
             self._set_working_target()
             self._checkout()
-            self._checkout_base()
-            self._save_base_tag_to_branch()
+            if self.NEW_TAG != '':
+                self._save_base_tag_to_branch()
+            else:
+                self._checkout_base()
+
             self.info = self._brn()
             self.splog.PREFIX = self.info
             if self.BASE_TAG != '':
@@ -398,16 +401,20 @@ class GitManager:
         Branch에 있는 config.yaml파일로 부터 마지막 태그를 읽어들인다.
         :return:
         """
+        if self.GIT_TARGET != GitTarget.EXCEL:
+            return ''
         try:
+            config = {}
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
+                if config is None:
+                    config = {}
             if 'LAST_TAG' in config:
                 self.BASE_TAG = config['LAST_TAG']
                 return config['LAST_TAG']
-        except FileNotFoundError as e:
-            pass
         except Exception as e:
-            self.splog.warning(str(e))
+            print(e)
+            self.splog.info('TAG CONFIG가 없습니다.')
         return ''
 
     def _save_base_tag_to_branch(self):
@@ -419,11 +426,16 @@ class GitManager:
         try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
+            if config is None:
+                config = {}
+        except IOError as e:
+            pass
+        config['LAST_TAG'] = tag
+        try:
+            with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
+                yaml.dump(config, f)
         except IOError as e:
             self.splog.warning(str(e))
-        config['LAST_TAG'] = tag
-        with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
-            yaml.dump(config, f)
 
     def get_client_resource_from_branch(self) -> dict:
         try:
@@ -439,6 +451,8 @@ class GitManager:
         try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
+            if config is None:
+                config = {}
         except IOError as e:
             self.splog.warning(str(e))
 
