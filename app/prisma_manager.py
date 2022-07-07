@@ -68,7 +68,8 @@ class PrismaManager:
 
     def sync(self) -> bool:
         try:
-            self.init_schema()
+            if not self.init_schema():
+                return False
 
             os.chdir(self.PATH_FOR_SAVE_DIR)
 
@@ -90,20 +91,23 @@ class PrismaManager:
         return False
 
     def init_schema(self) -> bool:
+        base_schema = ''
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
             with open(self.PATH_FOR_B_DATA_SCHEMA, 'r') as f:
                 base_schema = f.read()
+        except IOError:
+            pass
+
+        try:
             data_schema = self._get_default_schema(DBType.DATA_DB) + base_schema
             with open(self.PATH_FOR_DATA_SCHEMA, 'w') as f:
                 f.write(data_schema)
-            # with open(self.PATH_FOR_B_INFO_SCHEMA, 'r') as f:
-            #     base_schema = f.read()
-            # data_schema = self._get_default_schema(DBType.DATA_DB) + base_schema
-            # with open(self.PATH_FOR_INFO_SCHEMA, 'w') as f:
-            #     f.write(data_schema)
-            self.prisma_generate(DBType.DATA_DB)
+        except IOError:
+            pass
 
+        try:
+            self.prisma_generate(DBType.DATA_DB)
             info_schema = self._get_default_schema(DBType.INFO_DB)
             with open(self.PATH_FOR_INFO_SCHEMA, 'w') as f:
                 f.write(info_schema)

@@ -195,11 +195,12 @@ async def excel_to_data_taged(tag: str):
 
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
-    d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-    f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
-    f_manager.send(d_manager.get_json())
-    g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
-    d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+    if g_manager.BASE_TAG != '':
+        d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
+        f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
+        f_manager.send(d_manager.get_json())
+        g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
+        d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -482,7 +483,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test_cg'
+    branch = 'test'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
@@ -494,7 +495,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
-    # sync_prisma(branch)
+    sync_prisma(branch)
     # markdown_to_script(branch)
 
     pass
