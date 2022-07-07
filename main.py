@@ -40,9 +40,10 @@ def sync_prisma(branch: str):
 
 
 async def update_table(branch: str, convert_type: ConvertType):
-    db_task = TaskManager(TaskType.UPDATE_TB_DATA, branch=branch)
     if convert_type == ConvertType.INFO:
-        db_task = TaskManager(TaskType.UPDATE_TB_INFO, branch=branch)
+        db_task = TaskManager(TaskType.UPDATE_INFO_DB, branch=branch)
+    else:
+        db_task = TaskManager(TaskType.UPDATE_DATA_DB, branch=branch)
 
     if db_task.start():
         # Git 초기화 및 다운로드
@@ -55,7 +56,11 @@ async def update_table(branch: str, convert_type: ConvertType):
 
         prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
         d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
-        await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
+        if convert_type == ConvertType.INFO:
+            await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
+        if convert_type == ConvertType.SERVER:
+            await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
+
         await prisma.destory()
         await tag_to_db(g_manager, prisma)
         db_task.done()

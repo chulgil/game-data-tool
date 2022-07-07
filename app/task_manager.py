@@ -12,8 +12,8 @@ class TaskType(Enum):
     EXCEL = auto()  # EXCEL변환
     EXCEL_TAG = auto()  # TAG로 EXCEL변환
     MIGRATE_DB = auto()  # 브랜치의 디비 초기화
-    UPDATE_TB_INFO = auto()  # 브랜치의 INFO테이블 업데이트
-    UPDATE_TB_DATA = auto()  # 브랜치의 DATA테이블 업데이트
+    UPDATE_INFO_DB = auto()  # 브랜치의 INFO테이블 업데이트
+    UPDATE_DATA_DB = auto()  # 브랜치의 DATA테이블 업데이트
     SCHEDULER = auto()  # TASK에 저장되어있는 스케쥴로 실행
 
     @classmethod
