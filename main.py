@@ -401,11 +401,9 @@ async def tag_to_db(g_manager: GitManager, p_manager: PrismaManager):
     await p_manager.destory()
 
 
-async def check(branch: str):
+async def check():
     task = TaskManager(TaskType.SCHEDULER)
-    if not task.load_task():
-        return
-    pass
+    task.status()
 
 
 async def scheduler():
@@ -527,7 +525,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.ALL))
-    # asyncio.run(test(branch))
+    asyncio.run(test(branch))
     # sync_prisma(branch)
 
     pass
