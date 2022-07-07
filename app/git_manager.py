@@ -140,7 +140,7 @@ class GitManager:
             if self._is_empty_branch():
                 return False
             self._commit()
-            self._origin.push()
+            self._origin.push(f'--force')
             self.splog.info('GIT PUSH 성공')
             return True
         except Exception as e:
