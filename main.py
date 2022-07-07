@@ -147,6 +147,9 @@ async def excel_to_data_from_webhook(webhook: dict = None):
             return
 
         g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다. \n\n {message}")
+
+        markdown_to_script(g_manager.BRANCH)
+
         await excel_to_data_modified(g_manager.BRANCH)
 
 
@@ -354,7 +357,10 @@ def markdown_to_script(branch: str):
         c_manager.save_server_entity(_obl)
         if gc_manager.is_modified():
             gc_manager.push()
-        g_manager.splog.info("전체 Markdown 로드 후 C# Script변환을 완료합니다.")
+            g_manager.splog.info("Markdown C# Script 변환을 완료합니다.")
+        else:
+            g_manager.splog.info("Markdown C# Script 변경사항이 없습니다.")
+
     except Exception as e:
         g_manager.splog.error(f"MarkdownC# Script변환 에러: {str(e)}")
 
@@ -484,7 +490,7 @@ if __name__ == '__main__' or __name__ == "decimal":
     # asyncio.run(excel_to_data_taged('v0.5.1_test_cg'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
-    asyncio.run(migrate(branch))
+    # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
