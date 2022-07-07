@@ -55,11 +55,12 @@ class CSharpManager:
             rows = table_info[key]
             new_script = self._convet_entity(_table_name, rows)
             if new_script != '':
-                logging.info(f'{self._info} 스키마 저장 완료: {_table_name}')
+                # logging.info(f'{self._info} 스키마 저장 완료: {_table_name}')
                 _script = _script + new_script
         _script = self._get_script_entity(_script)
         with open(self.PATH_FOR_ENTITY, "w", encoding='utf-8') as f:
             f.write(_script)
+        logging.info(f'{self._info} ENTITY 저장 완료: {self.PATH_FOR_ENTITY.stem}')
 
     def save_enum(self, enum_info: dict):
         """
@@ -80,6 +81,7 @@ class CSharpManager:
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_ENUM, "w", encoding='utf-8') as f:
                 f.write(_script)
+            logging.info(f'{self._info} ENUM 저장 완료: {self.PATH_FOR_ENUM.stem}')
         except Exception as e:
             logging.error(f'{self._info} ENUM 저장 Error: {self.PATH_FOR_ENUM.stem}\n{str(e)}')
 
@@ -120,8 +122,10 @@ using Server;'''
                 f.write(_script_protocol)
             with open(self.PATH_FOR_S_PROXY, "w", encoding='utf-8') as f:
                 f.write(_script_proxy)
+            logging.info(f'{self._info} 프로토콜 저장 완료: {self.PATH_FOR_S_PROTOCOL.stem}')
+            logging.info(f'{self._info} 프로토콜 저장 완료: {self.PATH_FOR_S_PROXY.stem}')
         except Exception as e:
-            logging.error(f'{self._info} 프로토콜 저장 Error: {self.PATH_FOR_S_PROTOCOL.stem}\n{str(e)}')
+            logging.error(f'{self._info} 프로토콜 저장 Error: {self.PATH_FOR_S_PROTOCOL.stem} : {str(e)}')
 
     def save_server_enum(self, enum_info: dict):
         """
@@ -149,6 +153,7 @@ using Server;'''
             # 지정한 경로로 Prisma 스키마 파일 저장
             with open(self.PATH_FOR_S_ENUM, "w", encoding='utf-8') as f:
                 f.write(_script)
+            logging.info(f'{self._info} ENUM 저장 완료: {self.PATH_FOR_S_ENUM.stem}')
         except Exception as e:
             logging.error(f'{self._info} ENUM 저장 Error: {self.PATH_FOR_S_ENUM.stem}\n{str(e)}')
 

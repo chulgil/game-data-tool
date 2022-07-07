@@ -227,7 +227,6 @@ class GitManager:
                     _old_repo = Repo.clone_from(self.GIT_URL, self.PATH_FOR_WORKING_TAG, branch=self.BRANCH)
                 else:
                     _old_repo = Repo(self.PATH_FOR_WORKING_TAG)
-
                 self.BASE_COMMIT_ID = _old_repo.commit().hexsha
                 _old_repo.git.checkout(self.BASE_TAG)
                 _old_repo.git.clean('-fdx')
@@ -490,15 +489,13 @@ class GitManager:
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('A')
         _del_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_del_files) > 0:
-            self.splog.add_info('삭제 파일 리스트 ')
-            self.splog.add_info(_del_files)
+            self.splog.add_info(f'삭제 파일 리스트 : {", ".join(_del_files)}')
             # is_changed = True # 삭제시 알람만 실행
         # 마지막 태그 기준으로 추가된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('D')
         _add_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_add_files) > 0:
-            self.splog.add_info('추가 파일 리스트 ')
-            self.splog.add_info(_add_files)
+            self.splog.add_info(f'추가 파일 리스트 : {", ".join(_add_files)}')
             # is_changed = True # 추가시 알람만 실행
 
         # 마지막 태그 기준으로 수정된 엑셀파일 추출

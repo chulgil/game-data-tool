@@ -44,6 +44,8 @@ class PrismaManager:
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         with open(self.PATH_FOR_CONFIG, 'r') as f:
             self.config = yaml.safe_load(f)
+            if not self.config:
+                self.config = {}
         if 'DATA_DB' not in self.config['DATABASE']:
             self.splog.warning(f'CONFIG DATABASE[DATA_DB] 가 존재하지 않습니다.')
             return
@@ -59,11 +61,9 @@ class PrismaManager:
         self.PATH_FOR_INFO_SCHEMA = self.PATH_FOR_SAVE_DIR.joinpath('info_schema.prisma')
         self.PATH_FOR_DATA_SOURCE = self.PATH_FOR_SAVE_DIR.joinpath(DBType.DATA_DB.name.lower(), '__init__.py')
         self.PATH_FOR_INFO_SOURCE = self.PATH_FOR_SAVE_DIR.joinpath(DBType.INFO_DB.name.lower(), '__init__.py')
-
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.makedirs(self.PATH_FOR_SAVE_DIR)
-
         self._load_db_source()
 
     def sync(self) -> bool:
@@ -354,7 +354,7 @@ datasource db {{
                     self.info_db,
                     table_name,
                     where={'id': version_check_info.id},
-                    data={'res_ver': commit_id, 'apply_dt': datetime.now()}
+                    data={'res_ver': commit_id, 'res_url': res_url, 'apply_dt': datetime.now()}
                 )
             else:  # Insert
                 await self.insert_table(self.info_db, table_name, data={

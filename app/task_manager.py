@@ -11,6 +11,7 @@ class TaskType(Enum):
     NONE = auto()
     EXCEL = auto()  # EXCEL변환
     EXCEL_TAG = auto()  # TAG로 EXCEL변환
+    SYNC_DB = auto()  # 브랜치의 디비 동기화
     MIGRATE_DB = auto()  # 브랜치의 디비 초기화
     UPDATE_INFO_DB = auto()  # 브랜치의 INFO테이블 업데이트
     UPDATE_DATA_DB = auto()  # 브랜치의 DATA테이블 업데이트

@@ -25,9 +25,13 @@ class LogManager:
             # Config 파일 설정
             with open(self.PATH_FOR_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
-            self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'])
-            self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'])
-            self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'])
+            try:
+                self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'], http_timeout=2)
+                self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'], http_timeout=2)
+                self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'], http_timeout=2)
+            except Exception as e:
+                print(f'팀즈 메신저 타임아웃 에러 :{str(e)}')
+
             self.row_for_max_buffer = 100
             if self.is_service_branch(branch):
                 self.teams_target = self.teams_designer
@@ -129,6 +133,8 @@ class LogManager:
             self._error = []
 
     def send_designer(self, msg: str = None):
+        if not self.teams_target:
+            return
         if not self.is_service_branch(self.BRANCH):
             return
         if msg:
@@ -145,6 +151,8 @@ class LogManager:
                 self.warning()
 
     def send_developer(self, msg: str = None):
+        if not self.teams_developer:
+            return
         # if not self.is_service_branch(self.BRANCH):
         # return
         if msg:
