@@ -483,8 +483,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
     # asyncio.run(excel_to_data_taged('v0.5.1_test_cg'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    asyncio.run(excel_to_data_modified(branch))
-    # asyncio.run(migrate(branch))
+    # asyncio.run(excel_to_data_modified(branch))
+    asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
