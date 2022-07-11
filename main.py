@@ -232,7 +232,7 @@ async def excel_to_server(g_manager: GitManager):
         g_manager.splog.send_developer()
         g_manager.splog.send_designer(msg)
     else:
-        g_manager.splog.send_designer(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
+        g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
         data_to_client_data(g_manager, gc_manager)
         prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
@@ -271,7 +271,7 @@ async def migrate(branch: str, is_admin: bool = False):
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
-    await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
+    # await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
     await p_manager.destory()
 
 
