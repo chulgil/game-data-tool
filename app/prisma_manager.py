@@ -306,7 +306,6 @@ class PrismaManager:
 generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
-  binaryTargets = ["native", "debian-openssl-1.1.x"]
   output = "{0}"
 }}
 
