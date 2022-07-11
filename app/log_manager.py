@@ -21,14 +21,22 @@ class LogManager:
             self.BRANCH = branch
             self.PATH_FOR_ROOT = Path(__file__).parent.parent
             self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
+            self.TIMEOUT = 5
 
             # Config 파일 설정
-            with open(self.PATH_FOR_CONFIG, 'r') as f:
-                config = yaml.safe_load(f)
             try:
-                self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'], http_timeout=2)
-                self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'], http_timeout=2)
-                self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'], http_timeout=2)
+                with open(self.PATH_FOR_CONFIG, 'r') as f:
+                    config = yaml.safe_load(f)
+                    self.TIMEOUT = config['TEAMS']['TIMEOUT']
+            except Exception as e:
+                print(e)
+
+            try:
+                self.teams_designer = pymsteams.connectorcard(config['TEAMS']['DESIGNER_URL'],
+                                                              http_timeout=self.TIMEOUT)
+                self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'], http_timeout=self.TIMEOUT)
+                self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'],
+                                                               http_timeout=self.TIMEOUT)
             except Exception as e:
                 print(f'팀즈 메신저 타임아웃 에러 :{str(e)}')
 

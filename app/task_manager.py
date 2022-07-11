@@ -81,7 +81,7 @@ class TaskManager:
 
     def load_task(self) -> bool:
         config = self._load_config()
-        if len(config['tasks']) == 0:
+        if config['tasks'] is None or len(config['tasks']) == 0:
             return False
         task = config['tasks'][-1]
         info = str(task).split('::')

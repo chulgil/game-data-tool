@@ -377,7 +377,7 @@ def get_commit_from_webhook(webhook: dict) -> dict:
     return res
 
 
-async def check():
+def check():
     task = TaskManager(TaskType.SCHEDULER)
     task.status()
 
@@ -487,19 +487,18 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'main'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    asyncio.run(excel_to_data_taged('v0.5.2'))
+    # asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    # asyncio.run(excel_to_data_modified(branch))
+    asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
-
     pass
