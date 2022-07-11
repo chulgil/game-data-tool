@@ -139,15 +139,24 @@ class LogManager:
             return
         if msg:
             self.logger.info(f'{self.PREFIX} {str(msg)}')
-            self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+            try:
+                self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+            except Exception as e:
+                print(e)
         else:
             if self.has_info():
                 self._info = list(set(self._info))
-                self.teams_target.text('\n\n'.join(self._info)).send()
+                try:
+                    self.teams_target.text('\n\n'.join(self._info)).send()
+                except Exception as e:
+                    print(e)
                 self.info()
             if self.has_warning():
                 self._warning = list(set(self._warning))
-                self.teams_target.text('\n\n'.join(self._warning)).send()
+                try:
+                    self.teams_target.text('\n\n'.join(self._warning)).send()
+                except Exception as e:
+                    print(e)
                 self.warning()
 
     def send_developer(self, msg: str = None):
@@ -156,21 +165,37 @@ class LogManager:
         # if not self.is_service_branch(self.BRANCH):
         # return
         if msg:
-            self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
+            try:
+                self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
+            except Exception as e:
+                print(e)
             self.logger.info(f'{self.PREFIX} {str(msg)}')
         else:
             if self.has_info():
                 self._info = list(set(self._info))
-                self.teams_developer.text('\n\n'.join(self._info)).send()
+                try:
+                    self.teams_developer.text('\n\n'.join(self._info)).send()
+                except Exception as e:
+                    print(e)
                 self.info()
             if self.has_warning():
                 self._warning = list(set(self._warning))
-                self.teams_developer.text('\n\n'.join(self._warning)).send()
+                try:
+                    self.teams_developer.text('\n\n'.join(self._warning)).send()
+                except Exception as e:
+                    print(e)
                 self.warning()
 
     @staticmethod
     def is_service_branch(branch) -> bool:
         if branch == 'main' or branch == 'dev' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
+                or branch == 'cbt' or branch == 'obt':
+            return True
+        return False
+
+    @staticmethod
+    def is_live_branch(branch) -> bool:
+        if branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
                 or branch == 'cbt' or branch == 'obt':
             return True
         return False

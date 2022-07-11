@@ -203,6 +203,8 @@ def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
         f_manager.send(d_manager.get_json())
         g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
         d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+        if gc_manager.is_modified():
+            gc_manager.push()
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -216,6 +218,8 @@ async def excel_to_server(g_manager: GitManager):
         msg = 'Enum 데이터에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         g_manager.splog.add_warning(msg)
         g_manager.splog.send_developer()
+        if gc_manager.is_modified():
+            gc_manager.push()
 
     if g_manager.is_modified_excel_column():
         g_manager.splog.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
@@ -234,8 +238,6 @@ async def excel_to_server(g_manager: GitManager):
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
 
-    if gc_manager.is_modified():
-        gc_manager.push()
     if g_manager.NEW_TAG != '':
         gc_manager.push_tag_to_client(g_manager.NEW_TAG)
     gc_manager.destroy()
@@ -485,12 +487,12 @@ async def test(branch: str):
 
 
 if __name__ == '__main__' or __name__ == "decimal":
-    branch = 'test'
+    branch = 'main'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    # asyncio.run(excel_to_data_taged('v0.5.1_test_cg'))
+    asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))

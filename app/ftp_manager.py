@@ -13,23 +13,30 @@ class FtpManager:
         self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
         self.EXPORT_JSON = 'data_all.json.gz'
         self.VERSION = version
-        self._info = f'[{branch} 브랜치 {version}] '
-        with open(self.PATH_FOR_CONFIG, 'r') as f:
-            config = yaml.safe_load(f)
-        self._set_config(config)
         from . import LogManager
+        self._info = f'[{branch} 브랜치 {version}] '
         self.splog = LogManager(self.BRANCH)
         self.splog.PREFIX = self._info
         from . import AESCipher
+        with open(self.PATH_FOR_CONFIG, 'r') as f:
+            config = yaml.safe_load(f)
+        self._set_config(config)
         self.aes = AESCipher(self.AES_KEY)
 
     def _set_config(self, config):
-        self.FTP_URL = config['FTPSERVER']['URL']
-        self.FTP_USER = config['FTPSERVER']['USER']
-        self.FTP_PASS = config['FTPSERVER']['PASS']
-        self.FTP_DIR = config['FTPSERVER']['EXPORT_DIR']
-        self.RES_URL = config['FTPSERVER']['RESOURCE_URL']
-        self.AES_KEY = config['FTPSERVER']['KEY']
+        if self.splog.is_live_branch(config):
+            self.FTP_URL = config['FTPSERVER']['LIVE']['URL']
+            self.FTP_USER = config['FTPSERVER']['LIVE']['USER']
+            self.FTP_PASS = config['FTPSERVER']['LIVE']['PASS']
+            self.FTP_DIR = config['FTPSERVER']['LIVE']['EXPORT_DIR']
+            self.RES_URL = config['FTPSERVER']['LIVE']['RESOURCE_URL']
+        else:
+            self.FTP_URL = config['FTPSERVER']['DEV']['URL']
+            self.FTP_USER = config['FTPSERVER']['DEV']['USER']
+            self.FTP_PASS = config['FTPSERVER']['DEV']['PASS']
+            self.FTP_DIR = config['FTPSERVER']['DEV']['EXPORT_DIR']
+            self.RES_URL = config['FTPSERVER']['DEV']['RESOURCE_URL']
+        self.AES_KEY = config['FTPSERVER']['AES_KEY']
 
     def send(self, save_data: str):
         try:
