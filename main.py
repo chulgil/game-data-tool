@@ -25,8 +25,8 @@ if __name__ == '__main__':
 
 
 else:
-    from app import *
-    # from app.libs.excel_to_db.app import *
+    # from app import *
+    from app.libs.excel_to_db.app import *
 
 
 def sync_prisma(branch: str):
