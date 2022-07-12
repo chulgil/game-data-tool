@@ -288,13 +288,13 @@ class DataManager:
                 return data_df
             return data_df.astype(res, errors='ignore')
         except Exception as e:
-            self.splog.error(f'Dataframe 타입 변환 Error : \n str(e)')
+            self.splog.error(f'Dataframe 타입 변환 Error : \n {str(e)}')
 
     @staticmethod
     def _astype(column_type: str) -> str:
         # if column_type is None:
         # return "object"
-        column_type = column_type.lower()
+        column_type = str(column_type).lower()
         if column_type == "string":
             return "object"
         elif column_type == "float" or column_type == "double":
@@ -524,15 +524,12 @@ class DataManager:
         self.splog.send_designer()
 
     def excel_to_json(self, excel_list: list):
-
-        paths = []
         for excel in excel_list:
-            _path = Path(self.PATH_FOR_WORKING).joinpath(excel)
-            self.save_json_task(_path)
-            paths.append({"func": "save_json_task", "v": _path})
+            self.save_json_task(excel)
 
-    def save_json_task(self, path: Path):
+    def save_json_task(self, excel: str):
         try:
+            path = Path(self.PATH_FOR_WORKING).joinpath(excel)
             # 첫번째 시트를 JSON 타겟으로 설정
             df = self._read_excel_for_data(path)
             # 파일 이름으로 JSON 파일 저장 : DATA

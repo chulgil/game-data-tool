@@ -1,11 +1,13 @@
 import asyncio
 import logging
+import multiprocessing
+from multiprocessing import Pool
 from pprint import pprint
 import yaml
 
 # import cProfile
 
-if __name__ == '__main__' or __name__ == "decimal":
+if __name__ == '__main__':
     from app import *
 
     _format = '[%(levelname)-7s] %(asctime)s: %(message)s '
@@ -23,8 +25,8 @@ if __name__ == '__main__' or __name__ == "decimal":
 
 
 else:
-    # from app import *
-    from app.libs.excel_to_db.app import *
+    from app import *
+    # from app.libs.excel_to_db.app import *
 
 
 def sync_prisma(branch: str):
@@ -174,6 +176,8 @@ async def excel_to_data_taged(tag: str):
     db_task = TaskManager(TaskType.EXCEL_TAG, tag=tag)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
+        if not g_manager.checkout():
+            return
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
 
         gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
@@ -191,6 +195,7 @@ async def excel_to_data_taged(tag: str):
         prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
+        g_manager.save_client_resource_to_branch()
         if g_manager.is_modified():
             g_manager.push()
         db_task.done()
@@ -486,19 +491,19 @@ async def test(branch: str):
     # print(task.pop_task())
 
 
-if __name__ == '__main__' or __name__ == "decimal":
+if __name__ == '__main__':
     branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    # asyncio.run(excel_to_data_taged('v0.5.2'))
+    asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
-    sync_prisma(branch)
+    # sync_prisma(branch)
     # markdown_to_script(branch)
     pass
