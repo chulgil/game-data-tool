@@ -195,7 +195,6 @@ async def excel_to_data_taged(tag: str):
         prisma.migrate(MigrateType.FORCE, g_manager.BRANCH)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
-        g_manager.save_client_resource_to_branch()
         if g_manager.is_modified():
             g_manager.push()
         db_task.done()
