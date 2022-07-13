@@ -284,6 +284,7 @@ class PrismaManager:
 generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
+  binaryTargets = ["native"]
   output = "{0}"
 }}
 
@@ -295,7 +296,7 @@ datasource db {{
 
     def _load_db_source(self):
         try:
-            shutil.rmtree('/tmp/prisma/binaries/engines/', ignore_errors=True)
+            shutil.rmtree('/tmp/prisma/binaries/engines', ignore_errors=True)
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
         except Exception as e:
