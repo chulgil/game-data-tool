@@ -64,7 +64,7 @@ class PrismaManager:
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.makedirs(self.PATH_FOR_SAVE_DIR)
-        self.init_schema()
+        self._load_db_source()
 
     def init_schema(self) -> bool:
         os.chdir(self.PATH_FOR_SAVE_DIR)
@@ -294,6 +294,7 @@ datasource db {{
 
     def _load_db_source(self):
         try:
+            os.chdir(self.PATH_FOR_SAVE_DIR)
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
         except Exception as e:

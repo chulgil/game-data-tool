@@ -36,12 +36,9 @@ def sync_prisma(branch: str):
         if not g_manager.checkout():
             g_manager.destroy()
             return
-        excel_to_schema(g_manager)
-        if g_manager.is_modified():
-            g_manager.push()
         # 프리즈마 초기화
         prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-        prisma.sync()
+        prisma.init_schema()
         db_task.done()
 
 
