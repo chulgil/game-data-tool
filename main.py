@@ -60,6 +60,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
+        await prisma.destory()
         db_task.done()
 
 
@@ -235,6 +236,7 @@ async def excel_to_server(g_manager: GitManager):
         prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
+        await prisma.destory()
 
     if g_manager.NEW_TAG != '':
         gc_manager.push_tag_to_client(g_manager.NEW_TAG)
@@ -262,6 +264,7 @@ async def migrate(branch: str, is_admin: bool = False):
         prisma.migrate(MigrateType.FORCE, branch)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
+        await prisma.destory()
         g_manager.destroy()
         db_task.done()
 
