@@ -68,7 +68,6 @@ class PrismaManager:
         self._load_db_source()
 
     def init_schema(self) -> bool:
-        os.chdir(self.PATH_FOR_SAVE_DIR)
         base_schema = ''
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기
@@ -134,7 +133,6 @@ class PrismaManager:
                 return
 
             data_schema = self._get_schema_path(DBType.DATA_DB)
-            os.chdir(self.PATH_FOR_SAVE_DIR)
             if option == MigrateType.DEV:
                 run([f'prisma migrate dev --name {migrate_id} --schema={data_schema}'], shell=True, check=True,
                     stdout=PIPE, stderr=STDOUT)
@@ -284,7 +282,7 @@ class PrismaManager:
 generator db {{
   provider  = "prisma-client-py"
   interface = "asyncio"
-  binaryTargets = ["native"]
+  binaryTargets = ["native", "debian-openssl-1.1.x"]
   output = "{0}"
 }}
 
@@ -296,7 +294,6 @@ datasource db {{
 
     def _load_db_source(self):
         try:
-            shutil.rmtree('/tmp/prisma/binaries/engines', ignore_errors=True)
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
         except Exception as e:
