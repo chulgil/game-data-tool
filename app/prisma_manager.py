@@ -64,33 +64,10 @@ class PrismaManager:
         # Prisma 스키마 폴더 생성
         if not self.PATH_FOR_SAVE_DIR.exists():
             os.makedirs(self.PATH_FOR_SAVE_DIR)
-        self._load_db_source()
-
-    def sync(self) -> bool:
-        try:
-            if not self.init_schema():
-                return False
-
-            os.chdir(self.PATH_FOR_SAVE_DIR)
-
-            data_schema = self._get_schema_path(DBType.DATA_DB)
-            # res = run([f'prisma db pull --schema={data_schema}'], shell=True)
-            res = run([f'prisma generate --schema={data_schema}'], shell=True)
-
-            info_schema = self._get_schema_path(DBType.INFO_DB)
-            res = run([f'prisma db pull --schema={info_schema}'], shell=True)
-            res = run([f'prisma generate --schema={info_schema}'], shell=True)
-
-            self._load_db_source()
-
-            if not res.stderr:
-                self.splog.info(f"동기화 완료")
-                return True
-        except Exception as e:
-            self.splog.error(f"동기화 에러: {str(e)}")
-        return False
+        self.init_schema()
 
     def init_schema(self) -> bool:
+        os.chdir(self.PATH_FOR_SAVE_DIR)
         base_schema = ''
         try:
             # 생성한 파일을 Prisma기본 생성경로로 덮어쓰기

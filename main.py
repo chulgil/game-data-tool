@@ -206,11 +206,11 @@ async def excel_to_data_taged(tag: str):
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
     if g_manager.BASE_TAG != '':
         d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-        f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
-        f_manager.send(d_manager.get_json())
-        g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
         d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
         if gc_manager.is_modified():
+            f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
+            f_manager.send(d_manager.get_json())
+            g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
             gc_manager.push()
 
 
@@ -501,10 +501,10 @@ if __name__ == '__main__':
 
     # asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    # asyncio.run(excel_to_data_modified(branch))
+    asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
-    asyncio.run(test(branch))
+    # asyncio.run(test(branch))
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
