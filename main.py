@@ -4,6 +4,7 @@ import multiprocessing
 from multiprocessing import Pool
 from pprint import pprint
 import yaml
+import gc
 
 # import cProfile
 
@@ -44,6 +45,7 @@ def sync_prisma(branch: str):
         del db_task
         del g_manager
         del prisma
+        gc.collect()
 
 
 async def update_table(branch: str, convert_type: ConvertType):
@@ -69,6 +71,7 @@ async def update_table(branch: str, convert_type: ConvertType):
         del db_task
         del g_manager
         del prisma
+        gc.collect()
 
 
 async def excel_to_data_all_from_branch(branch: str):
@@ -97,6 +100,7 @@ async def excel_to_data_all_from_branch(branch: str):
 
         del task
         del g_manager
+        gc.collect()
 
 
 async def excel_to_data_from_webhook(webhook: dict = None):
@@ -253,6 +257,7 @@ async def excel_to_server(g_manager: GitManager):
         gc_manager.push_tag_to_client(g_manager.NEW_TAG)
     gc_manager.destroy()
     del gc_manager
+    gc.collect()
 
 
 async def migrate(branch: str, is_admin: bool = False):
@@ -282,6 +287,7 @@ async def migrate(branch: str, is_admin: bool = False):
         del db_task
         del g_manager
         del prisma
+        gc.collect()
 
 
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
@@ -358,6 +364,7 @@ def excel_to_schema(g_manager: GitManager):
     p_manager.save(data_table, DBType.DATA_DB)
     del p_manager
     del data_table
+    gc.collect()
 
 
 def markdown_to_script(branch: str):
@@ -402,6 +409,7 @@ def check():
     task = TaskManager(TaskType.SCHEDULER)
     task.status()
     del task
+    gc.collect()
 
 
 async def scheduler():
