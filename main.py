@@ -297,7 +297,6 @@ def excel_to_json_all(g_manager: GitManager):
     d_manager.delete_json_all()
     excel_paths = d_manager.get_excelpath_all()
     d_manager.excel_to_json(excel_paths)
-    d_manager.check_excel_for_relation(excel_paths)
 
 
 def excel_to_json_modified(convert_type: ConvertType, g_manager: GitManager):
@@ -374,6 +373,18 @@ def markdown_to_script(branch: str):
         g_manager.splog.error(f"MarkdownC# Script변환 에러: {str(e)}")
 
 
+def check_to_excel(branch: str):
+    db_task = TaskManager(TaskType.EXCEL_CHECK, branch=branch)
+    if db_task.start():
+        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        if not g_manager.checkout():
+            return
+        g_manager.splog.info("전체 Excel 로드 후 릴레이션 체크를 합니다.")
+        d_manager = DataManager(branch, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
+        d_manager.check_excel_for_relation(d_manager.get_excelpath_all())
+        db_task.done()
+
+
 def get_commit_from_webhook(webhook: dict) -> dict:
     g_manager = GitManager(GitTarget.EXCEL, None, webhook)
     res = g_manager.load_commit_from_webhook(webhook)
@@ -417,6 +428,9 @@ async def scheduler():
 
     if task_type == TaskType.SYNC_DB:
         sync_prisma(task_branch)
+
+    if task_type == TaskType.EXCEL_CHECK:
+        check_to_excel(task_branch)
 
 
 async def test(branch: str):
@@ -498,11 +512,12 @@ if __name__ == '__main__':
 
     # asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
-    asyncio.run(excel_to_data_modified(branch))
+    # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
     # asyncio.run(test(branch))
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
+    check_to_excel(branch)
     pass
