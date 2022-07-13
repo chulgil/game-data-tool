@@ -294,6 +294,8 @@ datasource db {{
 
     def _load_db_source(self):
         try:
+            from prisma_cleanup import cleanup
+            cleanup()
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
         except Exception as e:
