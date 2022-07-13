@@ -505,7 +505,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__':
-    branch = 'test_cg'
+    branch = 'test'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
@@ -519,5 +519,5 @@ if __name__ == '__main__':
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
-    check_to_excel(branch)
+    asyncio.run(update_table(branch, ConvertType.SERVER))
     pass
