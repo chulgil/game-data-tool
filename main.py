@@ -505,7 +505,7 @@ async def test(branch: str):
 
 
 if __name__ == '__main__':
-    branch = 'test'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))

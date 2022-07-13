@@ -1,5 +1,6 @@
 import asyncio
 import os
+import shutil
 from enum import Enum, auto
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
@@ -294,7 +295,7 @@ datasource db {{
 
     def _load_db_source(self):
         try:
-            os.chdir(self.PATH_FOR_SAVE_DIR)
+            shutil.rmtree('/tmp/prisma/binaries/engines/', ignore_errors=True)
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
         except Exception as e:
