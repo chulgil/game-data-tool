@@ -127,7 +127,14 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         }
 
     """
+    if not webhook["head_commit"]:
+        return
+
     g_manager = GitManager(GitTarget.EXCEL, webhook=webhook)
+    tag = g_manager.load_tag_from_webhook(webhook)
+    if tag != '':
+        g_manager = GitManager(GitTarget.EXCEL, tag=tag)
+
     # # 체크아웃 성공시에만 진행
     if not webhook["head_commit"] or not g_manager.checkout():
         g_manager.destroy()
@@ -421,54 +428,31 @@ async def scheduler():
 
 async def test(branch: str):
     webhook = {
-        "ref": "refs/heads/main",
-        "before": "888e4ccfe67945c569ba40475c1e30ac36cb3dbd",
-        "after": "4ece64f031ce766e11bba31b38cb075d9f541d01",
-        "compare_url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/888e4ccfe67945c569ba40475c1e30ac36cb3dbd...4ece64f031ce766e11bba31b38cb075d9f541d01",
-        "commits": [
-            {
-                "id": "4ece64f031ce766e11bba31b38cb075d9f541d01",
-                "message": "[서버/이철길] MigrateShelter 마크다운 수정\n",
-                "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/4ece64f031ce766e11bba31b38cb075d9f541d01",
-                "author": {
-                    "name": "CGLee",
-                    "email": "cglee@snowpipe.co.kr",
-                    "username": "CGLee"
-                },
-                "committer": {
-                    "name": "CGLee",
-                    "email": "cglee@snowpipe.co.kr",
-                    "username": "CGLee"
-                },
-                "verification": None,
-                "timestamp": "2022-07-06T10:27:00+09:00",
-                "added": [],
-                "removed": [],
-                "modified": [
-                    "server/protocol/gameserver/delete/shelter.md"
-                ]
-            }
-        ],
+        "ref": "refs/tags/v0.5.1_test_cg",
+        "before": "0000000000000000000000000000000000000000",
+        "after": "666b48df76da8e296665f4699f0c10fc34c2e3b9",
+        "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/0000000000000000000000000000000000000000...666b48df76da8e296665f4699f0c10fc34c2e3b9",
+        "commits": [],
         "head_commit": {
-            "id": "4ece64f031ce766e11bba31b38cb075d9f541d01",
-            "message": "[서버/이철길] MigrateShelter 마크다운 수정\n",
-            "url": "http://local.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/4ece64f031ce766e11bba31b38cb075d9f541d01",
+            "id": "666b48df76da8e296665f4699f0c10fc34c2e3b9",
+            "message": "[Excel자동변환]",
+            "url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/666b48df76da8e296665f4699f0c10fc34c2e3b9",
             "author": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
+                "name": "spbot",
+                "email": "spbot@snowpipe.co.kr",
+                "username": "spbot"
             },
             "committer": {
-                "name": "CGLee",
-                "email": "cglee@snowpipe.co.kr",
-                "username": "CGLee"
+                "name": "spbot",
+                "email": "spbot@snowpipe.co.kr",
+                "username": "spbot"
             },
             "verification": None,
-            "timestamp": "2022-07-06T10:27:00+09:00",
+            "timestamp": "2022-07-12T17:49:10+09:00",
             "added": [],
             "removed": [],
             "modified": [
-                "server/protocol/gameserver/delete/shelter.md"
+                "config.yaml"
             ]
         }
     }
@@ -496,12 +480,12 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    asyncio.run(excel_to_data_taged('v0.5.2'))
+    # asyncio.run(excel_to_data_taged('v0.5.2'))
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
-    # asyncio.run(test(branch))
+    asyncio.run(test(branch))
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
