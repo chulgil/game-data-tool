@@ -9,6 +9,7 @@ import uuid
 import yaml
 from subprocess import run, CalledProcessError, check_output, STDOUT, PIPE
 import re
+import gc
 
 
 class MigrateType(Enum):
@@ -406,4 +407,7 @@ datasource db {{
             await self.data_db.disconnect()
         if self.info_db:
             await self.info_db.disconnect()
+        del self.data_db
+        del self.info_db
+        gc.collect()
         self.splog.destory()
