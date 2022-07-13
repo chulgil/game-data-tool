@@ -58,13 +58,7 @@ async def update_table(branch: str, convert_type: ConvertType):
             return
 
         prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-        d_manager = DataManager(branch, convert_type, g_manager.PATH_FOR_WORKING)
-        if convert_type == ConvertType.INFO:
-            await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
-        if convert_type == ConvertType.SERVER:
-            await prisma.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
-
-        await prisma.destory()
+        await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         db_task.done()
 
@@ -275,7 +269,6 @@ async def migrate(branch: str, is_admin: bool = False):
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
-    # await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.INFO))
     await p_manager.destory()
 
 
