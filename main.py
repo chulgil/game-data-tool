@@ -132,7 +132,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
 
     g_manager = GitManager(GitTarget.EXCEL, webhook=webhook)
     tag = g_manager.load_tag_from_webhook(webhook)
-    if tag != '':
+    if tag:
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
 
     # # 체크아웃 성공시에만 진행
@@ -424,33 +424,56 @@ async def scheduler():
 
 async def test(branch: str):
     webhook = {
-        "ref": "refs/tags/v0.5.1_test_cg",
-        "before": "0000000000000000000000000000000000000000",
-        "after": "666b48df76da8e296665f4699f0c10fc34c2e3b9",
-        "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/0000000000000000000000000000000000000000...666b48df76da8e296665f4699f0c10fc34c2e3b9",
-        "commits": [],
+        "ref": "refs/heads/test_cg",
+        "before": "1dfafc5434b2728a8c7eb768e91a4fbc5333732e",
+        "after": "fbb72920444da56065c5244bf746e6b343078c76",
+        "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/1dfafc5434b2728a8c7eb768e91a4fbc5333732e...fbb72920444da56065c5244bf746e6b343078c76",
+        "commits": [
+            {
+                "id": "fbb72920444da56065c5244bf746e6b343078c76",
+                "message": "삭제 'export/out.log'\n",
+                "url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/fbb72920444da56065c5244bf746e6b343078c76",
+                "author": {
+                    "name": "[서버] 이철길",
+                    "email": "cglee@snowpipe.co.kr",
+                    "username": "CGLee"
+                },
+                "committer": {
+                    "name": "[서버] 이철길",
+                    "email": "cglee@snowpipe.co.kr",
+                    "username": "CGLee"
+                },
+                "verification": None,
+                "timestamp": "2022-07-13T12:55:52+09:00",
+                "added": [],
+                "removed": [
+                    "export/out.log"
+                ],
+                "modified": []
+            }
+        ],
         "head_commit": {
-            "id": "666b48df76da8e296665f4699f0c10fc34c2e3b9",
-            "message": "[Excel자동변환]",
-            "url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/666b48df76da8e296665f4699f0c10fc34c2e3b9",
+            "id": "fbb72920444da56065c5244bf746e6b343078c76",
+            "message": "삭제 'export/out.log'\n",
+            "url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/commit/fbb72920444da56065c5244bf746e6b343078c76",
             "author": {
-                "name": "spbot",
-                "email": "spbot@snowpipe.co.kr",
-                "username": "spbot"
+                "name": "[서버] 이철길",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
             },
             "committer": {
-                "name": "spbot",
-                "email": "spbot@snowpipe.co.kr",
-                "username": "spbot"
+                "name": "[서버] 이철길",
+                "email": "cglee@snowpipe.co.kr",
+                "username": "CGLee"
             },
             "verification": None,
-            "timestamp": "2022-07-12T17:49:10+09:00",
+            "timestamp": "2022-07-13T12:55:52+09:00",
             "added": [],
-            "removed": [],
-            "modified": [
-                "config.yaml"
-            ]
-        }
+            "removed": [
+                "export/out.log"
+            ],
+            "modified": []
+        },
     }
 
     await excel_to_data_from_webhook(webhook)
