@@ -7,6 +7,7 @@ import yaml
 import gc
 
 # import cProfile
+gc.set_threshold(800, 13, 10)
 
 if __name__ == '__main__':
     from app import *
@@ -183,6 +184,9 @@ async def excel_to_data_modified(branch: str):
             g_manager.push()
         g_manager.destroy()
         excel_task.done()
+        del g_manager
+        del excel_task
+        gc.collect()
 
 
 async def excel_to_data_taged(tag: str):
@@ -207,6 +211,9 @@ async def excel_to_data_taged(tag: str):
             g_manager.push()
         db_task.done()
         await migrate(branch=g_manager.BRANCH)
+        del g_manager
+        del db_task
+        gc.collect()
 
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):

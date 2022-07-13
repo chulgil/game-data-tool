@@ -364,6 +364,7 @@ datasource db {{
             await table.create_many(
                 json_data
             )
+            del table
             self.splog.add_info(f'테이블 데이터 RESTORE 성공 : {table_name}')
         except Exception as e:
             self.splog.add_warning(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
@@ -372,6 +373,7 @@ datasource db {{
         try:
             table = getattr(db_source, table_name)
             await table.create(data)
+            del table
             self.splog.add_info(f'테이블 데이터 INSERT 성공 : {table_name}')
         except Exception as e:
             self.splog.add_warning(f'테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
@@ -380,6 +382,7 @@ datasource db {{
         try:
             table = getattr(db_source, table_name)
             await table.update(where=where, data=data)
+            del table
             self.splog.add_info(f'테이블 데이터 UPDATE 성공 : {table_name}')
         except Exception as e:
             self.splog.add_warning(f'테이블 데이터 UPDATE 실패 : {table_name} \n {str(e)}')
@@ -388,6 +391,7 @@ datasource db {{
         try:
             table = getattr(db_source, table_name)
             res = await table.find_first(where=where)
+            del table
             self.splog.add_info(f'테이블 데이터 SELECT 성공 : {table_name}')
             return res
         except Exception as e:
