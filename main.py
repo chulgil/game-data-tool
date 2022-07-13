@@ -39,7 +39,11 @@ def sync_prisma(branch: str):
         # 프리즈마 초기화
         prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
+        prisma.destory()
         db_task.done()
+        del db_task
+        del g_manager
+        del prisma
 
 
 async def update_table(branch: str, convert_type: ConvertType):
@@ -62,6 +66,9 @@ async def update_table(branch: str, convert_type: ConvertType):
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
         db_task.done()
+        del db_task
+        del g_manager
+        del prisma
 
 
 async def excel_to_data_all_from_branch(branch: str):
@@ -87,6 +94,9 @@ async def excel_to_data_all_from_branch(branch: str):
         g_manager.destroy()
 
         task.done()
+
+        del task
+        del g_manager
 
 
 async def excel_to_data_from_webhook(webhook: dict = None):
@@ -237,10 +247,12 @@ async def excel_to_server(g_manager: GitManager):
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
+        del prisma
 
     if g_manager.NEW_TAG != '':
         gc_manager.push_tag_to_client(g_manager.NEW_TAG)
     gc_manager.destroy()
+    del gc_manager
 
 
 async def migrate(branch: str, is_admin: bool = False):
@@ -267,6 +279,9 @@ async def migrate(branch: str, is_admin: bool = False):
         await prisma.destory()
         g_manager.destroy()
         db_task.done()
+        del db_task
+        del g_manager
+        del prisma
 
 
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
@@ -341,6 +356,8 @@ def excel_to_schema(g_manager: GitManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     data_table = d_manager.get_schema_all(ConvertType.SERVER)
     p_manager.save(data_table, DBType.DATA_DB)
+    del p_manager
+    del data_table
 
 
 def markdown_to_script(branch: str):
@@ -381,16 +398,10 @@ def check_to_excel(branch: str):
         db_task.done()
 
 
-def get_commit_from_webhook(webhook: dict) -> dict:
-    g_manager = GitManager(GitTarget.EXCEL, None, webhook)
-    res = g_manager.load_commit_from_webhook(webhook)
-    g_manager.destroy()
-    return res
-
-
 def check():
     task = TaskManager(TaskType.SCHEDULER)
     task.status()
+    del task
 
 
 async def scheduler():
