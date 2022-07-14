@@ -111,6 +111,9 @@ class GitManager:
             # print(f'HEAD REF : {self.get_last_commit()}')
 
         except Exception as e:
+            self.BRANCH = ''
+            self.COMMIT = ''
+            self.NEW_TAG = ''
             self.splog.info(f'GIT 초기화 Error \r\n{str(e)}')
 
     def get_branches(self) -> list:

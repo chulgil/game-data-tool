@@ -31,6 +31,7 @@ def sync_prisma(br: str):
         g_manager = GitManager(GitTarget.EXCEL, br)
         if not g_manager.checkout():
             g_manager.destroy()
+            db_task.done()
             return
 
         # 프리즈마 초기화
@@ -53,6 +54,7 @@ async def update_table(br: str, convert_type: ConvertType):
         # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
             g_manager.destroy()
+            db_task.done()
             return
 
         prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
@@ -75,6 +77,7 @@ async def excel_to_data_all_from_branch(br: str):
         # # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
             g_manager.destroy()
+            task.done()
             return
         excel_to_json_all(g_manager)
 
@@ -159,6 +162,7 @@ async def excel_to_data_modified(br: str):
     if excel_task.start():
         g_manager = GitManager(GitTarget.EXCEL, branch=br)
         if not g_manager.checkout():
+            excel_task.done()
             return
         excel_to_json_modified(ConvertType.ALL, g_manager)
         await excel_to_server(g_manager)
@@ -174,12 +178,14 @@ async def excel_to_data_taged(tag: str):
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
         if not g_manager.checkout():
+            db_task.done()
             return
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 DB업데이트 및 클라이언트 태그 전송을 시작합니다.")
 
         gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
         if not gc_manager.checkout():
             gc_manager.destroy()
+            db_task.done()
             return
 
         await excel_to_server(g_manager)
@@ -249,6 +255,7 @@ async def migrate(br: str, is_admin: bool = False):
         # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
             g_manager.destroy()
+            db_task.done()
             return
         prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
         prisma.migrate(MigrateType.FORCE, br)
@@ -336,10 +343,10 @@ def markdown_to_script(br: str):
     gc_manager = GitManager(GitTarget.CLIENT, branch=br)
     if not g_manager.checkout() or not gc_manager.checkout():
         return
+    task = TaskManager(TaskType.MARKDOWN, branch=br)
     g_manager.splog.info("전체 Markdown 로드 후 C# Script변환을 진행합니다.")
     d_manager = DataManager(br, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
     c_manager = CSharpManager(br, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
-
     try:
         _obl = d_manager.get_markdown(ConvertType.MARKDOWN_PROTOCOL)
         c_manager.save_protocol(_obl)
@@ -355,6 +362,8 @@ def markdown_to_script(br: str):
 
     except Exception as e:
         g_manager.splog.error(f"MarkdownC# Script변환 에러: {str(e)}")
+    finally:
+        task.done()
 
 
 def check_to_excel(br: str):
@@ -487,8 +496,8 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    # asyncio.run(excel_to_data_taged('v0.5.2'))
-    asyncio.run(excel_to_data_all_from_branch(branch))
+    # asyncio.run(excel_to_data_taged('asdfsd'))
+    # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
