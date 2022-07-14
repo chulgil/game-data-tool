@@ -32,10 +32,7 @@ def sync_prisma(br: str):
         if not g_manager.checkout():
             g_manager.destroy()
             return
-        excel_to_schema(g_manager)
-        if g_manager.is_modified():
-            g_manager.push()
-            
+
         # 프리즈마 초기화
         prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
@@ -184,12 +181,9 @@ async def excel_to_data_taged(tag: str):
         if not gc_manager.checkout():
             gc_manager.destroy()
             return
-        data_to_client_data(g_manager, gc_manager)
-        if gc_manager.is_modified():
-            gc_manager.push()
-        if g_manager.NEW_TAG != '':
-            gc_manager.push_tag_to_client(g_manager.NEW_TAG)
-        gc_manager.destroy()
+
+        await excel_to_server(g_manager)
+
         if g_manager.is_modified():
             g_manager.push()
         db_task.done()
@@ -207,13 +201,13 @@ def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
             gc_manager.push()
 
 
-async def excel_to_server(g_manager: GitManager):
+async def excel_to_server(g_manager: GitManager, force: bool = False):
     gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
         return
 
-    if g_manager.is_modified_excel_enum():
+    if g_manager.is_modified_excel_enum() or force:
         excel_to_enum(g_manager, gc_manager)
         msg = 'Enum 데이터에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.'
         g_manager.splog.add_warning(msg)
@@ -221,7 +215,7 @@ async def excel_to_server(g_manager: GitManager):
         if gc_manager.is_modified():
             gc_manager.push()
 
-    if g_manager.is_modified_excel_column():
+    if g_manager.is_modified_excel_column() or force:
         g_manager.splog.info(f'EXCEL파일에 변동이 있어 스키마 변환을 진행합니다.')
         excel_to_entity(g_manager, gc_manager)
         excel_to_schema(g_manager)
