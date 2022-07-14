@@ -612,7 +612,7 @@ class DataManager:
                 _path = list(Path(self.PATH_FOR_MD_PROTOCOL).rglob(r"*.md"))
             elif target == ConvertType.MARKDOWN_ENTITY:
                 _path = list(Path(self.PATH_FOR_MD_ENTITY).rglob(r"*.md"))
-            return _path
+            return sorted(_path)
         except Exception as e:
             self.splog.send_developer(f'MarkDown 데이터 경로 Error :\r\n {str(e)}')
             return sorted(_path)
