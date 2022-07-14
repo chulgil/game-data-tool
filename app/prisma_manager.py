@@ -293,13 +293,13 @@ datasource db {{
 
     def _load_db_source(self):
         try:
-            info_source = SourceFileLoader(f'info_{self.BRANCH}', str(self.PATH_FOR_INFO_SOURCE)).load_module()
+            info_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_INFO_SOURCE)).load_module()
             self.info_db = info_source.Prisma()
             del info_source
         except Exception as e:
             self.splog.error(f'INFO DB 소스로드 ERROR : \n{e}')
         try:
-            data_source = SourceFileLoader(f'data_{self.BRANCH}', str(self.PATH_FOR_DATA_SOURCE)).load_module()
+            data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
             del data_source
         except Exception as e:
