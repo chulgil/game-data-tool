@@ -292,20 +292,22 @@ datasource db {{
        '''.format(db_type.name.lower(), output)
 
     def _load_db_source(self):
+
         try:
-            from prisma_cleanup import cleanup
-            cleanup()
-            data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
-            self.data_db = data_source.Prisma()
-            del data_source
-        except Exception as e:
-            self.splog.error(f'DATA DB 소스로드 ERROR : \n{e}')
-        try:
+            res = run([f'prisma db pull --schema={self.PATH_FOR_INFO_SCHEMA}'], shell=True)
             info_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_INFO_SOURCE)).load_module()
             self.info_db = info_source.Prisma()
             del info_source
         except Exception as e:
             self.splog.error(f'INFO DB 소스로드 ERROR : \n{e}')
+        try:
+            # from prisma_cleanup import cleanup
+            # cleanup()
+            data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
+            self.data_db = data_source.Prisma()
+            del data_source
+        except Exception as e:
+            self.splog.error(f'DATA DB 소스로드 ERROR : \n{e}')
 
     async def restore_all_table(self, json_map: dict):
         if not self.data_db:
