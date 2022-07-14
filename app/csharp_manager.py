@@ -74,7 +74,7 @@ class CSharpManager:
         """
         _enum_name = ''
         _script = ''
-        for _enum_name, enum_data in enum_info.items():
+        for _enum_name, enum_data in sorted(enum_info.items()):
             _script = _script + self._convert_enum(_enum_name, enum_data, 1)
         _script = self._get_default_script_planing(_script)
         try:

@@ -498,7 +498,7 @@ if __name__ == '__main__':
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
-    asyncio.run(update_table(branch, ConvertType.SERVER))
+    # asyncio.run(update_table(branch, ConvertType.SERVER))
     # check_to_excel(branch)
     # asyncio.run(excel_to_data_all_from_branch(branch))
     pass
