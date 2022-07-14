@@ -554,22 +554,22 @@ class DataManager:
             self.splog.add_warning(f'{self._info} save_json_task Error: [{path.stem}]\n{str(e)}')
 
     def get_excelpath_all(self) -> list:
-        return list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*"))
+        return sorted(list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*")))
 
     def get_jsonpath_all(self) -> list:
-        return self._get_jsonpath_info() + self._get_jsonpath_server()
+        return sorted(self._get_jsonpath_info() + self._get_jsonpath_server())
 
     def _get_jsonpath_info(self) -> list:
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json"))
+        return sorted(list(Path(self.PATH_FOR_JSON).rglob(r"*info/*.json")))
 
     def _get_jsonpath_server(self) -> list:
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*server/*.json"))
+        return sorted(list(Path(self.PATH_FOR_JSON).rglob(r"*server/*.json")))
 
     def _get_jsonpath_client(self) -> list:
-        return list(Path(self.PATH_FOR_JSON).rglob(r"*client/*.json"))
+        return sorted(list(Path(self.PATH_FOR_JSON).rglob(r"*client/*.json")))
 
     def _get_enumpath(self) -> list:
-        return list(Path(self.PATH_FOR_ENUM).rglob(r"*.xls*"))
+        return sorted(list(Path(self.PATH_FOR_ENUM).rglob(r"*.xls*")))
 
     def get_markdown(self, target: ConvertType = None) -> dict:
         """
@@ -615,7 +615,7 @@ class DataManager:
             return _path
         except Exception as e:
             self.splog.send_developer(f'MarkDown 데이터 경로 Error :\r\n {str(e)}')
-            return _path
+            return sorted(_path)
 
     def _markdown_to_enum(self, markdown: str) -> dict:
         """

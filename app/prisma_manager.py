@@ -1,6 +1,4 @@
-import asyncio
 import os
-import shutil
 from enum import Enum, auto
 from pathlib import Path
 from importlib.machinery import SourceFileLoader
@@ -360,7 +358,6 @@ datasource db {{
 
         except Exception as e:
             self.splog.add_warning(f'P update_version_info Error : {table_name} \n {str(e)}')
-        await self.info_db.disconnect()
 
     async def restore_table(self, table_name: str, json_data: list):
         try:
@@ -405,9 +402,9 @@ datasource db {{
     async def destory(self):
         if self.data_db:
             await self.data_db.disconnect()
+            del self.data_db
         if self.info_db:
             await self.info_db.disconnect()
-        del self.data_db
-        del self.info_db
+            del self.info_db
         gc.collect()
         self.splog.destory()

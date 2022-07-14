@@ -1,9 +1,5 @@
 import asyncio
 import logging
-import multiprocessing
-from multiprocessing import Pool
-from pprint import pprint
-import yaml
 
 # import cProfile
 
@@ -29,52 +25,52 @@ else:
     from app.libs.excel_to_db.app import *
 
 
-def sync_prisma(branch: str):
-    db_task = TaskManager(TaskType.SYNC_DB, branch=branch)
+def sync_prisma(br: str):
+    db_task = TaskManager(TaskType.SYNC_DB, branch=br)
     if db_task.start():
-        g_manager = GitManager(GitTarget.EXCEL, branch)
+        g_manager = GitManager(GitTarget.EXCEL, br)
         if not g_manager.checkout():
             g_manager.destroy()
             return
         # 프리즈마 초기화
-        prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
         prisma.destory()
         db_task.done()
 
 
-async def update_table(branch: str, convert_type: ConvertType):
+async def update_table(br: str, convert_type: ConvertType):
     if convert_type == ConvertType.INFO:
-        db_task = TaskManager(TaskType.UPDATE_INFO_DB, branch=branch)
+        db_task = TaskManager(TaskType.UPDATE_INFO_DB, branch=br)
     else:
-        db_task = TaskManager(TaskType.UPDATE_DATA_DB, branch=branch)
+        db_task = TaskManager(TaskType.UPDATE_DATA_DB, branch=br)
 
     if db_task.start():
         # Git 초기화 및 다운로드
-        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=br)
 
         # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
             g_manager.destroy()
             return
 
-        prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
         db_task.done()
 
 
-async def excel_to_data_all_from_branch(branch: str):
+async def excel_to_data_all_from_branch(br: str):
     """
     최신 Excel Git 브랜치를 복제한후 데이터 변환을 호출한다.
-    @param branch: Git브랜치
+    @param br: Git브랜치
     """
     # Git 초기화 및 다운로드
-    task = TaskManager(TaskType.EXCEL, branch)
+    task = TaskManager(TaskType.EXCEL, br)
     if task.start():
 
-        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=br)
         # # 체크아웃 성공시에만 진행
         if not g_manager.checkout():
             g_manager.destroy()
@@ -157,10 +153,10 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         await excel_to_data_modified(g_manager.BRANCH)
 
 
-async def excel_to_data_modified(branch: str):
-    excel_task = TaskManager(TaskType.EXCEL, branch=branch)
+async def excel_to_data_modified(br: str):
+    excel_task = TaskManager(TaskType.EXCEL, branch=br)
     if excel_task.start():
-        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=br)
         if not g_manager.checkout():
             return
         excel_to_json_modified(ConvertType.ALL, g_manager)
@@ -193,7 +189,7 @@ async def excel_to_data_taged(tag: str):
         if g_manager.is_modified():
             g_manager.push()
         db_task.done()
-        await migrate(branch=g_manager.BRANCH)
+        await migrate(br=g_manager.BRANCH)
 
 
 def data_to_client_data(g_manager: GitManager, gc_manager: GitManager):
@@ -244,16 +240,11 @@ async def excel_to_server(g_manager: GitManager):
     gc_manager.destroy()
 
 
-async def migrate(branch: str, is_admin: bool = False):
-    """
-    Prisma 스키마 로드 후 해당 브랜치 디비에 반영
-    @param branch: Git브랜치 -> Config에 DB접속정보가 브랜치별로 존재
-    @return:
-    """
+async def migrate(br: str, is_admin: bool = False):
     # Git 초기화 및 다운로드
-    db_task = TaskManager(TaskType.MIGRATE_DB, branch=branch)
+    db_task = TaskManager(TaskType.MIGRATE_DB, branch=br)
     if db_task.start():
-        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=br)
         if is_admin:
             g_manager.set_admin()
 
@@ -261,8 +252,8 @@ async def migrate(branch: str, is_admin: bool = False):
         if not g_manager.checkout():
             g_manager.destroy()
             return
-        prisma = PrismaManager(branch, g_manager.PATH_FOR_WORKING)
-        prisma.migrate(MigrateType.FORCE, branch)
+        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
+        prisma.migrate(MigrateType.FORCE, br)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
@@ -273,14 +264,12 @@ async def migrate(branch: str, is_admin: bool = False):
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     await p_manager.restore_all_table(d_manager.get_jsonmap(ConvertType.SERVER))
-    await p_manager.destory()
 
 
 async def tag_to_db(g_manager: GitManager, p_manager: PrismaManager):
     res_info = g_manager.get_client_resource_from_branch()
     if len(res_info.keys()) > 0:
         await p_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
-    await p_manager.destory()
 
 
 def excel_to_json_all(g_manager: GitManager):
@@ -344,14 +333,14 @@ def excel_to_schema(g_manager: GitManager):
     p_manager.save(data_table, DBType.DATA_DB)
 
 
-def markdown_to_script(branch: str):
-    g_manager = GitManager(GitTarget.EXCEL, branch=branch)
-    gc_manager = GitManager(GitTarget.CLIENT, branch=branch)
+def markdown_to_script(br: str):
+    g_manager = GitManager(GitTarget.EXCEL, branch=br)
+    gc_manager = GitManager(GitTarget.CLIENT, branch=br)
     if not g_manager.checkout() or not gc_manager.checkout():
         return
     g_manager.splog.info("전체 Markdown 로드 후 C# Script변환을 진행합니다.")
-    d_manager = DataManager(branch, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
-    c_manager = CSharpManager(branch, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
+    d_manager = DataManager(br, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
+    c_manager = CSharpManager(br, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
 
     try:
         _obl = d_manager.get_markdown(ConvertType.MARKDOWN_PROTOCOL)
@@ -370,14 +359,14 @@ def markdown_to_script(branch: str):
         g_manager.splog.error(f"MarkdownC# Script변환 에러: {str(e)}")
 
 
-def check_to_excel(branch: str):
-    db_task = TaskManager(TaskType.EXCEL_CHECK, branch=branch)
+def check_to_excel(br: str):
+    db_task = TaskManager(TaskType.EXCEL_CHECK, branch=br)
     if db_task.start():
-        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        g_manager = GitManager(GitTarget.EXCEL, branch=br)
         if not g_manager.checkout():
             return
         g_manager.splog.info("전체 Excel 로드 후 릴레이션 체크를 합니다.")
-        d_manager = DataManager(branch, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
+        d_manager = DataManager(br, ConvertType.MARKDOWN, g_manager.PATH_FOR_WORKING)
         d_manager.check_excel_for_relation(d_manager.get_excelpath_all())
         db_task.done()
 
@@ -423,7 +412,7 @@ async def scheduler():
         check_to_excel(task_branch)
 
 
-async def test(branch: str):
+async def test():
     webhook = {
         "ref": "refs/heads/test_cg",
         "before": "1dfafc5434b2728a8c7eb768e91a4fbc5333732e",
@@ -509,5 +498,7 @@ if __name__ == '__main__':
     # asyncio.run(scheduler())
     # sync_prisma(branch)
     # markdown_to_script(branch)
-    asyncio.run(update_table(branch, ConvertType.SERVER))
+    # asyncio.run(update_table(branch, ConvertType.SERVER))
+    # check_to_excel(branch)
+    asyncio.run(excel_to_data_all_from_branch(branch))
     pass
