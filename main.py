@@ -32,6 +32,10 @@ def sync_prisma(br: str):
         if not g_manager.checkout():
             g_manager.destroy()
             return
+        excel_to_schema(g_manager)
+        if g_manager.is_modified():
+            g_manager.push()
+            
         # 프리즈마 초기화
         prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
@@ -490,7 +494,7 @@ if __name__ == '__main__':
     # asyncio.run(migrate(branch))
 
     # asyncio.run(excel_to_data_taged('v0.5.2'))
-    # asyncio.run(excel_to_data_all_from_branch(branch))
+    asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
