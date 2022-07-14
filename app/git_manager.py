@@ -488,6 +488,27 @@ class GitManager:
             self.splog.add_info('태그가 존재하지 않아 신규 기획데이터로 할당 합니다.')
             return True
 
+        # 마지막 태그 기준으로 수정된 엑셀파일 추출
+        _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('M')
+        _mod_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
+        if len(_mod_files) > 0:
+            from . import DataManager, ConvertType
+            data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_TAG)
+            data_new = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING)
+
+            diffs = []
+            for path in _mod_files:
+                _old = data_old.get_schema(path)
+                _new = data_new.get_schema(path)
+                diff = self.diff_schema(path, _old, _new)
+                if len(diff['info']) > 0:
+                    diffs.append(f'변경 컬럼 내역 : [{path}]')
+                    diffs = diffs + diff['info']
+                if not is_changed:
+                    is_changed = diff['is_changed']
+            if len(diffs) > 0:
+                self.splog.add_info(diffs)
+
         # 마지막 태그 기준으로 삭제된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('A')
         _del_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
@@ -501,29 +522,6 @@ class GitManager:
             self.splog.add_info(f'추가 파일 리스트 : {", ".join(_add_files)}')
             # is_changed = True # 추가시 알람만 실행
 
-        # 마지막 태그 기준으로 수정된 엑셀파일 추출
-        _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('M')
-        _mod_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
-        # 수정된 엑셀파일이 없으면 리턴
-        if len(_mod_files) == 0:
-            return is_changed
-
-        from . import DataManager, ConvertType
-        data_old = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING_TAG)
-        data_new = DataManager(self.BRANCH, ConvertType.ALL, self.PATH_FOR_WORKING)
-
-        diffs = []
-        for path in _mod_files:
-            _old = data_old.get_schema(path)
-            _new = data_new.get_schema(path)
-            diff = self.diff_schema(path, _old, _new)
-            if len(diff['info']) > 0:
-                diffs.append(f'변경 컬럼 내역 : [{path}]')
-                diffs = diffs + diff['info']
-            if not is_changed:
-                is_changed = diff['is_changed']
-        if len(diffs) > 0:
-            self.splog.add_warning(diffs)
         return is_changed
 
     def diff_schema(self, path: str, old_schema: dict, new_schema: dict) -> dict:

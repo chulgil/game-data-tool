@@ -223,7 +223,7 @@ class DataManager:
         if self.splog.has_warning():
             msg = f'{self._info} [{_server_type}] Excel파일에 미검증 데이터 존재 [{file_name}]'
             self.splog.add_warning(msg, 0)
-            self.splog.send_designer()
+            self.splog.send_designer_all()
 
     def _check_duplicated(self, data_df: DataFrame, header_df: DataFrame, option_df: DataFrame) -> bool:
         """
@@ -416,7 +416,7 @@ class DataManager:
                 return res
         except Exception as e:
             self.splog.add_warning(f'EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
-            self.splog.send_designer()
+            self.splog.send_designer_all()
 
     def _get_server_type_index(self, df: DataFrame):
         _idx = 0
@@ -521,7 +521,7 @@ class DataManager:
             for info in rel_data:
                 self._check_relation_data(_path, info[0], info[1], info[2])
 
-        self.splog.send_designer()
+        self.splog.send_designer_all()
 
     def excel_to_json(self, excel_list: list):
         for excel in excel_list:
@@ -549,7 +549,7 @@ class DataManager:
 
             if self.splog.has_warning():
                 self.splog.add_warning(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
-                self.splog.send_designer()
+                self.splog.send_designer_all()
         except Exception as e:
             self.splog.add_warning(f'{self._info} save_json_task Error: [{path.stem}]\n{str(e)}')
 
@@ -598,7 +598,7 @@ class DataManager:
                 p = str(_file).split('/')
                 _path_md = '/'.join(p[len(p) - 3:])
                 self.splog.add_warning(f'MarkDown[{_path_md}] 변환 경고 :', 0)
-                self.splog.send_developer()
+                self.splog.send_developer_all()
                 self.splog.warning()
 
         return res
@@ -995,7 +995,7 @@ class DataManager:
                 self.splog.add_warning(f'{self._info} [Enum] Excel Error [{_path.stem}]')
         if self.splog.has_warning():
             self.splog.add_warning(f'{self._info} [Enum] Excel 파일에 미검증 데이터 존재', 0)
-            self.splog.send_designer()
+            self.splog.send_designer_all()
         return res
 
     def _check_enum_data(self, row, data: dict):

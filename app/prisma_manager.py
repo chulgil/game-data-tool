@@ -144,8 +144,7 @@ class PrismaManager:
                 run([f'prisma db push --accept-data-loss --force-reset --schema={data_schema}'], shell=True, check=True,
                     stdout=PIPE,
                     stderr=STDOUT)
-
-            self.splog.info(f'Prisma DB 초기화 완료: {str(option)}')
+            self.splog.send_developer(f'DB 초기화 완료: {str(option)}')
 
         except CalledProcessError as e:
             self.splog.error(f'마이그레이션 Error: \n{str(e.output)}')
@@ -321,7 +320,7 @@ datasource db {{
                 await self.restore_table(json_key, json_data)
             except Exception as e:
                 self.splog.add_warning(f'테이블 데이터 {json_key} Error :\n {str(e)}')
-        self.splog.add_info(f'테이블 데이터 총 {i} 건 RESTORE 완료')
+        self.splog.send_developer(f'테이블 데이터 총 {i} 건 RESTORE 완료')
         await self.data_db.disconnect()
 
     async def update_version_info(self, commit_id: str, res_url: str):
@@ -353,6 +352,7 @@ datasource db {{
                     'reg_dt': datetime.now(),
                     'status': 1
                 })
+            self.splog.add_info(f'테이블 데이터 VERSION_INFO 업데이트 완료')
 
         except Exception as e:
             self.splog.add_warning(f'P update_version_info Error : {table_name} \n {str(e)}')
