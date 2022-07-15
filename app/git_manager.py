@@ -208,6 +208,8 @@ class GitManager:
             self._checkout()
             if self.NEW_TAG != '':
                 self._save_base_tag_to_branch()
+                if self.is_modified():
+                    self.push()
             else:
                 self._checkout_base()
 
