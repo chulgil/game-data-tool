@@ -116,8 +116,24 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         }
 
     """
-    if not webhook["head_commit"]:
+    # Webhook 전처리
+    if not webhook["head_commit"] or not webhook["after"]:
         return
+    else:
+        username = webhook["head_commit"]["committer"]["username"]
+        message = webhook["head_commit"]["message"]
+        compare_url = webhook["compare_url"]
+
+        # 태그 삭제의 경우 "after": "0000000000000000000000000000000000000000" 로 리퀘스트 받음
+        nothing_to_do = False
+        try:
+            if int(webhook["before"]) == 0:
+                nothing_to_do = True
+        except Exception:
+            pass
+
+        if nothing_to_do:
+            return
 
     g_manager = GitManager(GitTarget.EXCEL, webhook=webhook)
     tag = g_manager.load_tag_from_webhook(webhook)
@@ -125,13 +141,9 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
 
     # # 체크아웃 성공시에만 진행
-    if not webhook["head_commit"] or not g_manager.checkout():
+    if not g_manager.checkout():
         g_manager.destroy()
         return
-
-    username = webhook["head_commit"]["committer"]["username"]
-    message = webhook["head_commit"]["message"]
-    compare_url = webhook["compare_url"]
 
     if g_manager.NEW_TAG != '':
         excel_to_data_taged(g_manager.NEW_TAG)
@@ -406,11 +418,11 @@ async def scheduler():
         check_to_excel(task_branch)
 
 
-async def test():
+def test():
     webhook = {
         "ref": "refs/heads/test_cg",
         "before": "1dfafc5434b2728a8c7eb768e91a4fbc5333732e",
-        "after": "fbb72920444da56065c5244bf746e6b343078c76",
+        "after": "1",
         "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/1dfafc5434b2728a8c7eb768e91a4fbc5333732e...fbb72920444da56065c5244bf746e6b343078c76",
         "commits": [
             {
@@ -460,7 +472,7 @@ async def test():
         },
     }
 
-    await excel_to_data_from_webhook(webhook)
+    # await excel_to_data_from_webhook(webhook)
 
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
@@ -483,7 +495,7 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    excel_to_data_taged('v0.6.1_local')
+    # excel_to_data_taged('v0.6.1_local')
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
@@ -494,5 +506,4 @@ if __name__ == '__main__':
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
     # check_to_excel(branch)
-    # asyncio.run(excel_to_data_all_from_branch(branch))
-    pass
+    # asyncio.run(excel_to_data_all_from_branch(branch))'
