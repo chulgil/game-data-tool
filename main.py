@@ -25,7 +25,7 @@ else:
     from app.libs.excel_to_db.app import *
 
 
-def sync_prisma(br: str):
+def task_sync_prisma(br: str):
     db_task = TaskManager(TaskType.SYNC_DB, branch=br)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, br)
@@ -41,7 +41,7 @@ def sync_prisma(br: str):
         db_task.done()
 
 
-async def update_table(br: str):
+async def task_update_table(br: str):
     db_task = TaskManager(TaskType.UPDATE_DATA_DB, branch=br)
     if db_task.start():
         # Git 초기화 및 다운로드
@@ -60,7 +60,7 @@ async def update_table(br: str):
         db_task.done()
 
 
-async def excel_to_data_all_from_branch(br: str):
+async def task_excel_to_data_all_from_branch(br: str):
     """
     최신 Excel Git 브랜치를 복제한후 데이터 변환을 호출한다.
     @param br: Git브랜치
@@ -84,19 +84,15 @@ async def excel_to_data_all_from_branch(br: str):
 
         send_enum_to_client(g_manager, gc_manager)
         send_entity_to_client(g_manager, gc_manager)
-        send_data_to_client(g_manager, gc_manager)
-
-        if gc_manager.is_modified():
-            gc_manager.push()
-
-        if g_manager.is_modified():
-            g_manager.push()
 
         if not g_manager.get_modified_excel():
+            send_data_to_client(g_manager, gc_manager)
             prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
             await data_to_db(g_manager, prisma)
             await tag_to_db(g_manager, prisma)
             await prisma.destory()
+        else:
+            send_data_to_client(g_manager, gc_manager, ftp_send=True)
 
         if gc_manager.is_modified():
             gc_manager.push()
@@ -106,6 +102,8 @@ async def excel_to_data_all_from_branch(br: str):
         g_manager.destroy()
 
         task.done()
+
+        task_check_to_excel(br)
 
 
 async def excel_to_data_from_webhook(webhook: dict = None):
@@ -167,7 +165,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         return
 
     if g_manager.NEW_TAG != '':
-        excel_to_data_taged(g_manager.NEW_TAG)
+        task_excel_to_data_taged(g_manager.NEW_TAG)
     else:
         # 변경사항이 없다면 무시
         if not compare_url:
@@ -181,14 +179,14 @@ async def excel_to_data_from_webhook(webhook: dict = None):
 
         g_manager.splog.send_designer(f"[EXCEL변환요청:{username}] 변경사항을 적용합니다. \n\n {message}")
 
-        markdown_to_script(g_manager.BRANCH)
+        task_markdown_to_script(g_manager.BRANCH)
 
-        await excel_to_data_modified(g_manager.BRANCH)
+        await task_excel_to_data_modified(g_manager.BRANCH)
 
     return
 
 
-async def excel_to_data_modified(br: str):
+async def task_excel_to_data_modified(br: str):
     excel_task = TaskManager(TaskType.EXCEL, branch=br)
     if excel_task.start():
         g_manager = GitManager(GitTarget.EXCEL, branch=br)
@@ -204,7 +202,7 @@ async def excel_to_data_modified(br: str):
         excel_task.done()
 
 
-def excel_to_data_taged(tag: str):
+def task_excel_to_data_taged(tag: str):
     db_task = TaskManager(TaskType.EXCEL_TAG, tag=tag)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
@@ -219,21 +217,20 @@ def excel_to_data_taged(tag: str):
             db_task.done()
             return
 
-        send_data_to_client(g_manager, gc_manager)
+        send_data_to_client(g_manager, gc_manager, ftp_send=True)
         gc_manager.push_tag_to_client(tag)
         gc_manager.destroy()
         db_task.done()
 
 
-def send_data_to_client(g_manager: GitManager, gc_manager: GitManager):
-    if g_manager.BASE_TAG != '':
-        d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
-        d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
-        if gc_manager.is_modified():
-            f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
-            f_manager.send(d_manager.get_json())
-            g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
-            gc_manager.push()
+def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send: bool = False):
+    d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
+    d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
+    if ftp_send and gc_manager.is_modified():
+        f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
+        f_manager.send(d_manager.get_json())
+        g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
+        gc_manager.push()
 
 
 async def excel_to_server(g_manager: GitManager):
@@ -258,14 +255,14 @@ async def excel_to_server(g_manager: GitManager):
 
     else:
         g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
-        send_data_to_client(g_manager, gc_manager)
+        send_data_to_client(g_manager, gc_manager, ftp_send=True)
         prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
 
 
-async def migrate(br: str):
+async def task_migrate(br: str):
     # Git 초기화 및 다운로드
     db_task = TaskManager(TaskType.MIGRATE_DB, branch=br)
     if db_task.start():
@@ -286,7 +283,7 @@ async def migrate(br: str):
         g_manager.destroy()
         db_task.done()
 
-        await update_table(br)
+        await task_update_table(br)
 
 
 async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
@@ -360,7 +357,7 @@ def excel_to_schema(g_manager: GitManager):
     p_manager.save(data_table, DBType.DATA_DB)
 
 
-def markdown_to_script(br: str):
+def task_markdown_to_script(br: str):
     g_manager = GitManager(GitTarget.EXCEL, branch=br)
     gc_manager = GitManager(GitTarget.CLIENT, branch=br)
     if not g_manager.checkout() or not gc_manager.checkout():
@@ -388,7 +385,7 @@ def markdown_to_script(br: str):
         task.done()
 
 
-def check_to_excel(br: str):
+def task_check_to_excel(br: str):
     db_task = TaskManager(TaskType.EXCEL_CHECK, branch=br)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, branch=br)
@@ -422,23 +419,23 @@ async def scheduler():
     if task_type == TaskType.EXCEL:
         if task_branch is None:
             return
-        await excel_to_data_modified(task_branch)
+        await task_excel_to_data_modified(task_branch)
         return
 
     if task_type == TaskType.EXCEL_TAG:
         if task_tag is None:
             return
-        excel_to_data_taged(task_tag)
+        task_excel_to_data_taged(task_tag)
         return
 
     if task_type == TaskType.MIGRATE_DB:
-        await migrate(task_branch)
+        await task_migrate(task_branch)
 
     if task_type == TaskType.SYNC_DB:
-        sync_prisma(task_branch)
+        task_sync_prisma(task_branch)
 
     if task_type == TaskType.EXCEL_CHECK:
-        check_to_excel(task_branch)
+        task_check_to_excel(task_branch)
 
 
 async def test():
@@ -514,13 +511,13 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'main'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
     # excel_to_data_taged('v0.5.2')
-    asyncio.run(excel_to_data_all_from_branch(branch))
+    asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
