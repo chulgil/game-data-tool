@@ -127,11 +127,10 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         # 태그 삭제의 경우 "after": "0000000000000000000000000000000000000000" 로 리퀘스트 받음
         nothing_to_do = False
         try:
-            if int(webhook["before"]) == 0:
+            if int(webhook["after"]) == 0:
                 nothing_to_do = True
         except Exception:
             pass
-
         if nothing_to_do:
             return
 
@@ -418,11 +417,11 @@ async def scheduler():
         check_to_excel(task_branch)
 
 
-def test():
+async def test():
     webhook = {
-        "ref": "refs/heads/test_cg",
-        "before": "1dfafc5434b2728a8c7eb768e91a4fbc5333732e",
-        "after": "1",
+        "ref": "refs/tags/v0.5.1_test_cg",
+        "before": "0000000000000000000000000000000000000000",
+        "after": "86c194635481f966521f4021ab12623687359440",
         "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/1dfafc5434b2728a8c7eb768e91a4fbc5333732e...fbb72920444da56065c5244bf746e6b343078c76",
         "commits": [
             {
@@ -472,7 +471,7 @@ def test():
         },
     }
 
-    # await excel_to_data_from_webhook(webhook)
+    await excel_to_data_from_webhook(webhook)
 
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
@@ -507,3 +506,4 @@ if __name__ == '__main__':
     # asyncio.run(update_table(branch))
     # check_to_excel(branch)
     # asyncio.run(excel_to_data_all_from_branch(branch))'
+    # asyncio.run(test())
