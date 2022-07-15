@@ -483,7 +483,7 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    # excel_to_data_taged('v0.5.1_test_cg')
+    excel_to_data_taged('v0.6.1_local')
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
