@@ -29,13 +29,13 @@ class UserType(Enum):
 
 class PrismaManager:
 
-    def __init__(self, branch: str, load_dir: Path, user_type: UserType = UserType.USER):
+    def __init__(self, branch: str, commit_id: str, load_dir: Path, user_type: UserType = UserType.USER):
         self.config = None
         from . import LogManager
         self.data_db = None
         self.info_db = None
         self.splog = LogManager(branch)
-        self.splog.PREFIX = f"[{branch} 브랜치] PRISMA[{user_type.name}]"
+        self.splog.PREFIX = f"[{branch}:{commit_id} 브랜치] PRISMA[{user_type.name}]"
         self.BRANCH = branch
         self.USER_TYPE = user_type
         self.PATH_FOR_ROOT = Path(__file__).parent.parent

@@ -35,7 +35,7 @@ def task_sync_prisma(br: str):
             return
 
         # 프리즈마 초기화
-        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
         prisma.destory()
         db_task.done()
@@ -52,7 +52,7 @@ async def task_update_table(br: str):
             g_manager.destroy()
             db_task.done()
             return
-        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
@@ -219,7 +219,7 @@ async def excel_to_server(g_manager: GitManager):
     if not g_manager.is_modified_excel_column():
         g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
         send_data_to_client(g_manager, gc_manager, ftp_send=True)
-        prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         await data_to_db(g_manager, prisma)
         await tag_to_db(g_manager, prisma)
         await prisma.destory()
@@ -245,7 +245,7 @@ async def task_migrate(br: str):
         if g_manager.is_modified():
             g_manager.push()
 
-        prisma = PrismaManager(br, g_manager.PATH_FOR_WORKING)
+        prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         prisma.migrate(MigrateType.FORCE, br)
         g_manager.destroy()
         db_task.done()
@@ -318,7 +318,7 @@ def excel_to_schema(g_manager: GitManager):
     g_manager.splog.info("전체 Excel로드후 Prisma변환을 진행합니다.")
 
     # 프리즈마 초기화
-    p_manager = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+    p_manager = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
     d_manager = DataManager(g_manager.BRANCH, ConvertType.SERVER, g_manager.PATH_FOR_WORKING)
     data_table = d_manager.get_schema_all(ConvertType.SERVER)
     p_manager.save(data_table, DBType.DATA_DB)
