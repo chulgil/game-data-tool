@@ -163,6 +163,8 @@ async def excel_to_data_from_webhook(webhook: dict = None):
 
         await excel_to_data_modified(g_manager.BRANCH)
 
+    return
+
 
 async def excel_to_data_modified(br: str):
     excel_task = TaskManager(TaskType.EXCEL, branch=br)
