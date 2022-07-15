@@ -77,7 +77,29 @@ async def excel_to_data_all_from_branch(br: str):
             return
         excel_to_json_all(g_manager)
 
-        await excel_to_server(g_manager)
+        gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
+        if not gc_manager.checkout():
+            gc_manager.destroy()
+            return
+
+        send_enum_to_client(g_manager, gc_manager)
+        send_entity_to_client(g_manager, gc_manager)
+        send_data_to_client(g_manager, gc_manager)
+
+        if gc_manager.is_modified():
+            gc_manager.push()
+
+        if g_manager.is_modified():
+            g_manager.push()
+
+        if not g_manager.get_modified_excel():
+            prisma = PrismaManager(g_manager.BRANCH, g_manager.PATH_FOR_WORKING)
+            await data_to_db(g_manager, prisma)
+            await tag_to_db(g_manager, prisma)
+            await prisma.destory()
+
+        if gc_manager.is_modified():
+            gc_manager.push()
 
         if g_manager.is_modified():
             g_manager.push()
@@ -228,6 +250,7 @@ async def excel_to_server(g_manager: GitManager):
             gc_manager.push()
 
     if g_manager.is_modified_excel_column():
+        send_entity_to_client(g_manager, gc_manager)
         send_data_to_client(g_manager, gc_manager)
         g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
         g_manager.splog.send_developer_all()
@@ -313,7 +336,6 @@ def send_entity_to_client(g_manager: GitManager, gc_manager: GitManager):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
     c_manager.save_entity(d_manager.get_schema_all())
-    c_manager.save_enum(d_manager.get_enum_data())
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
 
 
@@ -497,8 +519,8 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    excel_to_data_taged('v0.5.2')
-    # asyncio.run(excel_to_data_all_from_branch(branch))
+    # excel_to_data_taged('v0.5.2')
+    asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
