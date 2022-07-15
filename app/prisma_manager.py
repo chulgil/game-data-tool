@@ -321,6 +321,7 @@ datasource db {{
             except Exception as e:
                 self.splog.add_warning(f'테이블 데이터 {json_key} Error :\n {str(e)}')
         self.splog.send_developer(f'테이블 데이터 총 {i} 건 RESTORE 완료')
+        self.splog.send_developer_warning()
         await self.data_db.disconnect()
 
     async def update_version_info(self, commit_id: str, res_url: str):
@@ -356,6 +357,8 @@ datasource db {{
 
         except Exception as e:
             self.splog.add_warning(f'P update_version_info Error : {table_name} \n {str(e)}')
+        finally:
+            self.splog.send_developer_warning()
 
     async def restore_table(self, table_name: str, json_data: list):
         try:

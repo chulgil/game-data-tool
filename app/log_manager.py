@@ -196,6 +196,17 @@ class LogManager:
                 print(e)
             self.warning()
 
+    def send_developer_warning(self):
+        if not self.teams_developer:
+            return
+        if self.has_warning():
+            self._warning = list(set(self._warning))
+            try:
+                self.teams_developer.text('\n\n'.join(self._warning)).send()
+            except Exception as e:
+                print(e)
+            self.warning()
+
     @staticmethod
     def is_live_branch(branch) -> bool:
         if branch == 'main' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
