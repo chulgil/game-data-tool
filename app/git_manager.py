@@ -177,10 +177,7 @@ class GitManager:
         return branch
 
     def _checkout(self):
-        if not Path(self.PATH_FOR_WORKING).is_dir():
-            self._init_git()
-        else:
-            self._repo = Repo(self.PATH_FOR_WORKING)
+        self._repo = Repo(self.PATH_FOR_WORKING)
         self._origin = self._repo.remotes.origin
         self._repo.git.clean('-fdx')
         self._repo.git.reset('--hard', f'origin/{self.BRANCH}')

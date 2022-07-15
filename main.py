@@ -473,8 +473,9 @@ async def test():
         },
     }
 
-    await excel_to_data_from_webhook(webhook)
-
+    # await excel_to_data_from_webhook(webhook)
+    g_manager = GitManager(GitTarget.EXCEL, 'main')
+    g_manager.checkout()
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
     # markdown_to_script(g_manager, gc_manager)
@@ -491,12 +492,12 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'test_cg'
+    branch = 'main'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
 
-    # excel_to_data_taged('v0.6.1_local')
+    excel_to_data_taged('v0.5.2')
     # asyncio.run(excel_to_data_all_from_branch(branch))
     # asyncio.run(excel_to_data_modified(branch))
     # asyncio.run(migrate(branch))
