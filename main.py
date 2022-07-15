@@ -249,9 +249,11 @@ async def excel_to_server(g_manager: GitManager):
     if g_manager.is_modified_excel_column():
         send_entity_to_client(g_manager, gc_manager)
         send_data_to_client(g_manager, gc_manager)
-        g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
-        g_manager.splog.send_developer_all()
-        g_manager.splog.send_designer('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.')
+        if gc_manager.is_modified():
+            gc_manager.push()
+            g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
+            g_manager.splog.send_developer_all()
+            g_manager.splog.send_designer('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.')
 
     else:
         g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
