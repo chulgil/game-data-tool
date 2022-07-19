@@ -79,7 +79,10 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
             excel_to_json_all(g_manager)
             task_check_to_excel(br)
 
-        await excel_to_server(g_manager)
+        if g_manager.splog.is_live_branch():
+            await excel_to_server_modified(g_manager)
+        else:
+            await excel_to_server_all(g_manager)
         # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
         if g_manager.is_modified():
             g_manager.push()
@@ -198,7 +201,29 @@ def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send:
         gc_manager.push()
 
 
-async def excel_to_server(g_manager: GitManager):
+async def excel_to_server_all(g_manager: GitManager):
+    gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
+    if not gc_manager.checkout():
+        gc_manager.destroy()
+        return
+
+    send_enum_to_client(g_manager, gc_manager)
+    if gc_manager.is_modified():
+        g_manager.splog.send_developer_all()
+        gc_manager.push()
+
+    send_entity_to_client(g_manager, gc_manager)
+    send_data_to_client(g_manager, gc_manager, ftp_send=True)
+    if gc_manager.is_modified():
+        gc_manager.push()
+
+    prisma = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
+    await data_to_db(g_manager, prisma)
+    await tag_to_db(g_manager, prisma)
+    await prisma.destory()
+
+
+async def excel_to_server_modified(g_manager: GitManager):
     gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
