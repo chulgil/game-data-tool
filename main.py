@@ -79,7 +79,7 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
             excel_to_json_all(g_manager)
             task_check_to_excel(br)
 
-        if g_manager.splog.is_live_branch():
+        if g_manager.splog.is_live_branch(branch):
             await excel_to_server_modified(g_manager)
         else:
             await excel_to_server_all(g_manager)
@@ -509,7 +509,7 @@ if __name__ == '__main__':
     # asyncio.run(migrate(branch))
 
     # excel_to_data_taged('v0.5.2')
-    asyncio.run(task_excel_to_data_all_from_branch(branch))
+    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_migrate(branch))
     # asyncio.run(update_table(branch, ConvertType.SERVER))
