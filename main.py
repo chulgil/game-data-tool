@@ -245,7 +245,6 @@ async def excel_to_server_modified(g_manager: GitManager):
             g_manager.splog.send_developer_all()
             gc_manager.push()
 
-    send_entity_to_client(g_manager, gc_manager)
     if g_manager.is_modified_excel_column():
         send_data_to_client(g_manager, gc_manager)
     else:
@@ -504,7 +503,7 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'test'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
@@ -519,5 +518,5 @@ if __name__ == '__main__':
     # task_sync_prisma(branch)
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
-    # check_to_excel(branch)
+    # task_check_to_excel(branch)
     # asyncio.run(test())
