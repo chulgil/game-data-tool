@@ -83,20 +83,19 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
         if g_manager.is_modified():
             g_manager.push()
 
-        await excel_to_server_modified(g_manager)
+        excel_to_server_modified(g_manager)
         excel_task.done()
         # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
         if g_manager.is_modified():
             g_manager.push()
-        g_manager.destroy()
-
-        if not g_manager.is_modified_excel_column():
             g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
             await task_update_table(branch)
-        else:
+
+        if g_manager.is_modified_excel_column():
             g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
             g_manager.splog.send_developer_all()
             g_manager.splog.send_designer('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.')
+        g_manager.destroy()
 
 
 async def excel_to_data_from_webhook(webhook: dict = None):
@@ -232,7 +231,7 @@ async def excel_to_server_all(g_manager: GitManager):
     await prisma.destory()
 
 
-async def excel_to_server_modified(g_manager: GitManager):
+def excel_to_server_modified(g_manager: GitManager):
     gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
     if not gc_manager.checkout():
         gc_manager.destroy()
@@ -513,7 +512,7 @@ if __name__ == '__main__':
     # asyncio.run(migrate(branch))
     #
     # excel_to_data_taged('v0.5.2')
-    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_update_table(branch))
@@ -522,6 +521,6 @@ if __name__ == '__main__':
     # task_sync_prisma(branch)
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
-    asyncio.run(scheduler())
+    # asyncio.run(scheduler())
     # task_check_to_excel(branch)
     # asyncio.run(test())
