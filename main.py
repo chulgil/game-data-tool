@@ -396,7 +396,11 @@ def check():
 
 async def scheduler():
     await asyncio.sleep(1)
+    g_manager = GitManager(GitTarget.EXCEL)
+    if not g_manager.checkout():
+        return
     job_task = TaskManager(TaskType.SCHEDULER)
+    job_task.init(g_manager)
     if not job_task.load_task():
         job_task.splog.info("대기열에 작업이 없습니다.")
         return
@@ -503,13 +507,13 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'main'
+    branch = 'test_cg'
 
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
     #
     # excel_to_data_taged('v0.5.2')
-    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_update_table(branch))
@@ -518,5 +522,6 @@ if __name__ == '__main__':
     # task_sync_prisma(branch)
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
+    asyncio.run(scheduler())
     # task_check_to_excel(branch)
     # asyncio.run(test())

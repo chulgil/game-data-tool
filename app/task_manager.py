@@ -82,15 +82,18 @@ class TaskManager:
             return self.BRANCH
 
     def load_task(self) -> bool:
-        config = self._load_config()
-        if config['tasks'] is None or len(config['tasks']) == 0:
+        try:
+            config = self._load_config()
+            if config['tasks'] is None or len(config['tasks']) == 0:
+                return False
+            task = config['tasks'][-1]
+            info = str(task).split('::')
+            self.TASK_TYPE = TaskType.value_of(info[0])
+            self.BRANCH = info[1]
+            if self.TASK_TYPE == TaskType.EXCEL_TAG:
+                self.NEW_TAG = info[2]
+        except Exception:
             return False
-        task = config['tasks'][-1]
-        info = str(task).split('::')
-        self.TASK_TYPE = TaskType.value_of(info[0])
-        self.BRANCH = info[1]
-        if self.TASK_TYPE == TaskType.EXCEL_TAG:
-            self.NEW_TAG = info[2]
         return True
 
     def _create_task(self):
