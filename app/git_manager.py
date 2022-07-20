@@ -2,6 +2,7 @@ import os
 import uuid
 from enum import Enum, auto
 from pprint import pprint
+from subprocess import run
 from typing import Optional
 
 import yaml
@@ -156,11 +157,13 @@ class GitManager:
         return ''
 
     def _load_branch_from_tag(self):
-        self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
-        self._repo.git.checkout('-B', self.BRANCH)
         new_tag = self.NEW_TAG
         if new_tag == '':
             return
+
+        os.chdir(self.PATH_FOR_WORKING)
+        run(["git fetch --tags -f"], shell=True)
+
         self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{new_tag}]")
         res = self._repo.git.branch('-a', '--contains', f'tags/{new_tag}')
         branch = res.split('/').pop()
@@ -187,7 +190,7 @@ class GitManager:
                 self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
                 self.load_branch_from_commit(self.COMMIT_ID)
             else:
-                
+
                 self._repo.git.checkout(self.BRANCH)
                 self.COMMIT_ID = self.get_last_commit()
 
@@ -204,12 +207,7 @@ class GitManager:
                 self.COMMIT_ID = commit_id
             self._set_working_target()
             self._checkout()
-            if self.NEW_TAG != '':
-                self._save_base_tag_to_branch()
-                if self.is_modified():
-                    self.push()
-            else:
-                self._checkout_base()
+            self._checkout_base()
 
             self.info = self._brn()
             self.splog.PREFIX = self.info
@@ -421,7 +419,7 @@ class GitManager:
             self.splog.info('TAG CONFIG가 없습니다.')
         return ''
 
-    def _save_base_tag_to_branch(self):
+    def save_base_tag_to_branch(self):
         tag = self.NEW_TAG
         if tag == '':
             return

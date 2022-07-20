@@ -186,6 +186,9 @@ def task_excel_to_data_taged(tag: str):
             db_task.done()
             return
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 클라이언트 태그 및 데이터 전송을 시작합니다.")
+        g_manager.save_base_tag_to_branch()
+        if g_manager.is_modified():
+            g_manager.push()
 
         gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
         if not gc_manager.checkout():
@@ -435,7 +438,7 @@ async def scheduler():
 
 async def test():
     webhook = {
-        "ref": "refs/tags/v0.5.1_test_cg",
+        "ref": "refs/tags/v0.5.2_test_cg",
         "before": "0000000000000000000000000000000000000000",
         "after": "86c194635481f966521f4021ab12623687359440",
         "compare_url": "http://main.sp.snowpipe.net:3000/SPTeam/data-for-designer/compare/1dfafc5434b2728a8c7eb768e91a4fbc5333732e...fbb72920444da56065c5244bf746e6b343078c76",
@@ -486,10 +489,7 @@ async def test():
             "modified": []
         },
     }
-
-    # await excel_to_data_from_webhook(webhook)
-    g_manager = GitManager(GitTarget.EXCEL, 'main')
-    g_manager.checkout()
+    await excel_to_data_from_webhook(webhook)
     # pprint(g_manager.get_deleted_json())
     # pprint(g_manager.get_modified_excel())
     # markdown_to_script(g_manager, gc_manager)
@@ -507,20 +507,18 @@ async def test():
 
 if __name__ == '__main__':
     branch = 'test_cg'
-
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
     #
     # excel_to_data_taged('v0.5.2')
-    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_update_table(branch))
-    # asyncio.run(test(branch))
     # asyncio.run(scheduler())
     # task_sync_prisma(branch)
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
     # asyncio.run(scheduler())
     # task_check_to_excel(branch)
-    # asyncio.run(test())
+    asyncio.run(test())
