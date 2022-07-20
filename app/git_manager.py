@@ -187,6 +187,7 @@ class GitManager:
                 self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
                 self.load_branch_from_commit(self.COMMIT_ID)
             else:
+                
                 self._repo.git.checkout(self.BRANCH)
                 self.COMMIT_ID = self.get_last_commit()
 
