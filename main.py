@@ -241,8 +241,8 @@ def excel_to_server_modified(g_manager: GitManager):
             g_manager.splog.add_info('Enum 데이터에 변동 사항이 있습니다. 서버 및 클라 개발을 진행 해 주세요.', 0)
             g_manager.splog.send_developer_all()
 
+    send_entity_to_client(g_manager, gc_manager)
     if g_manager.is_modified_excel_column():
-        send_entity_to_client(g_manager, gc_manager)
         send_data_to_client(g_manager, gc_manager)
     else:
         send_data_to_client(g_manager, gc_manager, ftp_send=True)
@@ -501,13 +501,13 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'test_cg'
+    branch = 'main'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
     #
     # excel_to_data_taged('v0.5.2')
-    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
-    # asyncio.run(task_excel_to_data_all_from_branch(branch))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
@@ -516,4 +516,4 @@ if __name__ == '__main__':
     # asyncio.run(update_table(branch))
     # asyncio.run(scheduler())
     # task_check_to_excel(branch)
-    asyncio.run(test())
+    # asyncio.run(test())
