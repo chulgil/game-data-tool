@@ -241,8 +241,8 @@ def excel_to_server_modified(g_manager: GitManager):
             g_manager.splog.add_info('Enum 데이터에 변동 사항이 있습니다. 서버 및 클라 개발을 진행 해 주세요.', 0)
             g_manager.splog.send_developer_all()
 
-    send_entity_to_client(g_manager, gc_manager)
     if g_manager.is_modified_excel_column():
+        send_entity_to_client(g_manager, gc_manager)
         send_data_to_client(g_manager, gc_manager)
     else:
         send_data_to_client(g_manager, gc_manager, ftp_send=True)
