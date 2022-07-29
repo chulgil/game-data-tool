@@ -275,7 +275,7 @@ class DataManager:
                 row_id = i + self.row_for_data_start + 2
                 info = f'컬럼[{col}] 행[{row_id}]'
                 # print(f'{field_type} {field_value}')
-                data_df.loc[i][col] = self._value_astype(field_type, field_value, schema_type, info)
+                data_df.loc[i][col.strip()] = self._value_astype(field_type, field_value, schema_type, info)
 
     def _set_pandas_type(self, data_df: DataFrame, type_df: DataFrame) -> DataFrame:
 

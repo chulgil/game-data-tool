@@ -501,14 +501,14 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'main'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(migrate(branch))
     #
     # excel_to_data_taged('v0.5.2')
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
-    asyncio.run(task_excel_to_data_all_from_branch(branch))
-    # asyncio.run(task_migrate(branch))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch))
+    asyncio.run(task_migrate(branch))
     # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
     # task_sync_prisma(branch)
