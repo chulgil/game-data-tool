@@ -161,7 +161,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
         return
 
     if g_manager.NEW_TAG != '':
-        task_excel_to_data_taged(g_manager.NEW_TAG)
+        await task_excel_to_data_taged(g_manager.NEW_TAG)
     else:
         # 변경사항이 없다면 무시
         if not compare_url:
@@ -182,7 +182,7 @@ async def excel_to_data_from_webhook(webhook: dict = None):
     return
 
 
-def task_excel_to_data_taged(tag: str):
+async def task_excel_to_data_taged(tag: str):
     db_task = TaskManager(TaskType.EXCEL_TAG, tag=tag)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, tag=tag)
@@ -420,7 +420,7 @@ async def scheduler():
     if task_type == TaskType.EXCEL_TAG:
         if task_tag is None:
             return
-        task_excel_to_data_taged(task_tag)
+        await task_excel_to_data_taged(task_tag)
         return
 
     if task_type == TaskType.MIGRATE_DB:
