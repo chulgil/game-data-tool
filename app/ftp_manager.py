@@ -24,7 +24,7 @@ class FtpManager:
         self.aes = AESCipher(self.AES_KEY)
 
     def _set_config(self, config):
-        if self.splog.is_live_branch(config):
+        if self.splog.is_live_branch(self.BRANCH):
             self.FTP_URL = config['FTPSERVER']['LIVE']['URL']
             self.FTP_USER = config['FTPSERVER']['LIVE']['USER']
             self.FTP_PASS = config['FTPSERVER']['LIVE']['PASS']

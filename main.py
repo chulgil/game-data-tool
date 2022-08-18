@@ -211,7 +211,7 @@ async def task_excel_to_data_taged(tag: str):
 def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send: bool = False):
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
-    if ftp_send and gc_manager.is_modified():
+    if ftp_send or gc_manager.is_modified():
         f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
         f_manager.send(d_manager.get_json())
         g_manager.save_client_resource_to_branch(f_manager.get_resource_url())
@@ -503,10 +503,10 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'qa3'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    asyncio.run(task_excel_to_data_taged("v0.6.6_qa3"))
+    asyncio.run(task_excel_to_data_taged("v0.6.4_local"))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
