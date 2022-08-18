@@ -191,8 +191,6 @@ def task_excel_to_data_taged(tag: str):
             return
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 클라이언트 태그 및 데이터 전송을 시작합니다.")
         g_manager.save_base_tag_to_branch()
-        if g_manager.is_modified():
-            g_manager.push()
 
         gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
         if not gc_manager.checkout():
@@ -201,8 +199,12 @@ def task_excel_to_data_taged(tag: str):
             return
 
         send_data_to_client(g_manager, gc_manager, ftp_send=True)
+        prisma = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
+        await tag_to_db(g_manager, prisma)
         gc_manager.push_tag_to_client(tag)
         gc_manager.destroy()
+        if g_manager.is_modified():
+            g_manager.push()
         db_task.done()
 
 
@@ -501,14 +503,13 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'local'
+    branch = 'qa3'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
-    # asyncio.run(migrate(branch))
-    #
-    # excel_to_data_taged('v0.5.2')
+    # asyncio.run(task_migrate(branch))
+    asyncio.run(task_excel_to_data_taged("v0.6.6_qa3"))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
-    asyncio.run(task_migrate(branch))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
     # task_sync_prisma(branch)
