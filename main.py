@@ -83,17 +83,18 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
         # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
         if g_manager.is_modified():
             g_manager.push()
+            g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
+            excel_task.done()
+            g_manager.destroy()
+            await task_update_table(br)
+            return
 
-            if g_manager.is_modified_excel_column():
-                g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
-                g_manager.splog.send_developer_all()
-                g_manager.splog.send_designer('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.')
-            else:
-                g_manager.splog.info(f'EXCEL파일 데이터 수정으로 인한 데이터 업데이트를 진행합니다.')
-                await task_update_table(br)
+        if g_manager.is_modified_excel_column():
+            g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
+            g_manager.splog.send_developer_all()
+            g_manager.splog.send_designer('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발자가 확인 후 다음 프로세스로 진행됩니다.')
 
         g_manager.destroy()
-
         excel_task.done()
 
         if not modified:
@@ -501,14 +502,14 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'qa3'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    asyncio.run(task_excel_to_data_taged("v0.6.4_local"))
+    # asyncio.run(task_excel_to_data_taged("v0.6.4_local"))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
-    # asyncio.run(task_update_table(branch))
+    asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
     # task_sync_prisma(branch)
     # markdown_to_script(branch)
