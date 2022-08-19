@@ -4,7 +4,7 @@ from enum import Enum, auto
 from pprint import pprint
 from subprocess import run
 from typing import Optional
-
+import subprocess
 import yaml
 from git import Repo
 from pathlib import Path
@@ -167,7 +167,7 @@ class GitManager:
         self.splog.info(f"태그로 부터 브랜치를 설정합니다. [{new_tag}]")
         res = self._repo.git.branch('-a', '--contains', f'tags/{new_tag}')
         branch = res.split('/').pop()
-        commit_id = self._repo.git.rev_parse(new_tag, short=True)
+        commit_id = self.get_git_revision_short_hash(new_tag)
         self.BRANCH = branch
         self.COMMIT_ID = commit_id
         return branch
@@ -178,6 +178,15 @@ class GitManager:
         branch = res.split('/').pop()
         self.BRANCH = branch
         return branch
+
+    def get_git_revision_short_hash(self, tag: str) -> str:
+        try:
+            _hash = subprocess.check_output(['git', 'rev-list', '-n 1', tag])
+            _hash = str(_hash, "utf-8").strip()
+            short_hash = self._repo.git.rev_parse(_hash, short=True)
+            return short_hash
+        except Exception as e:
+            self.splog.error(f'GIT GET TAG Error \r\n{str(e)}')
 
     def _checkout(self):
         self._repo = Repo(self.PATH_FOR_WORKING)
@@ -590,9 +599,9 @@ class GitManager:
             _target = self.PATH_FOR_TARGET.joinpath(self.USER_TYPE.name.lower(), self.GIT_TARGET.name.lower())
 
         self.PATH_FOR_WORKING = _target.joinpath(self.BRANCH)
-        self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
         self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
         self._load_base_tag_from_branch()
+        self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
 
     def destroy(self):
         try:
