@@ -272,6 +272,9 @@ class DataManager:
                 schema_type = ''
                 if option_df is not None:
                     schema_type = option_df[col]
+                if self.is_camel_case(col):
+                    self.splog.add_warning(f' 컬럼명 [{col}]을 스네이크 형식[EX: TestType -> 소문자_소문자 test_type]으로 변경해주세요.')
+
                 row_id = i + self.row_for_data_start + 2
                 info = f'컬럼[{col}] 행[{row_id}]'
                 # print(f'{field_type} {field_value}')
