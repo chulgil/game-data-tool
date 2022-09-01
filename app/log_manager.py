@@ -47,6 +47,7 @@ class LogManager:
             elif self.is_test_branch(branch):
                 self.teams_target = self.teams_test
             else:
+                self.teams_developer = self.teams_dev
                 self.teams_target = self.teams_dev
 
             _format_file = '[%(levelname)-7s] %(asctime)s: %(message)s '
