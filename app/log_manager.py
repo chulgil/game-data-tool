@@ -37,14 +37,17 @@ class LogManager:
                 self.teams_test = pymsteams.connectorcard(config['TEAMS']['TEST_URL'], http_timeout=self.TIMEOUT)
                 self.teams_developer = pymsteams.connectorcard(config['TEAMS']['DEVELOPER_URL'],
                                                                http_timeout=self.TIMEOUT)
+                self.teams_dev = pymsteams.connectorcard(config['TEAMS']['DEV_URL'], http_timeout=self.TIMEOUT)
             except Exception as e:
                 print(f'팀즈 메신저 타임아웃 에러 :{str(e)}')
 
             self.row_for_max_buffer = 100
             if self.is_live_branch(branch):
                 self.teams_target = self.teams_designer
-            else:
+            elif self.is_test_branch(branch):
                 self.teams_target = self.teams_test
+            else:
+                self.teams_target = self.teams_dev
 
             _format_file = '[%(levelname)-7s] %(asctime)s: %(message)s '
             _format_console = '[%(levelname)-7s] %(asctime)s: %(message)s '
@@ -211,6 +214,12 @@ class LogManager:
     def is_live_branch(branch) -> bool:
         if branch == 'main' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
                 or branch == 'cbt' or branch == 'obt':
+            return True
+        return False
+
+    @staticmethod
+    def is_test_branch(branch) -> bool:
+        if branch == 'dev':
             return True
         return False
 
