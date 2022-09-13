@@ -324,7 +324,6 @@ datasource db {{
         self.splog.send_developer_warning()
         await self.data_db.disconnect()
 
-    @staticmethod
     # Local(0),
     # MainDev(1), // 기획 테스트 서버
     # TestDev(2), // 개발 테스트 서버
@@ -375,7 +374,7 @@ datasource db {{
                     'market_type': 0,
                     'res_type': 2,
                     'client_ver': '0.0.1',
-                    'is_update_require': 0,
+                    'is_update_require': False,
                     'res_ver': commit_id,
                     'res_url': res_url,
                     'reg_dt': datetime.now(),
