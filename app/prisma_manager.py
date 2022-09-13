@@ -367,7 +367,7 @@ datasource db {{
                     self.info_db,
                     table_name,
                     where={'id': resource_info.id},
-                    data={'res_ver': commit_id, 'res_url': res_url}
+                    data={'res_ver': commit_id, 'res_url': res_url, 'reg_dt': datetime.now()}
                 )
             else:  # Insert
                 await self.insert_table(self.info_db, table_name, data={
