@@ -324,39 +324,66 @@ datasource db {{
         self.splog.send_developer_warning()
         await self.data_db.disconnect()
 
+    @staticmethod
+    # Local(0),
+    # MainDev(1), // 기획 테스트 서버
+    # TestDev(2), // 개발 테스트 서버
+    # QA(3),
+    # QA2(4),
+    # QA3(5),
+    # Live(6),
+    # Mirror(7), // 부하 발생시 사용
+    # Review(8); // APP 심사시 임시 서버
+    def _get_build_type(self) -> int:
+        if self.BRANCH == 'main':
+            return 1
+        elif self.BRANCH == 'dev':
+            return 2
+        elif self.BRANCH == 'qa':
+            return 3
+        elif self.BRANCH == 'qa2':
+            return 4
+        elif self.BRANCH == 'qa3':
+            return 5
+        elif self.BRANCH == 'live':
+            return 6
+        elif self.BRANCH == 'review':
+            return 8
+        return 0
+
     async def update_version_info(self, commit_id: str, res_url: str):
         # Json파일 가져오기
-        _market_type = 3000
-        table_name = 'version_check_info'
+        table_name = 'resource_info'
+        btype = self._get_build_type()
         try:
             if not self.info_db:
                 self.splog.warning('INFO DB가 존재하지 않습니다.')
                 return
             res = await self.info_db.connect()
-            version_check_info = await self.find_table(self.info_db, table_name, where={'market_type': _market_type})
-            if version_check_info:  # Update
+            test = 2
+            resource_info = await self.find_table(self.info_db, table_name, where={'res_type': 2, 'build_type': btype})
+            if resource_info:  # Update
                 await self.update_table(
                     self.info_db,
                     table_name,
-                    where={'id': version_check_info.id},
-                    data={'res_ver': commit_id, 'res_url': res_url, 'apply_dt': datetime.now()}
+                    where={'id': resource_info.id},
+                    data={'res_ver': commit_id, 'res_url': res_url}
                 )
             else:  # Insert
                 await self.insert_table(self.info_db, table_name, data={
-                    'server_type': 1,
-                    'market_type': _market_type,
+                    'build_type': btype,
+                    'market_type': 0,
+                    'res_type': 2,
                     'client_ver': '0.0.1',
                     'is_update_require': 0,
                     'res_ver': commit_id,
                     'res_url': res_url,
-                    'apply_dt': datetime.now(),
                     'reg_dt': datetime.now(),
-                    'status': 1
                 })
-            self.splog.add_info(f'테이블 데이터 VERSION_INFO 업데이트 완료')
+            self.splog.add_info(f'테이블 데이터 RESOURCE_INFO 업데이트 완료')
 
         except Exception as e:
-            self.splog.add_warning(f'P update_version_info Error : {table_name} \n {str(e)}')
+            self.splog.add_warning(f'P resource_info Error : {table_name} \n {str(e)}')
         finally:
             self.splog.send_developer_warning()
 
