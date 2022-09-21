@@ -192,14 +192,17 @@ class GitManager:
         self._repo = Repo(self.PATH_FOR_WORKING)
         self._origin = self._repo.remotes.origin
         self._repo.git.clean('-fdx')
-        self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
+        try:
+            self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
+        except Exception as e:
+            pass
+        
         if self.BRANCH in self._repo.remote().refs:
             if self.COMMIT_ID != '':
                 self._repo.git.checkout('-B', self.BRANCH, self.COMMIT_ID)
                 self._repo.head.reset(commit=self.COMMIT_ID, index=True, working_tree=True)
                 self.load_branch_from_commit(self.COMMIT_ID)
             else:
-
                 self._repo.git.checkout(self.BRANCH)
                 self.COMMIT_ID = self.get_last_commit()
 

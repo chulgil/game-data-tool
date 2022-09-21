@@ -359,7 +359,6 @@ datasource db {{
                 self.splog.warning('INFO DB가 존재하지 않습니다.')
                 return
             res = await self.info_db.connect()
-            test = 2
             resource_info = await self.find_table(self.info_db, table_name, where={'res_type': 2, 'build_type': btype})
             if resource_info:  # Update
                 await self.update_table(
@@ -368,6 +367,7 @@ datasource db {{
                     where={'id': resource_info.id},
                     data={'res_ver': commit_id, 'res_url': res_url, 'reg_dt': datetime.now()}
                 )
+                self.splog.add_info(f'테이블 데이터 RESOURCE_INFO INSERT 완료')
             else:  # Insert
                 await self.insert_table(self.info_db, table_name, data={
                     'build_type': btype,
@@ -379,7 +379,8 @@ datasource db {{
                     'res_url': res_url,
                     'reg_dt': datetime.now(),
                 })
-            self.splog.add_info(f'테이블 데이터 RESOURCE_INFO 업데이트 완료')
+                self.splog.add_info(f'테이블 데이터 RESOURCE_INFO UPDATE 완료')
+
 
         except Exception as e:
             self.splog.add_warning(f'P resource_info Error : {table_name} \n {str(e)}')

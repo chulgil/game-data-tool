@@ -25,7 +25,7 @@ else:
     from app.libs.excel_to_db.app import *
 
 
-def task_sync_prisma(br: str):
+async def task_sync_prisma(br: str):
     db_task = TaskManager(TaskType.SYNC_DB, branch=br)
     if db_task.start():
         g_manager = GitManager(GitTarget.EXCEL, br)
@@ -37,7 +37,7 @@ def task_sync_prisma(br: str):
         # 프리즈마 초기화
         prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         prisma.init_schema()
-        prisma.destory()
+        await prisma.destory()
         db_task.done()
 
 
@@ -503,16 +503,16 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'main'
+    branch = 'live'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    # asyncio.run(task_excel_to_data_taged("v0.6.4_local"))
+    asyncio.run(task_excel_to_data_taged("v0.7.3_live"))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
-    asyncio.run(task_update_table(branch))
+    # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
-    # task_sync_prisma(branch)
+    # asyncio.run(task_sync_prisma(branch))
     # markdown_to_script(branch)
     # asyncio.run(update_table(branch))
     # asyncio.run(scheduler())
