@@ -213,7 +213,7 @@ class LogManager:
 
     @staticmethod
     def is_live_branch(branch) -> bool:
-        if branch == 'main' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
+        if branch == 'live' or branch == 'main' or branch == 'qa' or branch == 'qa2' or branch == 'qa3' \
                 or branch == 'cbt' or branch == 'obt':
             return True
         return False
