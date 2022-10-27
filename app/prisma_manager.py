@@ -47,10 +47,10 @@ class PrismaManager:
             if not self.config:
                 self.config = {}
         if 'DATA_DB' not in self.config['DATABASE']:
-            self.splog.warning(f'CONFIG DATABASE[DATA_DB] 가 존재하지 않습니다.')
+            self.splog.error(f'CONFIG DATABASE[DATA_DB] 가 존재하지 않습니다.')
             return
         if 'INFO_DB' not in self.config['DATABASE']:
-            self.splog.warning(f'CONFIG DATABASE[INFO_DB] 가 존재하지 않습니다.')
+            self.splog.error(f'CONFIG DATABASE[INFO_DB] 가 존재하지 않습니다.')
             return
         self.PATH_FOR_SAVE_DIR = self.PATH_FOR_ROOT.joinpath('prisma', user_type.name.lower(), branch)
         self.PATH_FOR_B_DATA_SCHEMA = load_dir.joinpath(self.config['DEFAULT']['EXPORT_DIR'], 'prisma',
@@ -105,13 +105,13 @@ class PrismaManager:
             if db_name in config_db[db_type.name]:
                 return config_db[db_type.name][db_name]
             else:
-                self.splog.warning(f"DB CONFIG에 DATA_DB[{db_name}] 가 존재 하지 않습니다.")
+                self.splog.error(f"DB CONFIG에 DATA_DB[{db_name}] 가 존재 하지 않습니다.")
                 return db_name
         if db_type == DBType.INFO_DB:
             if db_name in config_db[db_type.name]:
                 return config_db[db_type.name][db_name]
             else:
-                self.splog.warning(f"DB CONFIG에 INFO_DB[{db_name}] 가 존재 하지 않습니다.")
+                self.splog.error(f"DB CONFIG에 INFO_DB[{db_name}] 가 존재 하지 않습니다.")
                 return db_name
 
     def _get_schema_path(self, db_type: DBType) -> str:
@@ -291,12 +291,12 @@ datasource db {{
        '''.format(db_type.name.lower(), output)
 
     def _load_db_source(self):
-        try:
-            info_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_INFO_SOURCE)).load_module()
-            self.info_db = info_source.Prisma()
-            del info_source
-        except Exception as e:
-            self.splog.error(f'INFO DB 소스로드 ERROR : \n{e}')
+        # try:
+        #     info_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_INFO_SOURCE)).load_module()
+        #     self.info_db = info_source.Prisma()
+        #     del info_source
+        # except Exception as e:
+        #     self.splog.error(f'INFO DB 소스로드 ERROR : \n{e}')
         try:
             data_source = SourceFileLoader(str(uuid.uuid4()), str(self.PATH_FOR_DATA_SOURCE)).load_module()
             self.data_db = data_source.Prisma()
@@ -306,12 +306,12 @@ datasource db {{
 
     async def restore_all_table(self, json_map: dict):
         if not self.data_db:
-            self.splog.warning('DATA DB가 존재하지 않습니다.')
+            self.splog.error('DATA DB가 존재하지 않습니다.')
             return
         try:
             await self.data_db.connect()
         except Exception as e:
-            self.splog.warning(f'DATA DB에 접속 할 수 없습니다. {str(e)}')
+            self.splog.error(f'DATA DB에 접속 할 수 없습니다. {str(e)}')
         # Json파일 가져오기
         i = 0
         for json_key, json_data in json_map.items():
@@ -319,7 +319,7 @@ datasource db {{
                 i = i + 1
                 await self.restore_table(json_key, json_data)
             except Exception as e:
-                self.splog.add_warning(f'테이블 데이터 {json_key} Error :\n {str(e)}')
+                self.splog.add_error(f'테이블 데이터 {json_key} Error :\n {str(e)}')
         self.splog.send_developer(f'테이블 데이터 총 {i} 건 RESTORE 완료')
         self.splog.send_developer_warning()
         await self.data_db.disconnect()
@@ -356,7 +356,7 @@ datasource db {{
         btype = self._get_build_type()
         try:
             if not self.info_db:
-                self.splog.warning('INFO DB가 존재하지 않습니다.')
+                self.splog.error('INFO DB가 존재하지 않습니다.')
                 return
             res = await self.info_db.connect()
             resource_info = await self.find_table(self.info_db, table_name, where={'res_type': 2, 'build_type': btype})
@@ -383,7 +383,7 @@ datasource db {{
 
 
         except Exception as e:
-            self.splog.add_warning(f'P resource_info Error : {table_name} \n {str(e)}')
+            self.splog.add_error(f'P resource_info Error : {table_name} \n {str(e)}')
         finally:
             self.splog.send_developer_warning()
 
@@ -397,7 +397,7 @@ datasource db {{
             del table
             self.splog.add_info(f'테이블 데이터 RESTORE 성공 : {table_name}')
         except Exception as e:
-            self.splog.add_warning(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
+            self.splog.add_error(f'테이블 데이터 RESTORE 실패 : {table_name} \n {str(e)}')
 
     async def insert_table(self, db_source, table_name: str, data: dict):
         try:
@@ -406,7 +406,7 @@ datasource db {{
             del table
             self.splog.add_info(f'테이블 데이터 INSERT 성공 : {table_name}')
         except Exception as e:
-            self.splog.add_warning(f'테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
+            self.splog.add_error(f'테이블 데이터 INSERT 실패 : {table_name} \n {str(e)}')
 
     async def update_table(self, db_source, table_name: str, where: dict, data: dict):
         try:
@@ -415,7 +415,7 @@ datasource db {{
             del table
             self.splog.add_info(f'테이블 데이터 UPDATE 성공 : {table_name}')
         except Exception as e:
-            self.splog.add_warning(f'테이블 데이터 UPDATE 실패 : {table_name} \n {str(e)}')
+            self.splog.add_error(f'테이블 데이터 UPDATE 실패 : {table_name} \n {str(e)}')
 
     async def find_table(self, db_source, table_name: str, where: dict):
         try:
@@ -425,7 +425,7 @@ datasource db {{
             self.splog.add_info(f'테이블 데이터 SELECT 성공 : {table_name}')
             return res
         except Exception as e:
-            self.splog.add_warning(f'테이블 데이터 SELECT 실패 : {table_name} \n {str(e)}')
+            self.splog.add_error(f'테이블 데이터 SELECT 실패 : {table_name} \n {str(e)}')
 
     async def destory(self):
         if self.data_db:

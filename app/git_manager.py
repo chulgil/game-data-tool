@@ -141,6 +141,10 @@ class GitManager:
 
     def push(self) -> bool:
         try:
+            if self.splog.exist_error():
+                self.splog.info('에러가 존재하여 Git Push를 중단합니다.')
+                return False
+
             if self._is_empty_branch():
                 return False
             self._commit()
@@ -196,7 +200,7 @@ class GitManager:
             self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
         except Exception as e:
             pass
-        
+
         if self.BRANCH in self._repo.remote().refs:
             if self.COMMIT_ID != '':
                 self._repo.git.checkout('-B', self.BRANCH, self.COMMIT_ID)
@@ -326,11 +330,11 @@ class GitManager:
     def is_modified(self) -> bool:
         changed = [item.a_path for item in self._repo.index.diff(None)]
         if len(changed) > 0:
-            self.splog.add_info(f'변경된 파일 : {str(changed)}')
+            self.splog.add_info(f'########## 변경된 파일 : {str(changed)}')
             self.LAST_MODIFIED = True
             return True
         if len(self._repo.untracked_files) > 0:
-            self.splog.add_info(f'변경된 파일 : {str(self._repo.untracked_files)}')
+            self.splog.add_info(f'########## 변경된 추적하지 않는 파일 : {str(self._repo.untracked_files)}')
             self.LAST_MODIFIED = True
             return True
 
@@ -340,7 +344,7 @@ class GitManager:
 
     def _is_empty_branch(self) -> bool:
         if not self.BRANCH:
-            self.splog.warning('설정할 브랜치가 없습니다.')
+            self.splog.error('설정할 브랜치가 없습니다.')
             return True
         return False
 
@@ -449,7 +453,7 @@ class GitManager:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 yaml.dump(config, f)
         except IOError as e:
-            self.splog.warning(str(e))
+            self.splog.error(str(e))
 
     def get_client_resource_from_branch(self) -> dict:
         try:
@@ -457,7 +461,7 @@ class GitManager:
                 config = yaml.safe_load(f)
             return {'res_ver': config["CLIENT_RES_VER"], 'res_url': config["CLIENT_RES_URL"]}
         except Exception as e:
-            self.splog.warning(str(e))
+            self.splog.error(str(e))
         return {}
 
     def save_client_resource_to_branch(self, resource_url: str):
@@ -468,7 +472,7 @@ class GitManager:
             if config is None:
                 config = {}
         except IOError as e:
-            self.splog.warning(str(e))
+            self.splog.error(str(e))
 
         config["CLIENT_RES_VER"] = self.COMMIT_ID
         config["CLIENT_RES_URL"] = resource_url
@@ -476,7 +480,7 @@ class GitManager:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'w') as f:
                 config = yaml.dump(config, f)
         except IOError as e:
-            self.splog.warning(str(e))
+            self.splog.error(str(e))
 
     def is_modified_excel_enum(self) -> bool:
         # Excel 리파지토리 이면서 태그가 없는 경우는 새로운 파일추가로 수정된 필드 있음으로 간주
@@ -514,7 +518,6 @@ class GitManager:
                 _new = data_new.get_schema(path)
                 diff = self.diff_schema(path, _old, _new)
                 if len(diff['info']) > 0:
-                    diffs.append(f'변경 컬럼 내역 : [{path}]')
                     diffs = diffs + diff['info']
                 if not is_changed:
                     is_changed = diff['is_changed']
@@ -525,13 +528,13 @@ class GitManager:
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('A')
         _del_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_del_files) > 0:
-            self.splog.add_info(f'삭제 파일 리스트 : {", ".join(_del_files)}')
+            self.splog.add_info(f'########## 삭제 파일 리스트 : {", ".join(_del_files)}')
             # is_changed = True # 삭제시 알람만 실행
         # 마지막 태그 기준으로 추가된 엑셀파일 추출
         _diff = self._repo.index.diff(self.BASE_COMMIT_ID).iter_change_type('D')
         _add_files = self._get_diff_excel(_diff, self.COMPILE_EXCEL)
         if len(_add_files) > 0:
-            self.splog.add_info(f'추가 파일 리스트 : {", ".join(_add_files)}')
+            self.splog.add_info(f'########## 추가 파일 리스트 : {", ".join(_add_files)}')
             # is_changed = True # 추가시 알람만 실행
 
         return is_changed
@@ -547,33 +550,32 @@ class GitManager:
         """
         res = {'is_changed': False, 'info': []}
         info = {0: "데이터 필드", 1: "데이터 타입", 2: "스키마 타입", 3: "데이터 주석"}
+        file = Path(path).stem
         try:
             v1 = list(old_schema.values())[0]
             v2 = list(new_schema.values())[0]
             if len(v1) == 0 or len(v2) == 0:
                 return res
             if len(v1) != len(v2):
-                res['info'].append(f"컬럼 수 {len(v1)} : {len(v2)}")
+                res['info'].append(f"########## 변경 컬럼 수 {file} : {len(v1)} -> {len(v2)}")
                 res['is_changed'] = True
-                return res
 
             if len(v1[0]) != len(v2[0]):
-                res['info'].append(f'데이터 정의행 {len(v1[0])} : {len(v2[0])}')
+                res['info'].append(f'########## 데이터 정의행 {file} : {len(v1[0])} -> {len(v2[0])}')
                 res['is_changed'] = True
-                return res
 
             for x in range(len(v1)):
                 for y in range(len(v1[0])):
                     if v1[x][y] != v2[x][y]:
-                        old = 'null' if v1[x][y] == '' else v1[x][y]
-                        new = 'null' if v2[x][y] == '' else v2[x][y]
+                        old = '빈문자' if v1[x][y] == '' else v1[x][y]
+                        new = '빈문자' if v2[x][y] == '' else v2[x][y]
                         if y == 0:  # 데이터 필드 값이 변경된 경우만
                             res['is_changed'] = True
                         if y < 3:  # 주석 이외의 값이 변경된 경우만
-                            res['info'].append(f'[{info[y]}:{v2[x][0]}] {old} -> {new}')
+                            res['info'].append(f'########## 변경된 컬럼 {file} : [{info[y]}] "{old}" -> "{new}"')
 
         except Exception as e:
-            self.splog.error(f"스키마 비교 Error : {path} \r {str(e)}")
+            self.splog.error(f"스키마 비교 Error : {file} \r {str(e)}")
 
         return res
 

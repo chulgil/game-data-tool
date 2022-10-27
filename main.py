@@ -80,6 +80,12 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
             excel_to_json_all(g_manager)
             excel_to_server_all(g_manager)
 
+        if g_manager.splog.exist_error():
+            g_manager.splog.info('EXCEL데이터에 오류가 존재하여 처리를 중단합니다.')
+            g_manager.destroy()
+            excel_task.done()
+            return
+
         # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
         if g_manager.is_modified():
             g_manager.push()
@@ -209,6 +215,10 @@ async def task_excel_to_data_taged(tag: str):
 
 
 def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send: bool = False):
+    if g_manager.splog.exist_error():
+        g_manager.splog.add_info("에러가 존재하여 클라이언트 Json생성 및 FTP전송을 중지합니다.")
+        return
+
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
     if ftp_send:
@@ -265,9 +275,9 @@ async def task_migrate(br: str):
             db_task.done()
             return
 
-        excel_to_schema(g_manager)
-        if g_manager.is_modified():
-            g_manager.push()
+        # excel_to_schema(g_manager)
+        # if g_manager.is_modified():
+        #     g_manager.push()
 
         prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         prisma.migrate(MigrateType.FORCE, br)
@@ -299,6 +309,7 @@ def excel_to_json_all(g_manager: GitManager):
     d_manager.delete_json_all()
     excel_paths = d_manager.get_excelpath_all()
     d_manager.excel_to_json(excel_paths)
+    g_manager.splog = d_manager.splog
 
 
 def excel_to_json_modified(convert_type: ConvertType, g_manager: GitManager):
@@ -316,10 +327,15 @@ def excel_to_json_modified(convert_type: ConvertType, g_manager: GitManager):
     d_manager.delete_path(g_manager.get_deleted_json())
     d_manager.excel_to_json(modified_excel)
     d_manager.check_excel_for_relation(modified_excel)
+    g_manager.splog = d_manager.splog
 
 
 def send_entity_to_client(g_manager: GitManager, gc_manager: GitManager):
-    g_manager.splog.info("전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
+    if gc_manager.splog.exist_error():
+        g_manager.splog.info("에러가 존재하여 Entity C# 스크립트 변환을 중지합니다.")
+        return
+
+    g_manager.splog.info("전체 Excel로드후 Entity C# 스크립트 변환을 진행합니다.")
 
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
@@ -328,6 +344,10 @@ def send_entity_to_client(g_manager: GitManager, gc_manager: GitManager):
 
 
 def send_enum_to_client(g_manager: GitManager, gc_manager: GitManager):
+    if g_manager.splog.exist_error() or gc_manager.splog.exist_error():
+        g_manager.splog.info("에러가 존재하여 Enum C# 스크립트 변환을 중지합니다.")
+        return
+
     g_manager.splog.info("전체 Excel로드후 Enum 스크립트 변환을 진행합니다.")
     d_manager = DataManager(g_manager.BRANCH, ConvertType.ALL, g_manager.PATH_FOR_WORKING)
     c_manager = CSharpManager(g_manager.BRANCH, g_manager.COMMIT, gc_manager.PATH_FOR_WORKING)
@@ -503,14 +523,12 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'live'
+    branch = 'test_cg'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    asyncio.run(task_excel_to_data_taged("v0.7.3_live"))
-    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    # asyncio.run(task_excel_to_data_taged("v0.7.3_live"))
+    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
-    # asyncio.run(task_excel_to_data_all_from_branch(branch))
-    # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
     # asyncio.run(task_sync_prisma(branch))
     # markdown_to_script(branch)

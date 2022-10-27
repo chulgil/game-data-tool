@@ -220,9 +220,9 @@ class DataManager:
         path = paths.pop()
         self.splog.info(f"{self._info} [{_server_type}] Json 파일 저장 성공 : {path}/{name}")
 
-        if self.splog.has_warning():
+        if self.splog.has_error():
             msg = f'{self._info} [{_server_type}] Excel파일에 미검증 데이터 존재 [{file_name}]'
-            self.splog.add_warning(msg, 0)
+            self.splog.add_error(msg, 0)
             self.splog.send_designer_all()
 
     def _check_duplicated(self, data_df: DataFrame, header_df: DataFrame, option_df: DataFrame) -> bool:
@@ -248,7 +248,7 @@ class DataManager:
                         row_id = i + self.row_for_data_start + 2
                         msg = 'Duplicate values exist'
                         data_df.loc[i][col] = f'{self.ERROR_FOR_EXCEL} {msg}'
-                        self.splog.add_warning(f'컬럼[{col}] 행[{row_id}] {msg}')
+                        self.splog.add_error(f'컬럼[{col}] 행[{row_id}] {msg}')
                         res = True
         return res
 
@@ -273,7 +273,7 @@ class DataManager:
                 if option_df is not None:
                     schema_type = option_df[col]
                 if self.is_camel_case(col):
-                    self.splog.add_warning(f' 컬럼명 [{col}]을 스네이크 형식[EX: TestType -> 소문자_소문자 test_type]으로 변경해주세요.')
+                    self.splog.add_warning(f' 컬럼명 [{col}]을 스네이크 형식[EX: 소문자_소문자]으로 변경해주세요.')
 
                 row_id = i + self.row_for_data_start + 2
                 info = f'컬럼[{col}] 행[{row_id}]'
@@ -341,7 +341,7 @@ class DataManager:
 
             if not re.search(r'@null', schema_type):  # not null type
                 if column_value == '' and column_type != '':
-                    raise Exception('공백은 허용되지 않습니다.')
+                    raise Exception(f'[{column_type}] 공백은 허용되지 않습니다. 공백을 허용하려면 컬럼에 @null옵션을 추가해 주세요.')
 
             if column_value == '':
                 if column_type == "datetime":
@@ -368,7 +368,7 @@ class DataManager:
             else:
                 return str(column_value)
         except Exception as e:
-            self.splog.add_warning(f"{info} {str(e)}")
+            self.splog.add_error(f"{info} {str(e)}")
             return f'{self.ERROR_FOR_EXCEL} {str(e)}'
 
     def _value_from_enum(self, enum_type: str, enum_key: str) -> int:
@@ -405,20 +405,20 @@ class DataManager:
                     continue
                 _target = str(z[0]).split('.')
                 if len(_target) == 1:
-                    self.splog.add_warning(
+                    self.splog.add_error(
                         f'EXCEL양식에 미검증 데이터 존재 : 파일명[ {file_path.stem} ] 컬럼[ {col} ] 릴레이션 옵션이 잘못 되었습니다. {value}')
-                    self.splog.add_warning(f'올바른 사용예 : @ref(테이블명.아이디)')
+                    self.splog.add_error(f'올바른 사용예 : @ref(테이블명.아이디)')
                     continue
                 target_table = _target[0]
                 target_col = _target[1]
                 path = list(Path(self.PATH_FOR_DATA).rglob(rf"{target_table}.xls*"))
                 if len(path) == 0:
-                    self.splog.add_warning(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
+                    self.splog.add_error(f"[EXCEL: {file_path.stem}][{col}] 릴레이션 옵션의 {target_table}테이블이 존재 하지 않습니다.")
                     continue
                 res.append([path[0], col, target_col])
                 return res
         except Exception as e:
-            self.splog.add_warning(f'EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
+            self.splog.add_error(f'EXCEL[{file_path.stem}] get_relation_infos Error : {str(e)}')
             self.splog.send_designer_all()
 
     def _get_server_type_index(self, df: DataFrame):
@@ -483,19 +483,19 @@ class DataManager:
         try:
             origin_df = self._read_excel_for_data(origin_path)
         except Exception as e:
-            self.splog.add_warning(f'{self._info} Excel check Error: [{origin_path.stem}]\n{str(e)}')
+            self.splog.add_error(f'{self._info} Excel check Error: [{origin_path.stem}]\n{str(e)}')
             return
         try:
             target_df = self._read_excel_for_data(target_path)
         except Exception as e:
-            self.splog.add_warning(f'{self._info} Excel check Error: [{target_path.stem}]\n{str(e)}')
+            self.splog.add_error(f'{self._info} Excel check Error: [{target_path.stem}]\n{str(e)}')
             return
 
         oidx = self._get_start_index(origin_df)
         tidx = self._get_start_index(target_df)
         odata = origin_df.iloc[oidx:]
         tdata = target_df.iloc[tidx:]
-        _warnings = []
+        _errors = []
         for value in odata[origin_col].to_numpy():
             if value == 0 or value == '' or value is None:
                 continue
@@ -505,12 +505,12 @@ class DataManager:
                 continue
             values = tdata[target_col].to_numpy()
             if value not in values:
-                _warnings.append(f'원본 행의 참조 값[{value}]')
+                _errors.append(f'원본 행의 참조 값[{value}]')
 
-        if len(_warnings) > 0:
+        if len(_errors) > 0:
             _msg_head = f'원본 EXCEL[{origin_path.stem}][{origin_col}]의 참조 값이 타겟 [{target_path.stem}]에 존재 하지 않습니다.'
-            _warnings.insert(0, self._info + ' ' + _msg_head)
-            self.splog.add_warning(_warnings)
+            _errors.insert(0, self._info + ' ' + _msg_head)
+            self.splog.add_error(_errors)
         self.splog.info(f'EXCEL 체크 성공 : [{origin_path.stem}]')
 
     def check_excel_for_relation(self, excel_list: list):
@@ -548,13 +548,13 @@ class DataManager:
             if self.CHECK_FOR_ID:
                 _column_id = df.columns[0]
                 if _column_id != self.CHECK_FOR_ID:
-                    self.splog.add_warning(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
+                    self.splog.add_error(f"미검증 데이터 존재 : 첫번째 컬럼[ {_column_id} ]을 {self.CHECK_FOR_ID} 로 변경해주세요.")
 
             if self.splog.has_warning():
-                self.splog.add_warning(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
+                self.splog.add_error(f'{self._info} Excel to Json Error: [{path.stem}]\n', 0)
                 self.splog.send_designer_all()
         except Exception as e:
-            self.splog.add_warning(f'{self._info} save_json_task Error: [{path.stem}]\n{str(e)}')
+            self.splog.add_error(f'{self._info} save_json_task Error: [{path.stem}]\n{str(e)}')
 
     def get_excelpath_all(self) -> list:
         return sorted(list(Path(self.PATH_FOR_DATA).rglob(r"*.xls*")))
@@ -600,7 +600,7 @@ class DataManager:
             if self.splog.has_warning():
                 p = str(_file).split('/')
                 _path_md = '/'.join(p[len(p) - 3:])
-                self.splog.add_warning(f'MarkDown[{_path_md}] 변환 경고 :', 0)
+                self.splog.add_error(f'MarkDown[{_path_md}] 변환 경고 :', 0)
                 self.splog.send_developer_all()
                 self.splog.warning()
 
@@ -662,7 +662,7 @@ class DataManager:
                 _list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, text)
 
                 if enum in res:
-                    self.splog.add_warning(f' Enum[{enum}] 이 중복됩니다. ')
+                    self.splog.add_error(f' Enum[{enum}] 이 중복됩니다. ')
 
                 _enum_values = []
                 _check_key = {}
@@ -673,13 +673,13 @@ class DataManager:
                     _desc = item[2].strip()
 
                     if _key == '':
-                        self.splog.add_warning(f' Enum 데이터 키 [{_key}] 가 없습니다. ')
+                        self.splog.add_error(f' Enum 데이터 키 [{_key}] 가 없습니다. ')
                     if _val == '':
-                        self.splog.add_warning(f' Enum 데이터 값 [{_val}] 가 없습니다. ')
+                        self.splog.add_error(f' Enum 데이터 값 [{_val}] 가 없습니다. ')
                     if _key in _check_key:
-                        self.splog.add_warning(f' Enum 데이터 {enum}[{_key}] 가 중복됩니다. ')
+                        self.splog.add_error(f' Enum 데이터 {enum}[{_key}] 가 중복됩니다. ')
                     if _val in _check_val:
-                        self.splog.add_warning(f' Enum 데이터 {enum}[{_val}] 가 중복됩니다. ')
+                        self.splog.add_error(f' Enum 데이터 {enum}[{_val}] 가 중복됩니다. ')
                     _check_key[_key] = None
                     _check_val[_val] = None
                     _enum_values.append([_key, _val, _desc])
@@ -692,7 +692,7 @@ class DataManager:
                 res[enum]['desc'] = desc
                 res[enum]['items'] = items
         except Exception as e:
-            self.splog.add_warning(f'markdown_to_enum Error : {e}')
+            self.splog.add_error(f'markdown_to_enum Error : {e}')
 
         return res
 
@@ -736,14 +736,14 @@ class DataManager:
                 _list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, text)
 
                 if _class in res:
-                    self.splog.add_warning(f' 같은 Entity[{_class}] 가 존재합니다. ')
+                    self.splog.add_error(f' 같은 Entity[{_class}] 가 존재합니다. ')
 
                 res[_class] = {}
                 res[_class]['desc'] = _desc
                 res[_class]['items'] = self._conv_entity_item(_class, _list[2:])
 
         except Exception as e:
-            self.splog.add_warning(f'markdown_to_entity Error : {e}')
+            self.splog.add_error(f'markdown_to_entity Error : {e}')
 
         return res
 
@@ -800,11 +800,11 @@ class DataManager:
                     _res_list = re.findall(self.ITEM_KB_FOR_MARKDOWN_TABLE, _res)
 
                     if _class in res:
-                        self.splog.add_warning(f' 같은 클래스[{_class}]가 존재합니다. ')
+                        self.splog.add_error(f' 같은 클래스[{_class}]가 존재합니다. ')
                     if _req_id in _check:
-                        self.splog.add_warning(f' 같은 프로토콜ID[{_req_id}]가 클래스{_check[_req_id]}에 존재합니다. ')
+                        self.splog.add_error(f' 같은 프로토콜ID[{_req_id}]가 클래스{_check[_req_id]}에 존재합니다. ')
                     if _res_id in _check:
-                        self.splog.add_warning(f' 같은 프로토콜ID[{_res_id}]가 클래스{_check[_res_id]}에 존재합니다. ')
+                        self.splog.add_error(f' 같은 프로토콜ID[{_res_id}]가 클래스{_check[_res_id]}에 존재합니다. ')
                     _check[_req_id] = _class
                     _check[_res_id] = _class
 
@@ -822,7 +822,7 @@ class DataManager:
         res = []
 
         if len(items[0]) < 2:
-            self.splog.add_warning(f' Markdown 정의[{entity_name}]에 형식 오류 : 컬럼수 -> {len(items[0])}')
+            self.splog.add_error(f' Markdown 정의[{entity_name}]에 형식 오류 : 컬럼수 -> {len(items[0])}')
             return res
 
         for item in items:
@@ -833,14 +833,14 @@ class DataManager:
                 continue
 
             # if self.is_camel_case(_etype):
-            #     self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수타입을 스네이크 형식으로 변경해주세요. {_etype}')
+            #     self.splog.add_error(f' Markdown 정의[{entity_name}]에 변수타입을 스네이크 형식으로 변경해주세요. {_etype}')
             #     continue
 
             if _etype == '':
-                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수타입 누락 {_etype}')
+                self.splog.add_error(f' Markdown 정의[{entity_name}]에 변수타입 누락 {_etype}')
                 continue
             if _ename == '':
-                self.splog.add_warning(f' Markdown 정의[{entity_name}]에 변수명 누락 {_ename}')
+                self.splog.add_error(f' Markdown 정의[{entity_name}]에 변수명 누락 {_ename}')
                 continue
             res.append((_etype, _ename, _edesc))
         return res
@@ -910,7 +910,7 @@ class DataManager:
         try:
             df = self._read_excel_for_data(_path)
         except Exception as e:
-            self.splog.add_warning(f'{self._info} Excel get_schema Error: [{excel_path.stem}]\n{str(e)}')
+            self.splog.add_error(f'{self._info} Excel get_schema Error: [{excel_path.stem}]\n{str(e)}')
             return res
 
         if target == ConvertType.CLIENT:
@@ -995,9 +995,9 @@ class DataManager:
                     self._check_enum_data(row, res)
                     res[row.enum_type][row.enum_value] = [row.enum_id, row.comment]
             except Exception as e:
-                self.splog.add_warning(f'{self._info} [Enum] Excel Error [{_path.stem}]')
+                self.splog.add_error(f'{self._info} [Enum] Excel Error [{_path.stem}]')
         if self.splog.has_warning():
-            self.splog.add_warning(f'{self._info} [Enum] Excel 파일에 미검증 데이터 존재', 0)
+            self.splog.add_error(f'{self._info} [Enum] Excel 파일에 미검증 데이터 존재', 0)
             self.splog.send_designer_all()
         return res
 
@@ -1010,9 +1010,9 @@ class DataManager:
         if len(_data) == 0:
             return
         if row.enum_id in _data:
-            self.splog.add_warning(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
+            self.splog.add_error(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
         if row.enum_value in _values:
-            self.splog.add_warning(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
+            self.splog.add_error(f'컬럼[{row.enum_type}] ID[{row.id}] 에 중복된 키 값이 존재합니다.')
 
     def _set_base_index(self, df: DataFrame) -> DataFrame:
         """

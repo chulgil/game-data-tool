@@ -22,12 +22,14 @@ class LogManager:
             self.PATH_FOR_ROOT = Path(__file__).parent.parent
             self.PATH_FOR_CONFIG = self.PATH_FOR_ROOT.joinpath('config.yaml')
             self.TIMEOUT = 5
+            self.error_count = 0
 
             # Config 파일 설정
             try:
                 with open(self.PATH_FOR_CONFIG, 'r') as f:
                     config = yaml.safe_load(f)
                     self.TIMEOUT = config['TEAMS']['TIMEOUT']
+                    self.is_test = config['TEAMS']['IS_TEST']
             except Exception as e:
                 print(e)
 
@@ -100,6 +102,7 @@ class LogManager:
                 self._error = self._error + msg
             else:
                 self._error.append(f'{self.PREFIX} {str(msg)}')
+        self.error_count = self.error_count + 1
         self._error = self._error[:self.row_for_max_buffer]
 
     def has_info(self) -> bool:
@@ -150,7 +153,7 @@ class LogManager:
         if msg != '':
             self.logger.info(f'{self.PREFIX} {str(msg)}')
             try:
-                self.teams_target.text(f'{self.PREFIX} {str(msg)}').send()
+                self.send(self.teams_target.text(f'{self.PREFIX} {str(msg)}'))
             except Exception as e:
                 print(e)
 
@@ -160,24 +163,31 @@ class LogManager:
         if self.has_info():
             self._info = list(set(self._info))
             try:
-                self.teams_target.text('\n\n'.join(self._info)).send()
+                self.send(self.teams_target.text('\n\n'.join(self._info)))
             except Exception as e:
                 print(e)
             self.info()
         if self.has_warning():
             self._warning = list(set(self._warning))
             try:
-                self.teams_target.text('\n\n'.join(self._warning)).send()
+                self.send(self.teams_target.text('\n\n'.join(self._warning)))
             except Exception as e:
                 print(e)
             self.warning()
+        if self.has_error():
+            self._error = list(set(self._error))
+            try:
+                self.send(self.teams_target.text('\n\n'.join(self._error)))
+            except Exception as e:
+                print(e)
+            self.error()
 
     def send_developer(self, msg: str):
         if not self.teams_developer:
             return
         if msg != '':
             try:
-                self.teams_developer.text(f'{self.PREFIX} {str(msg)}').send()
+                self.send(self.teams_developer.text(f'{self.PREFIX} {str(msg)}'))
             except Exception as e:
                 print(e)
             self.logger.info(f'{self.PREFIX} {str(msg)}')
@@ -188,14 +198,14 @@ class LogManager:
         if self.has_info():
             self._info = list(set(self._info))
             try:
-                self.teams_developer.text('\n\n'.join(self._info)).send()
+                self.send(self.teams_developer.text('\n\n'.join(self._info)))
             except Exception as e:
                 print(e)
             self.info()
         if self.has_warning():
             self._warning = list(set(self._warning))
             try:
-                self.teams_developer.text('\n\n'.join(self._warning)).send()
+                self.send(self.teams_developer.text('\n\n'.join(self._warning)))
             except Exception as e:
                 print(e)
             self.warning()
@@ -206,10 +216,15 @@ class LogManager:
         if self.has_warning():
             self._warning = list(set(self._warning))
             try:
-                self.teams_developer.text('\n\n'.join(self._warning)).send()
+                self.send(self.teams_developer.text('\n\n'.join(self._warning)))
             except Exception as e:
                 print(e)
             self.warning()
+
+    def send(self, card: pymsteams.connectorcard):
+        if self.is_test:
+            return
+        card.send()
 
     @staticmethod
     def is_live_branch(branch) -> bool:
@@ -224,10 +239,14 @@ class LogManager:
             return True
         return False
 
+    def exist_error(self) -> bool:
+        return self.error_count > 0
+
     def destory(self):
         self.info()
         self.warning()
         self.error()
+        self.error_count = 0
         for handler in self.logger.handlers:
             self.logger.removeHandler(handler)
             handler.close()

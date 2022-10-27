@@ -51,7 +51,7 @@ class FtpManager:
             ftp_server.quit()
             self.splog.info('FTP전송 완료')
         except Exception as e:
-            self.splog.warning(f'FTP전송 실패 \n{str(e)}')
+            self.splog.error(f'FTP전송 실패 \n{str(e)}')
         self.destroy()
 
     def mkdir(self, ftp_server: ftplib, current_dir: str):
