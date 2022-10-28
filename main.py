@@ -218,9 +218,9 @@ def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send:
     if g_manager.splog.exist_error():
         g_manager.splog.add_info("에러가 존재하여 클라이언트 Json생성 및 FTP전송을 중지합니다.")
         return
-    if not gc_manager.is_modified():
-        g_manager.splog.add_info("데이터 변경이 없어서 클라이언트 Json생성 및 FTP전송을 중지합니다.")
-        return
+    # if not gc_manager.is_modified():
+    #     g_manager.splog.add_info("데이터 변경이 없어서 클라이언트 Json생성 및 FTP전송을 중지합니다.")
+    #     return
 
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
@@ -526,11 +526,11 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'test_cg'
+    branch = 'main'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    # asyncio.run(task_excel_to_data_taged("v0.7.3_live"))
-    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    # asyncio.run(task_excel_to_data_taged("v0.8.3"))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(scheduler())
     # asyncio.run(task_sync_prisma(branch))
