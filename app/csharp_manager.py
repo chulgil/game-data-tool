@@ -423,6 +423,7 @@ namespace {3}
             new {3}()
             {{
                 uuid = gameInfo.UUID,{5}
+                unique_id = gameInfo.UniqueID,
                 cmd = {6},
             }}.Do().Then((result) =>
             {{
