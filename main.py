@@ -278,9 +278,9 @@ async def task_migrate(br: str):
             db_task.done()
             return
 
-        # excel_to_schema(g_manager)
-        # if g_manager.is_modified():
-        #     g_manager.push()
+        excel_to_schema(g_manager)
+        if g_manager.is_modified():
+            g_manager.push()
 
         prisma = PrismaManager(br, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
         prisma.migrate(MigrateType.FORCE, br)
@@ -526,7 +526,7 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'local.'
+    branch = 'local'
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_excel_to_data_taged("v0.8.3"))
