@@ -6,7 +6,7 @@ from re import match
 from typing import Optional
 
 import yaml
-from dateutil import parser
+from datetime import datetime, timezone
 import pandas as pd
 from pathlib import Path
 from pandas import DataFrame
@@ -381,9 +381,17 @@ class DataManager:
         return self.ENUM_DATA[enum_type][enum_key][0]
 
     def _iso8601(self, date_text: str) -> str:
+        """
+        Excel에서 들어온 날짜형식의 스트링을 UTC타임존 포멧으로 변경
+        @return: 변환된 문자열
+        ref :
+        https://stackoverflow.com/questions/79797/how-to-convert-local-time-string-to-utc
+        https://twpower.github.io/29-iso8601-utc-and-python-example
+        """
         try:
-            date = parser.parse(str(date_text))
-            return date.astimezone().isoformat()
+            date = datetime.fromisoformat(date_text)
+            iso = date.isoformat()
+            return iso
         except Exception as e:
             msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
             raise Exception(msg)
