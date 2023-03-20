@@ -6,7 +6,8 @@ from re import match
 from typing import Optional
 
 import yaml
-from datetime import datetime, timezone
+import time
+from datetime import datetime
 from dateutil import parser
 import pandas as pd
 from pathlib import Path
@@ -390,7 +391,10 @@ class DataManager:
         https://twpower.github.io/29-iso8601-utc-and-python-example
         """
         try:
-            os.environ['TZ'] = 'UTC'  # set new timezone
+            local_timezone = time.strftime('%Z', time.localtime())
+            if local_timezone != 'UTC':
+                self._change_timezone()
+
             date = parser.parse(str(date_text))
             date = date.astimezone()
             iso = date.isoformat()
@@ -398,6 +402,26 @@ class DataManager:
         except Exception as e:
             msg = f'{self.ERROR_FOR_EXCEL} {str(e)}'
             raise Exception(msg)
+
+    def _change_timezone(self):
+
+        # 현재 시간을 가져옵니다.
+        current_time = time.time()
+
+        # 로컬 타임존을 변경하려는 타임존으로 설정합니다.
+        os.environ['TZ'] = 'UTC'
+
+        # 타임존을 변경합니다.
+        time.tzset()
+
+        # 변경된 타임존에서 현재 시간을 다시 가져옵니다.
+        new_time = time.time()
+
+        # 시간 차이를 계산합니다.
+        time_diff = new_time - current_time
+
+        msg = "변경된 로컬 타임존:" + time.strftime('%Y-%m-%d %H:%M:%S %Z', time.localtime())
+        self.splog.add_info(msg)
 
     def _get_relation_infos(self, file_path: Path) -> list:
         """
