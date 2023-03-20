@@ -7,6 +7,7 @@ from typing import Optional
 
 import yaml
 from datetime import datetime, timezone
+from dateutil import parser
 import pandas as pd
 from pathlib import Path
 from pandas import DataFrame
@@ -389,7 +390,9 @@ class DataManager:
         https://twpower.github.io/29-iso8601-utc-and-python-example
         """
         try:
-            date = datetime.fromisoformat(date_text)
+            os.environ['TZ'] = 'UTC'  # set new timezone
+            date = parser.parse(str(date_text))
+            date = date.astimezone()
             iso = date.isoformat()
             return iso
         except Exception as e:
