@@ -2,7 +2,7 @@ import os
 import json
 import re
 import shutil
-from re import match
+from re import match, search
 from typing import Optional
 
 import yaml
@@ -157,6 +157,12 @@ class DataManager:
         if self._is_data_option_row(df.iloc[self.row_for_data_option].values):
             return df.iloc[self.row_for_data_option]
         return None
+
+    def _is_invalid_column(self, df: DataFrame) -> bool:
+        for col in df.columns:
+            if search(r'\s', str(col)):
+                return True
+        return False
 
     def get_invalid_option_row(self, df: DataFrame) -> dict:
         res = {}
@@ -994,6 +1000,9 @@ class DataManager:
         if True in df.columns.duplicated():
             dup_df = df.loc[:, df.columns.duplicated()]
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 중복된 컬럼이 존재합니다. [{path.stem}]\n{dup_df.columns.tolist()}")
+
+        if self._is_invalid_column(df):
+            raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 컬럼명에 공백이 존재합니다. text_test와 같은형태로 작성해 주세요. \n[{path.stem}]")
 
         if not self._is_data_type_row(df.iloc[self.row_for_data_type].values):
             raise Exception(f"처리할 수 있는 Excel양식이 아닙니다. 첫번째 시트에 데이터 타입 (int, string ...)이 있는지 확인해 주세요. \n[{path.stem}]")
