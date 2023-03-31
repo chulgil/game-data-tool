@@ -204,10 +204,10 @@ class DataManager:
     def save_version(self, commit: str, tag: str):
 
         # Data frame을 JSON으로 변환
-        json_data = {'version': {
+        json_data = {
             'commit': commit,
             'version': tag,
-            'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+            'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")
         }
 
         # 지정한 경로로 Json파일 저장
