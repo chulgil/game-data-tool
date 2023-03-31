@@ -225,6 +225,11 @@ def send_data_to_client(g_manager: GitManager, gc_manager: GitManager, ftp_send:
     #     return
 
     d_manager = DataManager(g_manager.BRANCH, ConvertType.CLIENT, g_manager.PATH_FOR_WORKING)
+
+    tag = g_manager.BASE_TAG
+    if g_manager.NEW_TAG != '':
+        tag = g_manager.NEW_TAG
+    d_manager.save_version(g_manager.COMMIT_ID, tag)
     d_manager.save_json_all(gc_manager.PATH_FOR_WORKING.joinpath("data_all.json"))
     if ftp_send:
         f_manager = FtpManager(g_manager.BRANCH, g_manager.COMMIT, g_manager.PATH_FOR_WORKING)
@@ -532,8 +537,8 @@ if __name__ == '__main__':
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
     # asyncio.run(task_excel_to_data_taged("v0.8.3"))
-    # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
-    asyncio.run(task_excel_to_data_all_from_branch(branch))
+    asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
+    # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(scheduler())
     # asyncio.run(task_sync_prisma(branch))
     # markdown_to_script(branch)

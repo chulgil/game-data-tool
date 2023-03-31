@@ -201,6 +201,26 @@ class DataManager:
         filtered = mask_df[mask_df.isin(targets)].keys()
         return df[filtered]
 
+    def save_version(self, commit: str, tag: str):
+
+        # Data frame을 JSON으로 변환
+        json_data = {'version': {
+            'commit': commit,
+            'version': tag,
+            'date': datetime.now().strftime("%Y-%m-%d %H:%M:%S")}
+        }
+
+        # 지정한 경로로 Json파일 저장
+        save_path = self.PATH_FOR_JSON_CLIENT.joinpath("version.json")
+        with open(save_path, "w", encoding='utf-8') as f:
+            json.dump(json_data, f, ensure_ascii=False, indent=4, separators=(',', ': '))
+
+        # 파일 경로로 부터 / Sever / file.xxx 를 잘라온다.
+        paths = str(save_path).split('/')
+        name = paths.pop()
+        path = paths.pop()
+        self.splog.info(f"{self._info} [client] Version 파일 저장 성공 : {path}/{name}")
+
     def _save_json(self, df: DataFrame, save_path: Path, file_name: str):
         # 행의 개수가 0이면 무시
         if df.shape[1] == 0:
