@@ -160,7 +160,8 @@ class DataManager:
 
     def _is_invalid_column(self, df: DataFrame) -> bool:
         for col in df.columns:
-            if search(r'\s', str(col)):
+            spaces = col.split(maxsplit=-1)
+            if len(spaces) > 1:
                 return True
         return False
 
