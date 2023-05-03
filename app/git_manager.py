@@ -156,9 +156,9 @@ class GitManager:
         return False
 
     def _brn(self) -> str:
-        if hasattr(self, '_repo'):
+        if hasattr(self, '_repo') and hasattr(self, "_repo.active_branch"):
             return f'[GIT_{self.GIT_TARGET.name}][{self._repo.active_branch.name} 브랜치 {self.BASE_TAG}]'
-        return ''
+        return f'[GIT_{self.GIT_TARGET.name}][{self.BRANCH} 브랜치 {self.BASE_TAG}]'
 
     def _load_branch_from_tag(self):
         new_tag = self.NEW_TAG
@@ -191,6 +191,19 @@ class GitManager:
             return short_hash
         except Exception as e:
             self.splog.error(f'GIT GET TAG Error \r\n{str(e)}')
+
+    def checkout_tag(self, tag: str) -> bool:
+        self._repo = Repo(self.PATH_FOR_WORKING)
+        self._repo.git.clean('-fdx')
+        try:
+            self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
+            self._repo.git.checkout(tag)
+            self.pull()
+            self.BASE_TAG = tag
+            self.NEW_TAG = tag
+            return True
+        except Exception as e:
+            return False
 
     def _checkout(self):
         self._repo = Repo(self.PATH_FOR_WORKING)
@@ -459,7 +472,10 @@ class GitManager:
         try:
             with open(self.PATH_FOR_BRANCH_CONFIG, 'r') as f:
                 config = yaml.safe_load(f)
-            return {'res_ver': config["CLIENT_RES_VER"], 'res_url': config["CLIENT_RES_URL"]}
+
+            return {'res_ver': config["CLIENT_RES_VER"],
+                    'res_url': config["CLIENT_RES_URL"],
+                    'client_ver': self._get_major_tag()}
         except Exception as e:
             self.splog.error(str(e))
         return {}
@@ -607,6 +623,10 @@ class GitManager:
         self.PATH_FOR_BRANCH_CONFIG = self.PATH_FOR_WORKING.joinpath("config.yaml")
         self._load_base_tag_from_branch()
         self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
+
+    def _get_major_tag(self) -> str:
+        version = '.'.join(self.BASE_TAG.split('.')[:-1]) + '.0'
+        return version
 
     def destroy(self):
         try:

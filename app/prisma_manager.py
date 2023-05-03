@@ -350,16 +350,19 @@ datasource db {{
             return 8
         return 0
 
-    async def update_version_info(self, commit_id: str, res_url: str):
+    async def update_version_info(self, commit_id: str, res_url: str, client_ver: str):
         # Json파일 가져오기
         table_name = 'resource_info'
-        btype = self._get_build_type()
+        build_type = self._get_build_type()
         try:
             if not self.info_db:
                 self.splog.error('INFO DB가 존재하지 않습니다.')
                 return
             res = await self.info_db.connect()
-            resource_info = await self.find_table(self.info_db, table_name, where={'res_type': 2, 'build_type': btype})
+            resource_info = await self.find_table(self.info_db, table_name,
+                                                  where={'res_type': 2,
+                                                         'build_type': build_type,
+                                                         'client_ver': client_ver})
             if resource_info:  # Update
                 await self.update_table(
                     self.info_db,
@@ -370,10 +373,10 @@ datasource db {{
                 self.splog.add_info(f'테이블 데이터 RESOURCE_INFO INSERT 완료')
             else:  # Insert
                 await self.insert_table(self.info_db, table_name, data={
-                    'build_type': btype,
+                    'build_type': build_type,
                     'market_type': 0,
                     'res_type': 2,
-                    'client_ver': '0.0.1',
+                    'client_ver': client_ver,
                     'is_update_require': False,
                     'res_ver': commit_id,
                     'res_url': res_url,

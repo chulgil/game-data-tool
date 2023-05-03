@@ -190,11 +190,11 @@ async def excel_to_data_from_webhook(webhook: dict = None):
     return
 
 
-async def task_excel_to_data_taged(tag: str):
+async def task_excel_to_data_taged(branch: str, tag: str):
     db_task = TaskManager(TaskType.EXCEL_TAG, tag=tag)
     if db_task.start():
-        g_manager = GitManager(GitTarget.EXCEL, tag=tag)
-        if not g_manager.checkout():
+        g_manager = GitManager(GitTarget.EXCEL, branch=branch)
+        if not g_manager.checkout_tag(tag):
             db_task.done()
             return
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 클라이언트 태그 및 데이터 전송을 시작합니다.")
@@ -305,7 +305,7 @@ async def data_to_db(g_manager: GitManager, p_manager: PrismaManager):
 async def tag_to_db(g_manager: GitManager, p_manager: PrismaManager):
     res_info = g_manager.get_client_resource_from_branch()
     if len(res_info.keys()) > 0:
-        await p_manager.update_version_info(res_info['res_ver'], res_info['res_url'])
+        await p_manager.update_version_info(res_info['res_ver'], res_info['res_url'], res_info['client_ver'])
 
 
 def excel_to_json_all(g_manager: GitManager):
@@ -533,16 +533,17 @@ async def test():
 
 
 if __name__ == '__main__':
-    branch = 'local'
+    branch = 'main'
+
     # logging.info(f"[{branch} 브랜치] 전체 Excel로드후 C# 스크립트 변환을 진행합니다.")
     # asyncio.run(task_migrate(branch))
-    # asyncio.run(task_excel_to_data_taged("v0.8.3"))
+    # asyncio.run(task_excel_to_data_taged(branch, "v0.11.1_live"))
     # asyncio.run(task_excel_to_data_all_from_branch(branch, modified=True))
     # asyncio.run(task_excel_to_data_all_from_branch(branch))
     # asyncio.run(scheduler())
     # asyncio.run(task_sync_prisma(branch))
-    # markdown_to_script(branch)
-    # asyncio.run(update_table(branch))
+    # task_markdown_to_script(branch)
+    # asyncio.run(task_update_table(branch))
     # asyncio.run(scheduler())
     # task_check_to_excel(branch)
     # asyncio.run(test())
