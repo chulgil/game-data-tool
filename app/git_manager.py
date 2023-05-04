@@ -201,6 +201,7 @@ class GitManager:
             self.pull()
             self.BASE_TAG = tag
             self.NEW_TAG = tag
+            self.COMMIT_ID = self.get_last_commit()
             return True
         except Exception as e:
             return False
