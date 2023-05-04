@@ -200,17 +200,17 @@ async def task_excel_to_data_taged(branch: str, tag: str):
         g_manager.splog.info(f"새로운 태그[{g_manager.NEW_TAG}] 요청으로 클라이언트 태그 및 데이터 전송을 시작합니다.")
         g_manager.save_base_tag_to_branch()
 
-        # gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
-        # if not gc_manager.checkout():
-        #     gc_manager.destroy()
-        #     db_task.done()
-        #     return
+        gc_manager = GitManager(GitTarget.CLIENT, branch=g_manager.BRANCH)
+        if not gc_manager.checkout():
+            gc_manager.destroy()
+            db_task.done()
+            return
 
-        # send_data_to_client(g_manager, gc_manager, ftp_send=True)
-        # prisma = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
-        # await tag_to_db(g_manager, prisma)
-        # gc_manager.push_tag_to_client(tag)
-        # gc_manager.destroy()
+        send_data_to_client(g_manager, gc_manager, ftp_send=True)
+        prisma = PrismaManager(g_manager.BRANCH, g_manager.COMMIT_ID, g_manager.PATH_FOR_WORKING)
+        await tag_to_db(g_manager, prisma)
+        gc_manager.push_tag_to_client(tag)
+        gc_manager.destroy()
         if g_manager.is_modified():
             g_manager.push()
         db_task.done()
