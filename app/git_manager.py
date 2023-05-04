@@ -41,6 +41,7 @@ class GitManager:
             branch = 'main'
         self.BRANCH = branch
         self._repo = None
+        self._origin = None
         self.info = ''
         self.COMMIT_ID = ''
         self.COMMIT = ''
@@ -148,7 +149,7 @@ class GitManager:
             if self._is_empty_branch():
                 return False
             self._commit()
-            self._origin.push(self.BRANCH)
+            self._origin.push(f"{self._repo.head.commit.hexsha}:refs/heads/{self.BRANCH}")
             self.splog.info('GIT PUSH 성공')
             return True
         except Exception as e:
@@ -194,6 +195,7 @@ class GitManager:
 
     def checkout_tag(self, tag: str) -> bool:
         self._repo = Repo(self.PATH_FOR_WORKING)
+        self._origin = self._repo.remotes.origin
         self._repo.git.clean('-fdx')
         try:
             self._repo.git.reset('--hard', f'origin/{self.BRANCH}')
