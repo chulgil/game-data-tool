@@ -628,7 +628,10 @@ class GitManager:
         self.PATH_FOR_WORKING_TAG = _target.joinpath(self.BASE_TAG)
 
     def _get_major_tag(self) -> str:
-        version = '.'.join(self.BASE_TAG.split('.')[:-1]) + '.0'
+        if self.splog.is_live_branch(self.BRANCH):
+            version = '.'.join(self.BASE_TAG.split('.')[:-1]) + '.0'
+        else:
+            version = '0.0.0'
         return version
 
     def destroy(self):
