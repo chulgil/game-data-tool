@@ -88,10 +88,6 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
             excel_task.done()
             return
 
-        # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
-        if g_manager.is_modified():
-            g_manager.push()
-
         if g_manager.is_modified_excel_column():
             g_manager.splog.add_info('기획 데이터의 컬럼에 변동 사항이 있습니다. 개발후 DB 마이그레이션을 진행 해 주세요.', 0)
             g_manager.splog.send_developer_all()
@@ -101,6 +97,11 @@ async def task_excel_to_data_all_from_branch(br: str, modified: bool = False):
             excel_task.done()
             g_manager.destroy()
             await task_update_table(br)
+
+            # 수정된 Json 파일이 있다면 Excel Git서버로 자동 커밋
+            if g_manager.is_modified():
+                g_manager.push()
+
             return
 
         g_manager.destroy()
