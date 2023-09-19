@@ -1,0 +1,38 @@
+@startuml
+
+actor 기획자 order 0
+participant GitExcel저장소 order 2
+participant Git클라저장소 order 3
+
+participant 게임서버플젝 order 3
+participant 게임클라플젝 order 4
+database 데이터DB order 5
+participant 파이썬서버 order 10
+
+group 엑셀데이터 생성, 수정, 삭제
+
+기획자 -> GitExcel저장소 : 엑셀 데이터 push
+GitExcel저장소 -> 파이썬서버 : Git Notify to RestAPI
+파이썬서버 -> 기획자 : 오류체크 and 차이점 반환
+
+group 데이터에 오류가 없는경우
+파이썬서버 -> GitExcel저장소 : json데이터 push
+파이썬서버 -> Git클라저장소 : entity와 enum 업로드
+파이썬서버 -> 데이터DB : DB마이그레이션
+end
+
+end
+
+group 엑셀데이터 로드(Server)
+
+게임서버플젝 -> 데이터DB  : 데이터 로드
+
+end
+
+group 엑셀데이터 로드(Client)
+
+게임클라플젝 -> Git클라저장소  : 변환된 데이터 다운로드
+
+end
+
+@enduml
